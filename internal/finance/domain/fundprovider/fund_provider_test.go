@@ -14,6 +14,7 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 	testCases := []struct {
 		name              string
 		fpName            string
+		fpType            string
 		initBalanceAmount int64
 		currencyCode      string
 		hasErr            bool
@@ -22,6 +23,7 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 		{
 			name:              "returns errors when fund provider name is empty",
 			fpName:            "",
+			fpType:            "BANK",
 			initBalanceAmount: 100,
 			currencyCode:      "USD",
 			hasErr:            true,
@@ -29,13 +31,31 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 		{
 			name:              "returns error when init balance is negative",
 			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: -100,
+			currencyCode:      "USD",
+			hasErr:            true,
+		},
+		{
+			name:              "returns error when type is empty",
+			fpName:            "Techcombank7316",
+			fpType:            "",
+			initBalanceAmount: 100,
+			currencyCode:      "USD",
+			hasErr:            true,
+		},
+		{
+			name:              "returns error when type is invalid",
+			fpName:            "Techcombank7316",
+			fpType:            "INVALID",
+			initBalanceAmount: 100,
 			currencyCode:      "USD",
 			hasErr:            true,
 		},
 		{
 			name:              "create fund provider when init balance is zero",
 			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "USD",
 			hasErr:            false,
@@ -43,13 +63,23 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 		{
 			name:              "create fund provider when init balance is positive",
 			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 100,
+			currencyCode:      "USD",
+			hasErr:            false,
+		},
+		{
+			name:              "create fund provider with CASH type",
+			fpName:            "Office Cash",
+			fpType:            "CASH",
+			initBalanceAmount: 5000,
 			currencyCode:      "USD",
 			hasErr:            false,
 		},
 		{
 			name:              "returns error when currency code is empty",
 			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "",
 			hasErr:            true,
@@ -57,6 +87,7 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 		{
 			name:              "returns error when currency code is invalid",
 			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "INVALID",
 			hasErr:            true,
@@ -65,7 +96,7 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			fundProvider, err := fundprovider.NewFundProvider(tt.fpName, tt.initBalanceAmount, tt.currencyCode)
+			fundProvider, err := fundprovider.NewFundProvider(tt.fpName, tt.fpType, tt.initBalanceAmount, tt.currencyCode)
 
 			if tt.hasErr {
 				require.Error(t, err)
@@ -224,6 +255,7 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			fundProvider, err := fundprovider.UnmarshalFundProviderFromDatabase(
 				tt.id,
 				tt.fpName,
+				"BANK",
 				tt.balanceAmount,
 				tt.unallocatedBalanceAmount,
 				tt.currencyCode,
@@ -288,7 +320,7 @@ func TestFundProvider_Reserve(t *testing.T) {
 			t.Parallel()
 
 			// Given
-			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", tt.unallocatedAmount, "USD")
+			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", tt.unallocatedAmount, "USD")
 			require.NoError(t, err)
 			require.NotNil(t, fundProvider)
 
@@ -342,7 +374,7 @@ func TestFundProvider_TopUp(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", tt.initBalance, "USD")
+			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", tt.initBalance, "USD")
 			require.NoError(t, err)
 
 			topUpAmount, err := valueobject.NewMoney(tt.topUpAmount, fundProvider.Currency())
@@ -418,6 +450,7 @@ func TestFundProvider_Withdraw(t *testing.T) {
 			fundProvider, err := fundprovider.UnmarshalFundProviderFromDatabase(
 				uuid.New(),
 				"Techcombank7316",
+				"BANK",
 				tt.balance,
 				tt.unallocatedBalance,
 				"USD",

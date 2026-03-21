@@ -147,7 +147,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 
 func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	t.Run("returns error when fund provider is already allocated", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider("Techcombank7316", 100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		allocationProvider, err := wallet.NewProviderAllocation(provider, 50)
@@ -180,7 +180,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("returns error when allocated amount is negative", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider("Techcombank7316", 100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
@@ -193,7 +193,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("returns error when allocated amount exccedd unallocated amount of fund provider", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider("Techcombank7316", 100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
@@ -205,7 +205,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("unmarshal wallet successfully when allocatedAmount is zero", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider("Techcombank7316", 100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		unallocatedBalance := provider.UnallocatedBalance()
@@ -224,7 +224,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("unmarshal wallet successfully", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider("Techcombank7316", 100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		unallocatedBalance := provider.UnallocatedBalance()

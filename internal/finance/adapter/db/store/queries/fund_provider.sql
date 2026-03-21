@@ -2,6 +2,7 @@
 INSERT INTO finance.fund_providers (
     id,
     name,
+    fp_type,
     balance,
     currency,
     unallocated_amount,
@@ -9,10 +10,11 @@ INSERT INTO finance.fund_providers (
 ) VALUES(
     $1, -- id
     $2, -- name
-    $3, -- balance
-    $4, -- currency
-    $5, -- unallocated_amount
-    $6  -- version
+    $3, -- fp_type
+    $4, -- balance
+    $5, -- currency
+    $6, -- unallocated_amount
+    $7  -- version
 );
 
 
@@ -20,6 +22,7 @@ INSERT INTO finance.fund_providers (
 SELECT 
     fp.id,
     fp.name,
+    fp.fp_type,
     fp.balance,
     fp.currency,
     fp.unallocated_amount,
@@ -45,6 +48,7 @@ WHERE id = sqlc.arg(id)
 SELECT
     id,
     name,
+    fp_type,
     balance,
     unallocated_amount,
     currency,
@@ -56,6 +60,7 @@ WHERE id = $1;
 SELECT
     id,
     name,
+    fp_type,
     balance,
     unallocated_amount,
     currency,

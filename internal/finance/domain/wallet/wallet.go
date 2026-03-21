@@ -102,8 +102,8 @@ func (w *Wallet) ID() uuid.UUID                     { return w.id }
 func (w *Wallet) Name() string                      { return w.name }
 func (w *Wallet) Balance() valueobject.Money        { return w.balance }
 func (w *Wallet) Currency() valueobject.Currency    { return w.balance.Currency() }
-func (w *Wallet) ProviderManager() *ProviderManager { return w.providerManager }
 func (w *Wallet) Version() int32                    { return w.version }
+func (w *Wallet) ProviderManager() *ProviderManager { return w.providerManager }
 
 func (w *Wallet) AllocateFromFundProvider(
 	fundProvider *fundprovider.FundProvider,
@@ -117,7 +117,7 @@ func (w *Wallet) AllocateFromFundProvider(
 		return ErrAllocationAmountNegative
 	}
 
-	if _, exists := w.ProviderManager().FindProvider(fundProvider.ID()); exists {
+	if _, isRegistered := w.ProviderManager().FindProvider(fundProvider.ID()); isRegistered {
 		return ErrFundProviderAlreadyRegistered
 	}
 

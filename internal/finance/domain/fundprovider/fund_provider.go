@@ -34,14 +34,15 @@ func (err ErrInsufficientWithdrawAmount) Error() string {
 type FundProvider struct {
 	id                 uuid.UUID
 	name               string
+	fpType             Type
 	balance            valueobject.Money
 	unallocatedBalance valueobject.Money
-
-	version int32
+	version            int32
 }
 
 func NewFundProvider(
 	name string,
+	typeStr string,
 	initBalanceAmount int64,
 	currencyCode string,
 ) (*FundProvider, error) {
@@ -52,6 +53,11 @@ func NewFundProvider(
 	v.Required(currencyCode, "currency")
 
 	if err := v.Err(); err != nil {
+		return nil, err
+	}
+
+	fpType, err := NewType(typeStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -73,6 +79,7 @@ func NewFundProvider(
 	return &FundProvider{
 		id:                 id,
 		name:               name,
+		fpType:             fpType,
 		balance:            initBalance,
 		unallocatedBalance: initBalance,
 		version:            0,
@@ -82,6 +89,7 @@ func NewFundProvider(
 func UnmarshalFundProviderFromDatabase(
 	id uuid.UUID,
 	name string,
+	typeStr string,
 	balanceAmount int64,
 	unallocatedBalanceAmount int64,
 	currencyCode string,
@@ -97,6 +105,11 @@ func UnmarshalFundProviderFromDatabase(
 	v.Check(version >= 0, "version", "version must greater or equal than 0")
 
 	if err := v.Err(); err != nil {
+		return nil, err
+	}
+
+	fpType, err := NewType(typeStr)
+	if err != nil {
 		return nil, err
 	}
 
@@ -118,6 +131,7 @@ func UnmarshalFundProviderFromDatabase(
 	return &FundProvider{
 		id:                 id,
 		name:               name,
+		fpType:             fpType,
 		balance:            balance,
 		unallocatedBalance: unallocatedBalance,
 		version:            version,
@@ -126,6 +140,7 @@ func UnmarshalFundProviderFromDatabase(
 
 func (p *FundProvider) ID() uuid.UUID                         { return p.id }
 func (p *FundProvider) Name() string                          { return p.name }
+func (p *FundProvider) Type() Type                            { return p.fpType }
 func (p *FundProvider) Balance() valueobject.Money            { return p.balance }
 func (p *FundProvider) Currency() valueobject.Currency        { return p.balance.Currency() }
 func (p *FundProvider) UnallocatedBalance() valueobject.Money { return p.unallocatedBalance }

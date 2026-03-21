@@ -40,7 +40,6 @@ func NewAllocateFundHandler(walletRepo wallet.Repository, fundProviderRepo fundp
 func (h *allocateFundHandler) Handle(ctx context.Context, cmd AllocateFundCmd) error {
 	logger := logs.FromContext(ctx)
 
-	// Validate command contains allocation instructions
 	if len(cmd.Providers) == 0 {
 		return httperr.NewIncorrectInputError(
 			errors.New("missing providers in command for allocation"),

@@ -39,6 +39,7 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "returns error when name is empty",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "",
+				FpType:       "BANK",
 				InitBalance:  100,
 				CurrencyCode: "USD",
 			},
@@ -51,6 +52,7 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "returns error when initBalance is negative",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "Techcombank7316",
+				FpType:       "BANK",
 				InitBalance:  -100,
 				CurrencyCode: "USD",
 			},
@@ -63,8 +65,35 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "returns error when currencyCode is empty",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "Techcombank7316",
+				FpType:       "BANK",
 				InitBalance:  0,
 				CurrencyCode: "",
+			},
+			setupMock: func(dm *CreateFundProviderDependenciesManager) {
+				// No mock setup needed
+			},
+			hasErr: true,
+		},
+		{
+			name: "returns error when type is empty",
+			cmd: command.CreateFundProviderCmd{
+				Name:         "Techcombank7316",
+				FpType:       "",
+				InitBalance:  100,
+				CurrencyCode: "USD",
+			},
+			setupMock: func(dm *CreateFundProviderDependenciesManager) {
+				// No mock setup needed
+			},
+			hasErr: true,
+		},
+		{
+			name: "returns error when type is invalid",
+			cmd: command.CreateFundProviderCmd{
+				Name:         "Techcombank7316",
+				FpType:       "INVALID",
+				InitBalance:  100,
+				CurrencyCode: "USD",
 			},
 			setupMock: func(dm *CreateFundProviderDependenciesManager) {
 				// No mock setup needed
@@ -75,6 +104,7 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "returns error when repository save fails",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "Techcombank7316",
+				FpType:       "BANK",
 				InitBalance:  100,
 				CurrencyCode: "USD",
 			},
@@ -91,7 +121,25 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "creates fund provider successfully when init balance is zero",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "Techcombank7316",
+				FpType:       "BANK",
 				InitBalance:  0,
+				CurrencyCode: "USD",
+			},
+			setupMock: func(dm *CreateFundProviderDependenciesManager) {
+				dm.fundProviderRepoMock.
+					EXPECT().
+					Create(mock.Anything, mock.Anything).
+					Return(nil).
+					Once()
+			},
+			hasErr: false,
+		},
+		{
+			name: "creates fund provider successfully with CASH type",
+			cmd: command.CreateFundProviderCmd{
+				Name:         "Office Cash",
+				FpType:       "CASH",
+				InitBalance:  5000,
 				CurrencyCode: "USD",
 			},
 			setupMock: func(dm *CreateFundProviderDependenciesManager) {
@@ -107,6 +155,7 @@ func TestCreateFundProvider_Handle(t *testing.T) {
 			name: "creates fund provider successfully with positive balance",
 			cmd: command.CreateFundProviderCmd{
 				Name:         "Techcombank7316",
+				FpType:       "BANK",
 				InitBalance:  100,
 				CurrencyCode: "USD",
 			},

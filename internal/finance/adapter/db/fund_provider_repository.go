@@ -48,6 +48,7 @@ func (r *fundProviderRepo) GetByID(ctx context.Context, fpID uuid.UUID) (*fundpr
 	return fundprovider.UnmarshalFundProviderFromDatabase(
 		fpModel.ID,
 		fpModel.Name,
+		fpModel.FpType,
 		fpModel.Balance,
 		fpModel.UnallocatedAmount,
 		fpModel.Currency,
@@ -66,6 +67,7 @@ func (r *fundProviderRepo) GetByIDs(ctx context.Context, fpID []uuid.UUID) ([]*f
 		fp, err := fundprovider.UnmarshalFundProviderFromDatabase(
 			fpModel.ID,
 			fpModel.Name,
+			fpModel.FpType,
 			fpModel.Balance,
 			fpModel.UnallocatedAmount,
 			fpModel.Currency,

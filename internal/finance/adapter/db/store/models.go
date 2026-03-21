@@ -11,6 +11,7 @@ import (
 type FinanceFundProvider struct {
 	ID                uuid.UUID
 	Name              string
+	FpType            string
 	Balance           int64
 	Currency          string
 	UnallocatedAmount int64

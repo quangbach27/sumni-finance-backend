@@ -27,6 +27,9 @@ type CreateFundProviderRequest struct {
 	// Currency Currency code (e.g., USD, VND, KRW)
 	Currency string `json:"currency"`
 
+	// FpType Type of fund provider (BANK for bank accounts, CASH for cash holdings)
+	FpType string `json:"fpType"`
+
 	// InitBalance Initial balance for the fund provider
 	InitBalance int64 `json:"initBalance"`
 

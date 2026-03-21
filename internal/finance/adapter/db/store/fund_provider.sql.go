@@ -16,6 +16,7 @@ const createFundProvider = `-- name: CreateFundProvider :exec
 INSERT INTO finance.fund_providers (
     id,
     name,
+    fp_type,
     balance,
     currency,
     unallocated_amount,
@@ -23,16 +24,18 @@ INSERT INTO finance.fund_providers (
 ) VALUES(
     $1, -- id
     $2, -- name
-    $3, -- balance
-    $4, -- currency
-    $5, -- unallocated_amount
-    $6  -- version
+    $3, -- fp_type
+    $4, -- balance
+    $5, -- currency
+    $6, -- unallocated_amount
+    $7  -- version
 )
 `
 
 type CreateFundProviderParams struct {
 	ID                uuid.UUID
 	Name              string
+	FpType            string
 	Balance           int64
 	Currency          string
 	UnallocatedAmount int64
@@ -43,6 +46,7 @@ func (q *Queries) CreateFundProvider(ctx context.Context, arg CreateFundProvider
 	_, err := q.db.Exec(ctx, createFundProvider,
 		arg.ID,
 		arg.Name,
+		arg.FpType,
 		arg.Balance,
 		arg.Currency,
 		arg.UnallocatedAmount,
@@ -55,6 +59,7 @@ const getFundProviderByID = `-- name: GetFundProviderByID :one
 SELECT
     id,
     name,
+    fp_type,
     balance,
     unallocated_amount,
     currency,
@@ -66,6 +71,7 @@ WHERE id = $1
 type GetFundProviderByIDRow struct {
 	ID                uuid.UUID
 	Name              string
+	FpType            string
 	Balance           int64
 	UnallocatedAmount int64
 	Currency          string
@@ -78,6 +84,7 @@ func (q *Queries) GetFundProviderByID(ctx context.Context, id uuid.UUID) (GetFun
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.FpType,
 		&i.Balance,
 		&i.UnallocatedAmount,
 		&i.Currency,
@@ -90,6 +97,7 @@ const getFundProviderByWalletID = `-- name: GetFundProviderByWalletID :many
 SELECT 
     fp.id,
     fp.name,
+    fp.fp_type,
     fp.balance,
     fp.currency,
     fp.unallocated_amount,
@@ -104,6 +112,7 @@ FROM finance.fund_providers fp
 type GetFundProviderByWalletIDRow struct {
 	ID                    uuid.UUID
 	Name                  string
+	FpType                string
 	Balance               int64
 	Currency              string
 	UnallocatedAmount     int64
@@ -123,6 +132,7 @@ func (q *Queries) GetFundProviderByWalletID(ctx context.Context, walletID uuid.U
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.FpType,
 			&i.Balance,
 			&i.Currency,
 			&i.UnallocatedAmount,
@@ -143,6 +153,7 @@ const getFundProvidersByIDs = `-- name: GetFundProvidersByIDs :many
 SELECT
     id,
     name,
+    fp_type,
     balance,
     unallocated_amount,
     currency,
@@ -154,6 +165,7 @@ WHERE id = ANY($1::uuid[])
 type GetFundProvidersByIDsRow struct {
 	ID                uuid.UUID
 	Name              string
+	FpType            string
 	Balance           int64
 	UnallocatedAmount int64
 	Currency          string
@@ -172,6 +184,7 @@ func (q *Queries) GetFundProvidersByIDs(ctx context.Context, fpids []uuid.UUID) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.FpType,
 			&i.Balance,
 			&i.UnallocatedAmount,
 			&i.Currency,

@@ -73,6 +73,7 @@ func (r *walletRepo) getByIDWithProviders(
 		fundProvider, err := fundprovider.UnmarshalFundProviderFromDatabase(
 			fpModel.ID,
 			fpModel.Name,
+			fpModel.FpType,
 			fpModel.Balance,
 			fpModel.UnallocatedAmount,
 			fpModel.Currency,

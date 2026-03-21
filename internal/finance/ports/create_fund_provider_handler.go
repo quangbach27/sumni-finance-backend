@@ -23,6 +23,7 @@ func (hs HttpServer) CreateFundProvider(w http.ResponseWriter, r *http.Request) 
 
 	if err := hs.application.Commands.CreateFundProvider.Handle(r.Context(), command.CreateFundProviderCmd{
 		Name:         req.Name,
+		FpType:       req.FpType,
 		InitBalance:  req.InitBalance,
 		CurrencyCode: req.Currency,
 	}); err != nil {

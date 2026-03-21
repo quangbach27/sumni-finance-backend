@@ -119,6 +119,7 @@ components:
       type: object
       required:
         - initBalance
+        - fpType
         - currency
         - name
       properties:
@@ -128,6 +129,10 @@ components:
           description: Initial balance for the fund provider
           example: 1000000
           minimum: 0
+        fpType:
+          type: string
+          description: Type of fund provider (BANK for bank accounts, CASH for cash holdings)
+          example: "BANK"
         currency:
           type: string
           description: Currency code (e.g., USD, VND, KRW)
