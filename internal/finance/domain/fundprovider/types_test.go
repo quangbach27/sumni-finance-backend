@@ -66,7 +66,7 @@ func TestNewType(t *testing.T) {
 				assert.Equal(t, fundprovider.ErrInvalidType, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.want, got.Value())
+				assert.Equal(t, tt.want, got.String())
 			}
 		})
 	}

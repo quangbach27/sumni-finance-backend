@@ -31,7 +31,7 @@ func NewType(typeStr string) (Type, error) {
 	return t, nil
 }
 
-func (t Type) Value() string {
+func (t Type) String() string {
 	return t.value
 }
 

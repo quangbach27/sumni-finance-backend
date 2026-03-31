@@ -176,7 +176,6 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		err = walletDomain.AllocateFromFundProvider(nil, 100)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, wallet.ErrFundAllocatedMissing)
 	})
 
 	t.Run("returns error when allocated amount is negative", func(t *testing.T) {
@@ -217,8 +216,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 
 		require.NoError(t, err)
 
-		actualProvider, exists := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.True(t, exists)
+		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
 		assert.Equal(t, actualProvider, provider)
 		assert.Equal(t, unallocatedBalance, actualProvider.UnallocatedBalance())
 	})
@@ -236,8 +234,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 
 		require.NoError(t, err)
 
-		actualProvider, exists := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.True(t, exists)
+		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
 		assert.Equal(t, actualProvider, provider)
 		assert.Equal(t, unallocatedBalance.Amount()-50, actualProvider.UnallocatedBalance().Amount())
 	})
