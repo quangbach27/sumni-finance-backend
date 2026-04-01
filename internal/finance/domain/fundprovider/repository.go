@@ -11,3 +11,7 @@ type Repository interface {
 	GetByID(ctx context.Context, fpID uuid.UUID) (*FundProvider, error)
 	GetByIDs(ctx context.Context, fpID []uuid.UUID) ([]*FundProvider, error)
 }
+
+type FinancialRepository interface {
+	BulkUpdate(ctx context.Context, fps []*FundProvider)
+}

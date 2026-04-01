@@ -163,7 +163,7 @@ func (w *Wallet) AllocateFromFundProvider(
 ) error {
 	if fundProvider == nil {
 		return ErrFundAllocatedMissing{
-			FpID: fundProvider.ID().String(),
+			FpID: "unknown",
 		}
 	}
 
@@ -171,7 +171,7 @@ func (w *Wallet) AllocateFromFundProvider(
 		return ErrAllocationAmountNegative
 	}
 
-	if fp := w.ProviderManager().FindProvider(fundProvider.ID()); fp == nil {
+	if fp := w.ProviderManager().FindProvider(fundProvider.ID()); fp != nil {
 		return ErrFundProviderAlreadyRegistered
 	}
 

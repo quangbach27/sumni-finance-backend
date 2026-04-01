@@ -9,8 +9,41 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const batchUpdateFundProvidersBalance = `-- name: BatchUpdateFundProvidersBalance :exec
+UPDATE finance.fund_providers fp
+SET
+    balance = v.balance,
+    unallocated_amount = v.unallocatated_amount,
+    version = v.version + 1
+FROM (
+    SELECT
+        unnest($1::uuid[]) as id,
+        unnest($2::bigint[]) as balance,
+        unnest($3::bigint[]) as unallocated_amount,
+        unnest($4::int[]) as version
+) as v
+WHERE fp.id = v.id
+  AND fp.version = v.version
+`
+
+type BatchUpdateFundProvidersBalanceParams struct {
+	Ids                []uuid.UUID
+	Balances           []int64
+	UnallocatedAmounts []int64
+	Versions           []int32
+}
+
+func (q *Queries) BatchUpdateFundProvidersBalance(ctx context.Context, arg BatchUpdateFundProvidersBalanceParams) error {
+	_, err := q.db.Exec(ctx, batchUpdateFundProvidersBalance,
+		arg.Ids,
+		arg.Balances,
+		arg.UnallocatedAmounts,
+		arg.Versions,
+	)
+	return err
+}
 
 const createFundProvider = `-- name: CreateFundProvider :exec
 INSERT INTO finance.fund_providers (
@@ -104,7 +137,7 @@ SELECT
     fp.version,
     fpa.allocated_amount AS wallet_allocated_amount
 FROM finance.fund_providers fp
-    INNER JOIN finance.fund_provider_allocation fpa
+    INNER JOIN finance.fund_provider_allocations fpa
         ON fp.id = fpa.fund_provider_id
             AND fpa.wallet_id = $1
 `
@@ -198,40 +231,4 @@ func (q *Queries) GetFundProvidersByIDs(ctx context.Context, fpids []uuid.UUID) 
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateFundProviderPartial = `-- name: UpdateFundProviderPartial :execrows
-UPDATE finance.fund_providers
-SET
-    name = COALESCE($1, name),
-    balance = COALESCE($2, balance),
-    unallocated_amount = COALESCE($3, unallocated_amount),
-    currency = COALESCE($4, currency),
-    version = version + 1
-WHERE id = $5
-  AND version = $6
-`
-
-type UpdateFundProviderPartialParams struct {
-	Name              pgtype.Text
-	Balance           pgtype.Int8
-	UnallocatedAmount pgtype.Int8
-	Currency          pgtype.Text
-	ID                uuid.UUID
-	Version           int32
-}
-
-func (q *Queries) UpdateFundProviderPartial(ctx context.Context, arg UpdateFundProviderPartialParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateFundProviderPartial,
-		arg.Name,
-		arg.Balance,
-		arg.UnallocatedAmount,
-		arg.Currency,
-		arg.ID,
-		arg.Version,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }

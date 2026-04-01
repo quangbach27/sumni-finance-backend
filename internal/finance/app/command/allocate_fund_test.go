@@ -44,7 +44,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	t.Run("returns errors when provider repo getByIDs fails", func(t *testing.T) {
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: uuid.New(), AllocatedAmount: 50},
 				{ID: uuid.New(), AllocatedAmount: 50},
 			},
@@ -67,7 +67,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 				{ID: provider2.ID(), AllocatedAmount: 50},
 			},
@@ -95,7 +95,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 110},
 			},
 		}
@@ -116,16 +116,14 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
-				mock.Anything,
 				mock.Anything,
 			).
 			RunAndReturn(func(
 				ctx context.Context,
 				wID uuid.UUID,
-				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
 				w, err := wallet.NewWallet("USD", "Tai chinh tong")
@@ -144,7 +142,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 			},
 		}
@@ -165,16 +163,14 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
-				mock.Anything,
 				mock.Anything,
 			).
 			RunAndReturn(func(
 				ctx context.Context,
 				wID uuid.UUID,
-				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
 				pa, err := wallet.NewProviderAllocation(provider1, 40)
@@ -206,7 +202,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 				{ID: provider2.ID(), AllocatedAmount: 50},
 			},
@@ -236,7 +232,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 			},
 		}
@@ -257,16 +253,14 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
-				mock.Anything,
 				mock.Anything,
 			).
 			RunAndReturn(func(
 				ctx context.Context,
 				wID uuid.UUID,
-				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
 				w, err := wallet.NewWallet("USD", "Tai chinh tong")

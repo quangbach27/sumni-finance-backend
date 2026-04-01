@@ -14,11 +14,11 @@ import (
 )
 
 type AllocateFundCmd struct {
-	WalletID  uuid.UUID
-	Providers []AllocatedProviders
+	WalletID            uuid.UUID
+	AllocationProviders []AllocatedProvider
 }
 
-type AllocatedProviders struct {
+type AllocatedProvider struct {
 	ID              uuid.UUID
 	AllocatedAmount int64
 }
@@ -40,53 +40,33 @@ func NewAllocateFundHandler(walletRepo wallet.Repository, fundProviderRepo fundp
 func (h *allocateFundHandler) Handle(ctx context.Context, cmd AllocateFundCmd) error {
 	logger := logs.FromContext(ctx)
 
-	if len(cmd.Providers) == 0 {
+	if len(cmd.AllocationProviders) == 0 {
 		return httperr.NewIncorrectInputError(
 			errors.New("missing providers in command for allocation"),
 			"invalid-providers",
 		)
 	}
 
-	providerIDs := make([]uuid.UUID, 0, len(cmd.Providers))
-	for _, p := range cmd.Providers {
-		providerIDs = append(providerIDs, p.ID)
+	fpIDs := make([]uuid.UUID, 0, len(cmd.AllocationProviders))
+	for _, p := range cmd.AllocationProviders {
+		fpIDs = append(fpIDs, p.ID)
 	}
 
-	// Retrieve all fund providers involved in this allocation request
-	providersDomain, err := h.fundProviderRepo.GetByIDs(ctx, providerIDs)
+	fpLookup, err := h.getFundProvidersByIDs(ctx, fpIDs)
 	if err != nil {
-		return httperr.NewUnknowError(err, "failed-to-retrieve-fund-provider")
-	}
-	if len(providersDomain) != len(providerIDs) {
-		return httperr.NewIncorrectInputError(
-			errors.New("one or more fund providers not found"),
-			"invalid-provider",
-		)
+		return httperr.NewIncorrectInputError(err, "failed-to-retrieve-fund-provider-lookup")
 	}
 
-	logger.Info("retrieved provider", "ids", providerIDs)
+	logger.Info("retrived fund providers")
 
-	// Build lookup map for deterministic access
-	providerMap := make(map[uuid.UUID]*fundprovider.FundProvider, len(providersDomain))
-	for _, p := range providersDomain {
-		if p == nil {
-			return fmt.Errorf("fund provider is empty")
-		}
-		providerMap[p.ID()] = p
-	}
-
-	err = h.walletRepo.Update(
+	err = h.walletRepo.CreateAllocations(
 		ctx,
 		cmd.WalletID,
-		wallet.NewAllocationBelongsToAnyProviderSpec(providerIDs),
 		func(w *wallet.Wallet) error {
-			for _, item := range cmd.Providers {
-				provider, ok := providerMap[item.ID]
-				if !ok {
-					return fmt.Errorf("fund provider %s not found", item.ID)
-				}
+			for _, ap := range cmd.AllocationProviders {
+				fp := fpLookup[ap.ID]
 
-				err = w.AllocateFromFundProvider(provider, item.AllocatedAmount)
+				err = w.AllocateFromFundProvider(fp, ap.AllocatedAmount)
 				if err != nil {
 					return err
 				}
@@ -99,5 +79,33 @@ func (h *allocateFundHandler) Handle(ctx context.Context, cmd AllocateFundCmd) e
 		return httperr.NewUnknowError(err, "failed-to-allocate-fund")
 	}
 
+	logger.Info("allocated fund provider success")
+
 	return nil
+}
+
+func (h *allocateFundHandler) getFundProvidersByIDs(ctx context.Context, fpIDs []uuid.UUID) (map[uuid.UUID]*fundprovider.FundProvider, error) {
+	fps, err := h.fundProviderRepo.GetByIDs(ctx, fpIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(fps) != len(fpIDs) {
+		return nil, errors.New("")
+	}
+
+	return h.toFundProviderLookup(fps)
+}
+
+func (h *allocateFundHandler) toFundProviderLookup(fps []*fundprovider.FundProvider) (map[uuid.UUID]*fundprovider.FundProvider, error) {
+	fpLookup := make(map[uuid.UUID]*fundprovider.FundProvider, len(fps))
+	for _, fp := range fps {
+		if fp == nil {
+			return nil, fmt.Errorf("fund provider is empty")
+		}
+
+		fpLookup[fp.ID()] = fp
+	}
+
+	return fpLookup, nil
 }

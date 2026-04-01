@@ -17,7 +17,6 @@ INSERT INTO finance.fund_providers (
     $7  -- version
 );
 
-
 -- name: GetFundProviderByWalletID :many
 SELECT 
     fp.id,
@@ -29,20 +28,9 @@ SELECT
     fp.version,
     fpa.allocated_amount AS wallet_allocated_amount
 FROM finance.fund_providers fp
-    INNER JOIN finance.fund_provider_allocation fpa
+    INNER JOIN finance.fund_provider_allocations fpa
         ON fp.id = fpa.fund_provider_id
             AND fpa.wallet_id = $1;
-
--- name: UpdateFundProviderPartial :execrows
-UPDATE finance.fund_providers
-SET
-    name = COALESCE(sqlc.narg(name), name),
-    balance = COALESCE(sqlc.narg(balance), balance),
-    unallocated_amount = COALESCE(sqlc.narg(unallocated_amount), unallocated_amount),
-    currency = COALESCE(sqlc.narg(currency), currency),
-    version = version + 1
-WHERE id = sqlc.arg(id)
-  AND version = sqlc.arg(version);
 
 -- name: GetFundProviderByID :one
 SELECT
@@ -67,3 +55,19 @@ SELECT
     version
 FROM finance.fund_providers
 WHERE id = ANY(sqlc.arg(fpIDs)::uuid[]);
+
+-- name: BatchUpdateFundProvidersBalance :exec
+UPDATE finance.fund_providers fp
+SET
+    balance = v.balance,
+    unallocated_amount = v.unallocatated_amount,
+    version = v.version + 1
+FROM (
+    SELECT
+        unnest(sqlc.arg(ids)::uuid[]) as id,
+        unnest(sqlc.arg(balances)::bigint[]) as balance,
+        unnest(sqlc.arg(unallocated_amounts)::bigint[]) as unallocated_amount,
+        unnest(sqlc.arg(versions)::int[]) as version
+) as v
+WHERE fp.id = v.id
+  AND fp.version = v.version;

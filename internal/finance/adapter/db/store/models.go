@@ -6,7 +6,19 @@ package store
 
 import (
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type FinanceAccountingPeriod struct {
+	YearMonth            string
+	StartDate            pgtype.Int4
+	Interval             pgtype.Int4
+	WalletOpeningBalance int64
+	TotalDebit           pgtype.Int8
+	TotalCredit          pgtype.Int8
+	WalletClosingBalance pgtype.Int8
+	WalletID             pgtype.UUID
+}
 
 type FinanceFundProvider struct {
 	ID                uuid.UUID
@@ -19,9 +31,21 @@ type FinanceFundProvider struct {
 }
 
 type FinanceFundProviderAllocation struct {
-	FundProviderID  uuid.UUID
+	FpID            uuid.UUID
 	WalletID        uuid.UUID
 	AllocatedAmount int64
+}
+
+type FinanceTransactionRecord struct {
+	ID              uuid.UUID
+	TransactionNo   pgtype.Text
+	TransactionType string
+	Amount          int64
+	WalletBalance   int64
+	WalletID        uuid.UUID
+	FpID            uuid.UUID
+	FpBalance       int64
+	YearMonth       string
 }
 
 type FinanceWallet struct {

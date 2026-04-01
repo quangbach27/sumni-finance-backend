@@ -9,8 +9,13 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type BulkInsertFundAllocationsParams struct {
+	FpID            uuid.UUID
+	WalletID        uuid.UUID
+	AllocatedAmount int64
+}
 
 const createWallet = `-- name: CreateWallet :exec
 INSERT INTO finance.wallets (
@@ -71,61 +76,22 @@ func (q *Queries) GetWalletByID(ctx context.Context, id uuid.UUID) (FinanceWalle
 	return i, err
 }
 
-const updateWalletPartial = `-- name: UpdateWalletPartial :execrows
+const updateWalletBalance = `-- name: UpdateWalletBalance :exec
 UPDATE finance.wallets
 SET
-    name = COALESCE($1, name),
-    balance  = COALESCE($2, balance),
-    currency = COALESCE($3, currency),
-    version  = version + 1
-WHERE id = $4
-  AND version = $5
+    balance = $1,
+    version = version + 1
+WHERE id = $2
+    AND version = $3
 `
 
-type UpdateWalletPartialParams struct {
-	Name     pgtype.Text
-	Balance  pgtype.Int8
-	Currency pgtype.Text
-	ID       uuid.UUID
-	Version  int32
+type UpdateWalletBalanceParams struct {
+	Balance int64
+	ID      uuid.UUID
+	Version int32
 }
 
-func (q *Queries) UpdateWalletPartial(ctx context.Context, arg UpdateWalletPartialParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateWalletPartial,
-		arg.Name,
-		arg.Balance,
-		arg.Currency,
-		arg.ID,
-		arg.Version,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
-const upsertFundProviderAllocation = `-- name: UpsertFundProviderAllocation :exec
-INSERT INTO finance.fund_provider_allocation (
-    fund_provider_id,
-    wallet_id,
-    allocated_amount
-) VALUES (
-    $1,
-    $2,
-    $3
-)
-ON CONFLICT (fund_provider_id, wallet_id)
-DO UPDATE
-SET allocated_amount = EXCLUDED.allocated_amount
-`
-
-type UpsertFundProviderAllocationParams struct {
-	FundProviderID  uuid.UUID
-	WalletID        uuid.UUID
-	AllocatedAmount int64
-}
-
-func (q *Queries) UpsertFundProviderAllocation(ctx context.Context, arg UpsertFundProviderAllocationParams) error {
-	_, err := q.db.Exec(ctx, upsertFundProviderAllocation, arg.FundProviderID, arg.WalletID, arg.AllocatedAmount)
+func (q *Queries) UpdateWalletBalance(ctx context.Context, arg UpdateWalletBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateWalletBalance, arg.Balance, arg.ID, arg.Version)
 	return err
 }

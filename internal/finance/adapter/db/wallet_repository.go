@@ -39,6 +39,30 @@ func (r *walletRepo) GetByID(
 	return nil, errors.New("walletRepo.GetByID not implemented")
 }
 
+func (r *walletRepo) getByID(
+	ctx context.Context,
+	wID uuid.UUID,
+	queries *store.Queries,
+) (*wallet.Wallet, error) {
+	wModel, err := queries.GetWalletByID(ctx, wID)
+	if err != nil {
+		return nil, err
+	}
+
+	w, err := wallet.UnmarshalWalletFromDatabase(
+		wModel.ID,
+		wModel.Name,
+		wModel.Balance,
+		wModel.Currency,
+		wModel.Version,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return w, nil
+}
+
 func (r *walletRepo) GetByIDWithProviders(
 	ctx context.Context,
 	wID uuid.UUID,
@@ -88,7 +112,9 @@ func (r *walletRepo) getByIDWithProviders(
 			return nil, err
 		}
 
-		if spec.IsSatisfiedBy(providerAllocation) {
+		if spec == nil {
+			filteredProviderAllocationsDomain = append(filteredProviderAllocationsDomain, providerAllocation)
+		} else if spec.IsSatisfiedBy(providerAllocation) {
 			filteredProviderAllocationsDomain = append(filteredProviderAllocationsDomain, providerAllocation)
 		}
 	}
@@ -118,68 +144,81 @@ func (r *walletRepo) Create(ctx context.Context, wallet *wallet.Wallet) error {
 	})
 }
 
-func (r *walletRepo) Update(
+func (r *walletRepo) CreateAllocations(
 	ctx context.Context,
 	wID uuid.UUID,
-	spec wallet.ProviderAllocationSpec,
-	updateFunc func(w *wallet.Wallet) error,
-) (err error) {
+	updateFunc func(*wallet.Wallet) error,
+) error {
 	return r.transactionManager.WithTx(ctx, func(tx pgx.Tx) error {
-		qtx := r.queries.WithTx(tx)
+		txQueries := r.queries.WithTx(tx)
 
-		w, err := r.getByIDWithProviders(ctx, wID, spec, qtx)
-		if err != nil {
-			return fmt.Errorf("failed to retrieve wallet :%w", err)
-		}
-
-		err = updateFunc(w)
+		w, err := r.getByID(ctx, wID, txQueries)
 		if err != nil {
 			return err
 		}
-		// update allocation
-		for _, pa := range w.ProviderManager().ProviderAllocations() {
-			err = qtx.UpsertFundProviderAllocation(
-				ctx,
-				store.UpsertFundProviderAllocationParams{
-					FundProviderID:  pa.Provider().ID(),
-					WalletID:        w.ID(),
-					AllocatedAmount: pa.Allocated().Amount(),
-				},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to update fund provider allocation: %w", err)
-			}
 
-			// update fundprovider
-			rows, err := qtx.UpdateFundProviderPartial(ctx, store.UpdateFundProviderPartialParams{
-				UnallocatedAmount: common_db.ToPgInt8(pa.Provider().UnallocatedBalance().Amount()),
-				ID:                pa.Provider().ID(),
-				Version:           pa.Provider().Version(),
-			})
-			if err != nil {
-				return err
-			}
-
-			if rows == 0 {
-				return fmt.Errorf("failed to update fund provider: %w", common_db.ErrConcurrentModification)
-			}
-		}
-
-		// update wallet
-		rows, err := qtx.UpdateWalletPartial(ctx, store.UpdateWalletPartialParams{
-			ID:       w.ID(),
-			Name:     common_db.ToPgText(w.Name()),
-			Balance:  common_db.ToPgInt8(w.Balance().Amount()),
-			Currency: common_db.ToPgText(w.Currency().Code()),
-			Version:  w.Version(),
-		})
-		if err != nil {
+		if err = updateFunc(w); err != nil {
 			return err
 		}
-		if rows == 0 {
-			return fmt.Errorf("failed to update wallet: %w", common_db.ErrConcurrentModification)
+
+		if err = txQueries.UpdateWalletBalance(ctx, store.UpdateWalletBalanceParams{
+			ID:      w.ID(),
+			Balance: w.Balance().Amount(),
+			Version: w.Version(),
+		}); err != nil {
+			return err
 		}
 
-		return nil
+		return r.insertFundAllocations(ctx, txQueries, w.ID(), w.ProviderManager().ProviderAllocations())
 	})
+}
+
+func (r *walletRepo) insertFundAllocations(
+	ctx context.Context,
+	queries *store.Queries,
+	wID uuid.UUID,
+	fpAllocations []wallet.ProviderAllocation,
+) error {
+	allocationsLen := len(fpAllocations)
+
+	allocationParams := make([]store.BulkInsertFundAllocationsParams, 0, allocationsLen)
+	fpParams := store.BatchUpdateFundProvidersBalanceParams{
+		Ids:                make([]uuid.UUID, 0, allocationsLen),
+		Balances:           make([]int64, 0, allocationsLen),
+		UnallocatedAmounts: make([]int64, 0, allocationsLen),
+		Versions:           make([]int32, 0, allocationsLen),
+	}
+
+	for _, fpa := range fpAllocations {
+		fp := fpa.Provider()
+		if fp == nil {
+			return errors.New("fund provider is missing")
+		}
+
+		allocationParams = append(allocationParams, store.BulkInsertFundAllocationsParams{
+			FpID:            fp.ID(),
+			WalletID:        wID,
+			AllocatedAmount: fpa.Allocated().Amount(),
+		})
+
+		fpParams.Ids = append(fpParams.Ids, fp.ID())
+		fpParams.Balances = append(fpParams.Balances, fp.Balance().Amount())
+		fpParams.UnallocatedAmounts = append(fpParams.UnallocatedAmounts, fp.UnallocatedBalance().Amount())
+		fpParams.Versions = append(fpParams.Versions, fp.Version())
+	}
+
+	if err := queries.BatchUpdateFundProvidersBalance(ctx, fpParams); err != nil {
+		return err
+	}
+
+	row, err := queries.BulkInsertFundAllocations(ctx, allocationParams)
+	if err != nil {
+		return err
+	}
+
+	if row != int64(len(fpAllocations)) {
+		return errors.New("bulk updated fund allocations failed")
+	}
+
+	return nil
 }
