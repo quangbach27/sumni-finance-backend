@@ -57,7 +57,7 @@ func (h *allocateFundHandler) Handle(ctx context.Context, cmd AllocateFundCmd) e
 		return httperr.NewIncorrectInputError(err, "failed-to-retrieve-fund-provider-lookup")
 	}
 
-	logger.Info("retrived fund providers")
+	logger.Info("retrieved fund providers")
 
 	err = h.walletRepo.CreateAllocations(
 		ctx,

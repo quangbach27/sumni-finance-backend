@@ -39,7 +39,7 @@ func (hs HttpServer) AllocateFund(
 	err := hs.application.Commands.AllocateFund.Handle(
 		r.Context(),
 		command.AllocateFundCmd{
-			WalletID:  walletId,
+			WalletID:            walletId,
 			AllocationProviders: providers,
 		},
 	)
