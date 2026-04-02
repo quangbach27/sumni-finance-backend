@@ -18,8 +18,10 @@ func WriteJSON(
 ) {
 	requestID := middleware.GetReqID(r.Context())
 
-	for key, value := range headers {
-		w.Header()[key] = value
+	if len(headers) > 0 {
+		for key, value := range headers {
+			w.Header()[key] = value
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

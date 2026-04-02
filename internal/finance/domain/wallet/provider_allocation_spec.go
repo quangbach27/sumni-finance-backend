@@ -8,25 +8,31 @@ type ProviderAllocationSpec interface {
 
 type DefaultProviderAllocationSpec struct{}
 
+func NewDefaultProviderAllocationSpec() DefaultProviderAllocationSpec {
+	return DefaultProviderAllocationSpec{}
+}
+
 func (spec DefaultProviderAllocationSpec) IsSatisfiedBy(p ProviderAllocation) bool {
 	return true
 }
 
-type AllocationBelongsToAnyProviderSpec struct {
+type ProviderMatchesAnySpec struct {
 	allowed map[uuid.UUID]struct{}
 }
 
-func NewAllocationBelongsToAnyProviderSpec(providerIDs []uuid.UUID) AllocationBelongsToAnyProviderSpec {
+func NewProviderMatchesAnySpec(providerIDs []uuid.UUID) ProviderMatchesAnySpec {
 	allowed := make(map[uuid.UUID]struct{})
+
 	for _, id := range providerIDs {
 		allowed[id] = struct{}{}
 	}
-	return AllocationBelongsToAnyProviderSpec{
+
+	return ProviderMatchesAnySpec{
 		allowed: allowed,
 	}
 }
 
-func (spec AllocationBelongsToAnyProviderSpec) IsSatisfiedBy(p ProviderAllocation) bool {
+func (spec ProviderMatchesAnySpec) IsSatisfiedBy(p ProviderAllocation) bool {
 	provider := p.Provider()
 	if provider == nil {
 		return false

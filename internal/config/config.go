@@ -1,7 +1,6 @@
 package config
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 	"strconv"
@@ -137,7 +136,12 @@ func getEnvAsInt32(key string, defaultValue int32) int32 {
 
 	formattedValue, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
-		slog.Warn(fmt.Sprintf("Could not parse environment variable %s='%s' as integer: %s. Using default value %d.", key, value, err.Error(), defaultValue))
+		slog.Warn("Could not parse environment variable as integer",
+			"key", key,
+			"error", err.Error(),
+			"default", defaultValue,
+		)
+		return defaultValue
 	}
 
 	return int32(formattedValue)

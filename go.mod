@@ -1,6 +1,6 @@
 module sumni-finance-backend
 
-go 1.25.5
+go 1.26.1
 
 require (
 	github.com/ThreeDotsLabs/humanslog v0.0.0-20251212105943-b7b671246cf2

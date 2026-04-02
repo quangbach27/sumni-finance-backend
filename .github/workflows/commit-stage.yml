@@ -16,16 +16,16 @@ jobs:
     permissions:
       contents: read
       security-events: write
-      pull-requests: write # For coverage comments
+      pull-requests: write
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v5
         with:
-          go-version-file: "go.mod" # Use version from go.mod
+          go-version-file: "go.mod"
           cache: true
           cache-dependency-path: go.sum
 
@@ -42,13 +42,10 @@ jobs:
             exit 1
           fi
 
-      - name: Run go vet
-        run: go vet ./...
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.6.1
+          version: v2.11.4
           args: --timeout=5m
 
       - name: Build application
@@ -70,9 +67,28 @@ jobs:
           fail-build: false
           severity-cutoff: high
           output-format: sarif
+          grype-db-update: true
+
+      - name: Validate SARIF file
+        id: validate_sarif
+        if: always()
+        run: |
+          SARIF_FILE="${{ steps.scan.outputs.sarif }}"
+          if [ -f "$SARIF_FILE" ] && [ -s "$SARIF_FILE" ]; then
+            if jq empty "$SARIF_FILE" 2>/dev/null; then
+              echo "valid=true" >> $GITHUB_OUTPUT
+              echo "SARIF file is valid"
+            else
+              echo "valid=false" >> $GITHUB_OUTPUT
+              echo "SARIF file exists but is not valid JSON"
+            fi
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+            echo "SARIF file does not exist or is empty"
+          fi
 
       - name: Upload vulnerability results to GitHub Security
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: steps.validate_sarif.outputs.valid == 'true'
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}

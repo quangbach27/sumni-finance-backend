@@ -20,10 +20,10 @@ type Repository interface {
 
 	Create(ctx context.Context, wallet *Wallet) error
 
-	Update(
+	CreateAllocations(
 		ctx context.Context,
 		wID uuid.UUID,
-		spec ProviderAllocationSpec,
-		updateFunc func(*Wallet) error,
+		allocationSpec ProviderAllocationSpec,
+		allocatedFunc func(*Wallet) error,
 	) error
 }

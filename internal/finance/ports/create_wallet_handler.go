@@ -22,6 +22,7 @@ func (hs HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := hs.application.Commands.CreateWallet.Handle(r.Context(), command.CreateWalletCmd{
+		Name:         req.Name,
 		CurrencyCode: req.Currency,
 	}); err != nil {
 		httperr.RespondWithSlugError(err, w, r)

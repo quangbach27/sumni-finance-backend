@@ -48,12 +48,9 @@ func (m *ProviderManager) ProviderAllocations() []ProviderAllocation {
 	return providerAllocations
 }
 
-func (m *ProviderManager) FindProvider(id uuid.UUID) (*fundprovider.FundProvider, bool) {
-	allocation, exist := m.providers[id]
-	if !exist {
-		return nil, false
-	}
-	return allocation.provider, true
+func (m *ProviderManager) FindProvider(id uuid.UUID) *fundprovider.FundProvider {
+	allocation := m.providers[id]
+	return allocation.provider
 }
 
 func (m *ProviderManager) AddFundProviderAndReserve(

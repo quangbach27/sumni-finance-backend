@@ -44,7 +44,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	t.Run("returns errors when provider repo getByIDs fails", func(t *testing.T) {
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: uuid.New(), AllocatedAmount: 50},
 				{ID: uuid.New(), AllocatedAmount: 50},
 			},
@@ -59,15 +59,15 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("returns error when repository returns fewer providers than requested", func(t *testing.T) {
-		provider1, err := fundprovider.NewFundProvider(100, "USD")
+		provider1, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
-		provider2, err := fundprovider.NewFundProvider(100, "USD")
+		provider2, err := fundprovider.NewFundProvider("TPBank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 				{ID: provider2.ID(), AllocatedAmount: 50},
 			},
@@ -90,12 +90,12 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("return error when allocated amount excceed unallocated of fund provider", func(t *testing.T) {
-		provider1, err := fundprovider.NewFundProvider(100, "USD")
+		provider1, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 110},
 			},
 		}
@@ -116,7 +116,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
 				mock.Anything,
@@ -128,7 +128,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
-				w, err := wallet.NewWallet("USD")
+				w, err := wallet.NewWallet("USD", "Tai chinh tong")
 				require.NoError(t, err)
 
 				return updateFunc(w)
@@ -139,12 +139,12 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("returns error when provider is already allocated", func(t *testing.T) {
-		provider1, err := fundprovider.NewFundProvider(100, "USD")
+		provider1, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 			},
 		}
@@ -165,7 +165,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
 				mock.Anything,
@@ -182,6 +182,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 				w, err := wallet.UnmarshalWalletFromDatabase(
 					wID,
+					"Tai chinh tong",
 					0,
 					"USD",
 					0,
@@ -197,15 +198,15 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("returns error when GetByIDs return nil", func(t *testing.T) {
-		provider1, err := fundprovider.NewFundProvider(100, "USD")
+		provider1, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
-		provider2, err := fundprovider.NewFundProvider(100, "USD")
+		provider2, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 				{ID: provider2.ID(), AllocatedAmount: 50},
 			},
@@ -230,12 +231,12 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("allocate fund provider successfully", func(t *testing.T) {
-		provider1, err := fundprovider.NewFundProvider(100, "USD")
+		provider1, err := fundprovider.NewFundProvider("Techcombank", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		cmd := command.AllocateFundCmd{
 			WalletID: uuid.New(),
-			Providers: []command.AllocatedProviders{
+			AllocationProviders: []command.AllocatedProvider{
 				{ID: provider1.ID(), AllocatedAmount: 50},
 			},
 		}
@@ -256,7 +257,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 
 		dm.walletRepoMock.
 			EXPECT().
-			Update(
+			CreateAllocations(
 				mock.Anything,
 				cmd.WalletID,
 				mock.Anything,
@@ -268,7 +269,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
-				w, err := wallet.NewWallet("USD")
+				w, err := wallet.NewWallet("USD", "Tai chinh tong")
 				require.NoError(t, err)
 
 				return updateFunc(w)

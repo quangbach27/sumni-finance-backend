@@ -20,8 +20,8 @@ type ServerInterface interface {
 	// Create a new wallet
 	// (POST /v1/wallet)
 	CreateWallet(w http.ResponseWriter, r *http.Request)
-	// (POST /v1/wallet/{walletId}/allocate-fund)
 	// Allocate funds to a wallet
+	// (POST /v1/wallet/{walletId}/allocate-fund)
 	AllocateFund(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID)
 }
 

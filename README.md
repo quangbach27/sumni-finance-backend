@@ -70,24 +70,3 @@ Tests run locally (outside Docker) but inherit env from `.env` and `.e2e.env` if
 ```bash
 make test
 ```
-### 4. View OpenAPI Documentation
-
-Start Swagger UI to view and interact with the API documentation:
-
-```bash
-make swagger-ui
-```
-
-This will start Swagger UI at `http://localhost:8081` where you can:
-- View the complete API documentation
-- Try out API endpoints interactively
-- See request/response examples
-- Validate your API requests
-
-Stop Swagger UI:
-
-```bash
-make swagger-ui-stop
-```
-
-The OpenAPI specification file is located at `api/openapi/finance.yaml`.

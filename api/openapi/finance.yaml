@@ -119,7 +119,9 @@ components:
       type: object
       required:
         - initBalance
+        - fpType
         - currency
+        - name
       properties:
         initBalance:
           type: integer
@@ -127,6 +129,10 @@ components:
           description: Initial balance for the fund provider
           example: 1000000
           minimum: 0
+        fpType:
+          type: string
+          description: Type of fund provider (BANK for bank accounts, CASH for cash holdings)
+          example: "BANK"
         currency:
           type: string
           description: Currency code (e.g., USD, VND, KRW)
@@ -134,11 +140,16 @@ components:
           pattern: "^[A-Z]{3}$"
           minLength: 3
           maxLength: 3
+        name:
+          type: string
+          description: Fund provider name followed by the last 4 digits of the account number (e.g., Techcombank 7316)
+          example: "Techcomebank7316"
 
     CreateWalletRequest:
       type: object
       required:
         - currency
+        - name
       properties:
         currency:
           type: string
@@ -147,6 +158,10 @@ components:
           pattern: "^[a-zA-Z]{3}$"
           minLength: 3
           maxLength: 3
+        name:
+          type: string
+          description: Wallet Name (tai chinh tong, quy van phong, ...)
+          example: "Tai Chinh Tong"
 
     AllocateFundRequest:
       type: object

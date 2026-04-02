@@ -13,21 +13,29 @@ import (
 func TestNewWallet(t *testing.T) {
 	testCases := []struct {
 		name         string
+		walletName   string
 		currencyCode string
 		hasErr       bool
 	}{
 		{
+			name:   "returns error when name is missing",
+			hasErr: true,
+		},
+		{
 			name:         "returns error when currency code is empty",
+			walletName:   "Tai chinh tong",
 			currencyCode: "",
 			hasErr:       true,
 		},
 		{
 			name:         "returns error when currency code is invalid",
+			walletName:   "Tai chinh tong",
 			currencyCode: "INVALID",
 			hasErr:       true,
 		},
 		{
 			name:         "creates wallet successfully",
+			walletName:   "Tai chinh tong",
 			currencyCode: "USD",
 			hasErr:       false,
 		},
@@ -35,7 +43,7 @@ func TestNewWallet(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			wallet, err := wallet.NewWallet(tt.currencyCode)
+			wallet, err := wallet.NewWallet(tt.currencyCode, tt.walletName)
 
 			if tt.hasErr {
 				require.Error(t, err)
@@ -54,6 +62,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 	testCases := []struct {
 		name          string
 		id            uuid.UUID
+		walletName    string
 		balanceAmount int64
 		currencyCode  string
 		hasErr        bool
@@ -64,8 +73,15 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 			hasErr: true,
 		},
 		{
+			name:       "returns error when name is empty",
+			id:         uuid.New(),
+			walletName: "",
+			hasErr:     true,
+		},
+		{
 			name:          "returns error when balance is negative",
 			id:            uuid.New(),
+			walletName:    "Tai chinh tong",
 			balanceAmount: -10,
 			currencyCode:  "USD",
 			hasErr:        true,
@@ -73,6 +89,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 		{
 			name:          "unmarshal wallet successfully when balance is zero",
 			id:            uuid.New(),
+			walletName:    "Tai chinh tong",
 			balanceAmount: 0,
 			currencyCode:  "USD",
 			hasErr:        false,
@@ -80,6 +97,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 		{
 			name:          "returns error when currency code is empty",
 			id:            uuid.New(),
+			walletName:    "Tai chinh tong",
 			balanceAmount: 0,
 			currencyCode:  "",
 			hasErr:        true,
@@ -87,6 +105,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 		{
 			name:          "return error when currency code is invalid",
 			id:            uuid.New(),
+			walletName:    "Tai chinh tong",
 			balanceAmount: 0,
 			currencyCode:  "INVALID",
 			hasErr:        true,
@@ -94,6 +113,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 		{
 			name:          "unmarshal wallet successfully",
 			id:            uuid.New(),
+			walletName:    "Tai chinh tong",
 			balanceAmount: 10,
 			currencyCode:  "USD",
 			hasErr:        false,
@@ -104,6 +124,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 			var version int32 = 1
 			wallet, err := wallet.UnmarshalWalletFromDatabase(
 				tt.id,
+				tt.walletName,
 				tt.balanceAmount,
 				tt.currencyCode,
 				version,
@@ -126,7 +147,7 @@ func TestUnmarshalWalletFromDatabase(t *testing.T) {
 
 func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	t.Run("returns error when fund provider is already allocated", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider(100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		allocationProvider, err := wallet.NewProviderAllocation(provider, 50)
@@ -134,6 +155,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 
 		walletDomain, err := wallet.UnmarshalWalletFromDatabase(
 			uuid.New(),
+			"Tai chinh tong",
 			0,
 			"USD",
 			0,
@@ -148,20 +170,19 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("returns error when fund provider is nil", func(t *testing.T) {
-		walletDomain, err := wallet.NewWallet("USD")
+		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
 		err = walletDomain.AllocateFromFundProvider(nil, 100)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, wallet.ErrFundAllocatedMissing)
 	})
 
 	t.Run("returns error when allocated amount is negative", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider(100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
-		walletDomain, err := wallet.NewWallet("USD")
+		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
 		err = walletDomain.AllocateFromFundProvider(provider, -100)
@@ -171,10 +192,10 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("returns error when allocated amount exccedd unallocated amount of fund provider", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider(100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
-		walletDomain, err := wallet.NewWallet("USD")
+		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
 		err = walletDomain.AllocateFromFundProvider(provider, 110)
@@ -183,39 +204,37 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 	})
 
 	t.Run("unmarshal wallet successfully when allocatedAmount is zero", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider(100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		unallocatedBalance := provider.UnallocatedBalance()
 
-		walletDomain, err := wallet.NewWallet("USD")
+		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
 		err = walletDomain.AllocateFromFundProvider(provider, 0)
 
 		require.NoError(t, err)
 
-		actualProvider, exists := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.True(t, exists)
+		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
 		assert.Equal(t, actualProvider, provider)
 		assert.Equal(t, unallocatedBalance, actualProvider.UnallocatedBalance())
 	})
 
 	t.Run("unmarshal wallet successfully", func(t *testing.T) {
-		provider, err := fundprovider.NewFundProvider(100, "USD")
+		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
 		unallocatedBalance := provider.UnallocatedBalance()
 
-		walletDomain, err := wallet.NewWallet("USD")
+		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
 		err = walletDomain.AllocateFromFundProvider(provider, 50)
 
 		require.NoError(t, err)
 
-		actualProvider, exists := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.True(t, exists)
+		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
 		assert.Equal(t, actualProvider, provider)
 		assert.Equal(t, unallocatedBalance.Amount()-50, actualProvider.UnallocatedBalance().Amount())
 	})

@@ -28,63 +28,99 @@ func (dm *CreateWalletDependenciesManager) NewHandler() command.CreateWalletHand
 }
 
 func TestCreateWallet_Handle(t *testing.T) {
-	t.Run("returns error when currency code is empty", func(t *testing.T) {
-		t.Parallel()
+	tests := []struct {
+		name          string
+		cmd           command.CreateWalletCmd
+		setupMock     func(*CreateWalletDependenciesManager)
+		hasErr        bool
+		errorContains string
+	}{
+		{
+			name: "returns error when name is empty",
+			cmd: command.CreateWalletCmd{
+				Name:         "",
+				CurrencyCode: "VND",
+			},
+			setupMock: func(dm *CreateWalletDependenciesManager) {
+				// No mock setup needed - validation fails before repo call
+			},
+			hasErr: true,
+		},
+		{
+			name: "returns error when currency code is empty",
+			cmd: command.CreateWalletCmd{
+				Name:         "My Wallet",
+				CurrencyCode: "",
+			},
+			setupMock: func(dm *CreateWalletDependenciesManager) {
+				// No mock setup needed - validation fails before repo call
+			},
+			hasErr: true,
+		},
+		{
+			name: "returns error when currency code is invalid",
+			cmd: command.CreateWalletCmd{
+				Name:         "My Wallet",
+				CurrencyCode: "INVALID",
+			},
+			setupMock: func(dm *CreateWalletDependenciesManager) {
+				// No mock setup needed - validation fails before repo call
+			},
+			hasErr: true,
+		},
+		{
+			name: "returns error when repository save fails",
+			cmd: command.CreateWalletCmd{
+				Name:         "My Wallet",
+				CurrencyCode: "VND",
+			},
+			setupMock: func(dm *CreateWalletDependenciesManager) {
+				dm.walletRepoMock.
+					EXPECT().
+					Create(mock.Anything, mock.Anything).
+					Return(assert.AnError).
+					Once()
+			},
+			hasErr: true,
+		},
+		{
+			name: "creates wallet successfully",
+			cmd: command.CreateWalletCmd{
+				Name:         "My Wallet",
+				CurrencyCode: "VND",
+			},
+			setupMock: func(dm *CreateWalletDependenciesManager) {
+				dm.walletRepoMock.
+					EXPECT().
+					Create(mock.Anything, mock.Anything).
+					Return(nil).
+					Once()
+			},
+			hasErr: false,
+		},
+	}
 
-		cmd := command.CreateWalletCmd{
-			CurrencyCode: "",
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-		err := NewCreateWalletDependenciesManager(t).NewHandler().Handle(context.Background(), cmd)
-		require.Error(t, err)
-	})
+			// Arrange
+			dm := NewCreateWalletDependenciesManager(t)
+			tt.setupMock(dm)
+			handler := dm.NewHandler()
 
-	t.Run("returns error when currency code is invalid", func(t *testing.T) {
-		t.Parallel()
+			// Act
+			err := handler.Handle(context.Background(), tt.cmd)
 
-		cmd := command.CreateWalletCmd{
-			CurrencyCode: "INVALID",
-		}
-
-		err := NewCreateWalletDependenciesManager(t).NewHandler().Handle(context.Background(), cmd)
-		require.Error(t, err)
-	})
-
-	t.Run("returns error when repository save fails", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := command.CreateWalletCmd{
-			CurrencyCode: "VND",
-		}
-
-		dm := NewCreateWalletDependenciesManager(t)
-		dm.walletRepoMock.
-			EXPECT().
-			Create(mock.Anything, mock.Anything).
-			Return(assert.AnError).
-			Once()
-
-		err := dm.NewHandler().Handle(context.Background(), cmd)
-
-		require.Error(t, err)
-	})
-
-	t.Run("creates wallet successfully", func(t *testing.T) {
-		t.Parallel()
-
-		cmd := command.CreateWalletCmd{
-			CurrencyCode: "VND",
-		}
-
-		dm := NewCreateWalletDependenciesManager(t)
-		dm.walletRepoMock.
-			EXPECT().
-			Create(mock.Anything, mock.Anything).
-			Return(nil).
-			Once()
-
-		err := dm.NewHandler().Handle(context.Background(), cmd)
-
-		require.NoError(t, err)
-	})
+			// Assert
+			if tt.hasErr {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }

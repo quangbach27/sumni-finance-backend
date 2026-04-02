@@ -13,37 +13,81 @@ import (
 func TestFundProvider_NewFundProvider(t *testing.T) {
 	testCases := []struct {
 		name              string
+		fpName            string
+		fpType            string
 		initBalanceAmount int64
 		currencyCode      string
 		hasErr            bool
 		expectedErr       string
 	}{
 		{
-			name:              "cannot init fund provider when init balance is negative",
+			name:              "returns errors when fund provider name is empty",
+			fpName:            "",
+			fpType:            "BANK",
+			initBalanceAmount: 100,
+			currencyCode:      "USD",
+			hasErr:            true,
+		},
+		{
+			name:              "returns error when init balance is negative",
+			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: -100,
 			currencyCode:      "USD",
 			hasErr:            true,
 		},
 		{
-			name:              "can init fund provider when init balance is zero",
+			name:              "returns error when type is empty",
+			fpName:            "Techcombank7316",
+			fpType:            "",
+			initBalanceAmount: 100,
+			currencyCode:      "USD",
+			hasErr:            true,
+		},
+		{
+			name:              "returns error when type is invalid",
+			fpName:            "Techcombank7316",
+			fpType:            "INVALID",
+			initBalanceAmount: 100,
+			currencyCode:      "USD",
+			hasErr:            true,
+		},
+		{
+			name:              "create fund provider when init balance is zero",
+			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "USD",
 			hasErr:            false,
 		},
 		{
-			name:              "can init fund provider when init balance is positive",
+			name:              "create fund provider when init balance is positive",
+			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 100,
 			currencyCode:      "USD",
 			hasErr:            false,
 		},
 		{
-			name:              "cannot init fund provider when currency code is empty",
+			name:              "create fund provider with CASH type",
+			fpName:            "Office Cash",
+			fpType:            "CASH",
+			initBalanceAmount: 5000,
+			currencyCode:      "USD",
+			hasErr:            false,
+		},
+		{
+			name:              "returns error when currency code is empty",
+			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "",
 			hasErr:            true,
 		},
 		{
-			name:              "cannot init fund provider when currency code is invalid",
+			name:              "returns error when currency code is invalid",
+			fpName:            "Techcombank7316",
+			fpType:            "BANK",
 			initBalanceAmount: 0,
 			currencyCode:      "INVALID",
 			hasErr:            true,
@@ -52,7 +96,7 @@ func TestFundProvider_NewFundProvider(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			fundProvider, err := fundprovider.NewFundProvider(tt.initBalanceAmount, tt.currencyCode)
+			fundProvider, err := fundprovider.NewFundProvider(tt.fpName, tt.fpType, tt.initBalanceAmount, tt.currencyCode)
 
 			if tt.hasErr {
 				require.Error(t, err)
@@ -73,6 +117,7 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 
 		// Given
 		id                       uuid.UUID
+		fpName                   string
 		balanceAmount            int64
 		unallocatedBalanceAmount int64
 		currencyCode             string
@@ -82,19 +127,39 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 		hasErr bool
 	}{
 		{
-			name:   "cannot initialize when id is empty",
-			id:     uuid.UUID{},
-			hasErr: true,
+			name:                     "returns error when id is empty",
+			id:                       uuid.UUID{},
+			fpName:                   "Techcombank7316",
+			balanceAmount:            50,
+			unallocatedBalanceAmount: 0,
+			currencyCode:             "USD",
+			version:                  0,
+			hasErr:                   true,
 		},
 		{
-			name:          "cannot initialize fund provider when balanceAmount is negative",
-			id:            uuid.New(),
-			balanceAmount: -100,
-			hasErr:        true,
-		},
-		{
-			name:                     "can initialize fund provider when balanceAmount is zero",
+			name:                     "returns error when fund provider name is empty",
 			id:                       uuid.New(),
+			fpName:                   "",
+			balanceAmount:            50,
+			unallocatedBalanceAmount: 0,
+			currencyCode:             "USD",
+			version:                  0,
+			hasErr:                   true,
+		},
+		{
+			name:                     "returns error when balance amount is negative",
+			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
+			balanceAmount:            -100,
+			unallocatedBalanceAmount: 0,
+			currencyCode:             "USD",
+			version:                  0,
+			hasErr:                   true,
+		},
+		{
+			name:                     "unmarshal fund provider successfully when balance amount is zero",
+			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            0,
 			unallocatedBalanceAmount: 0,
 			currencyCode:             "USD",
@@ -102,8 +167,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   false,
 		},
 		{
-			name:                     "can initialize fund provider when balanceAmount is positive",
+			name:                     "unmarshal fund provider successfully when balance amount is positive",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 0,
 			currencyCode:             "USD",
@@ -111,8 +177,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   false,
 		},
 		{
-			name:                     "cannot initialize fund provider when unallocated amount is negative",
+			name:                     "returns error when unallocated amount is negative",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: -10,
 			currencyCode:             "USD",
@@ -120,8 +187,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   true,
 		},
 		{
-			name:                     "cannot initialize fund provider when unallocated amount exceed balance amount",
+			name:                     "returns error when unallocated amount exceed balance amount",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 120,
 			currencyCode:             "USD",
@@ -129,8 +197,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   true,
 		},
 		{
-			name:                     "can initialize fund provider when unallocated amount is zero",
+			name:                     "unmarshal fund provider successfully when unallocated amount is zero",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 0,
 			currencyCode:             "USD",
@@ -138,8 +207,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   false,
 		},
 		{
-			name:                     "can initialize fund provider when unallocated amount does not excced balance",
+			name:                     "unmarshal fund provider successfully when unallocated amount does not excced balance",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 50,
 			currencyCode:             "USD",
@@ -147,8 +217,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   false,
 		},
 		{
-			name:                     "cannot initialize fund provider when currency code is empty",
+			name:                     "returns error when currency code is empty",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 50,
 			currencyCode:             "",
@@ -156,8 +227,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   true,
 		},
 		{
-			name:                     "cannot initialize fund provider when currency code is invalid",
+			name:                     "returns error when currency code is invalid",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 50,
 			currencyCode:             "INVALID",
@@ -165,8 +237,9 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 			hasErr:                   true,
 		},
 		{
-			name:                     "can initialize fund provider",
+			name:                     "unmarshal fund provider successfully",
 			id:                       uuid.New(),
+			fpName:                   "Techcombank7316",
 			balanceAmount:            100,
 			unallocatedBalanceAmount: 50,
 			currencyCode:             "USD",
@@ -181,6 +254,8 @@ func TestFundProvider_UnmarshallFromDatabase(t *testing.T) {
 
 			fundProvider, err := fundprovider.UnmarshalFundProviderFromDatabase(
 				tt.id,
+				tt.fpName,
+				"BANK",
 				tt.balanceAmount,
 				tt.unallocatedBalanceAmount,
 				tt.currencyCode,
@@ -215,25 +290,25 @@ func TestFundProvider_Reserve(t *testing.T) {
 		hasErr            bool
 	}{
 		{
-			name:              "cannot allocate when allocated amount exceed",
+			name:              "returns error when allocated amount exceed",
 			unallocatedAmount: 50,
 			allocatedAmount:   100,
 			hasErr:            true,
 		},
 		{
-			name:              "cannot allocate when allocated amount is negative",
+			name:              "returns error when allocated amount is negative",
 			unallocatedAmount: 50,
 			allocatedAmount:   -10,
 			hasErr:            true,
 		},
 		{
-			name:              "can allocate when allocated is zero",
+			name:              "reverses unallocated amount successfully when allocated is zero",
 			unallocatedAmount: 50,
 			allocatedAmount:   0,
 			hasErr:            false,
 		},
 		{
-			name:              "can allocate",
+			name:              "reverses unallocated amount successfully",
 			unallocatedAmount: 50,
 			allocatedAmount:   10,
 			hasErr:            false,
@@ -245,7 +320,7 @@ func TestFundProvider_Reserve(t *testing.T) {
 			t.Parallel()
 
 			// Given
-			fundProvider, err := fundprovider.NewFundProvider(tt.unallocatedAmount, "USD")
+			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", tt.unallocatedAmount, "USD")
 			require.NoError(t, err)
 			require.NotNil(t, fundProvider)
 
@@ -290,7 +365,7 @@ func TestFundProvider_TopUp(t *testing.T) {
 			expectErr:   fundprovider.ErrInsufficientAmount,
 		},
 		{
-			name:        "ctop up successfully",
+			name:        "top up successfully",
 			initBalance: 100,
 			topUpAmount: 50,
 			hasErr:      false,
@@ -299,7 +374,7 @@ func TestFundProvider_TopUp(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			fundProvider, err := fundprovider.NewFundProvider(tt.initBalance, "USD")
+			fundProvider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", tt.initBalance, "USD")
 			require.NoError(t, err)
 
 			topUpAmount, err := valueobject.NewMoney(tt.topUpAmount, fundProvider.Currency())
@@ -374,6 +449,8 @@ func TestFundProvider_Withdraw(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fundProvider, err := fundprovider.UnmarshalFundProviderFromDatabase(
 				uuid.New(),
+				"Techcombank7316",
+				"BANK",
 				tt.balance,
 				tt.unallocatedBalance,
 				"USD",

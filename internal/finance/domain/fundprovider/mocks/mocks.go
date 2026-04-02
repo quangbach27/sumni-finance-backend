@@ -40,8 +40,8 @@ func (_m *MockRepository) EXPECT() *MockRepository_Expecter {
 }
 
 // Create provides a mock function for the type MockRepository
-func (_mock *MockRepository) Create(ctx context.Context, fundProvider *fundprovider.FundProvider) error {
-	ret := _mock.Called(ctx, fundProvider)
+func (_mock *MockRepository) Create(ctx context.Context, fp *fundprovider.FundProvider) error {
+	ret := _mock.Called(ctx, fp)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
@@ -49,7 +49,7 @@ func (_mock *MockRepository) Create(ctx context.Context, fundProvider *fundprovi
 
 	var r0 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, *fundprovider.FundProvider) error); ok {
-		r0 = returnFunc(ctx, fundProvider)
+		r0 = returnFunc(ctx, fp)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -63,12 +63,12 @@ type MockRepository_Create_Call struct {
 
 // Create is a helper method to define mock.On call
 //   - ctx context.Context
-//   - fundProvider *fundprovider.FundProvider
-func (_e *MockRepository_Expecter) Create(ctx interface{}, fundProvider interface{}) *MockRepository_Create_Call {
-	return &MockRepository_Create_Call{Call: _e.mock.On("Create", ctx, fundProvider)}
+//   - fp *fundprovider.FundProvider
+func (_e *MockRepository_Expecter) Create(ctx interface{}, fp interface{}) *MockRepository_Create_Call {
+	return &MockRepository_Create_Call{Call: _e.mock.On("Create", ctx, fp)}
 }
 
-func (_c *MockRepository_Create_Call) Run(run func(ctx context.Context, fundProvider *fundprovider.FundProvider)) *MockRepository_Create_Call {
+func (_c *MockRepository_Create_Call) Run(run func(ctx context.Context, fp *fundprovider.FundProvider)) *MockRepository_Create_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -91,7 +91,7 @@ func (_c *MockRepository_Create_Call) Return(err error) *MockRepository_Create_C
 	return _c
 }
 
-func (_c *MockRepository_Create_Call) RunAndReturn(run func(ctx context.Context, fundProvider *fundprovider.FundProvider) error) *MockRepository_Create_Call {
+func (_c *MockRepository_Create_Call) RunAndReturn(run func(ctx context.Context, fp *fundprovider.FundProvider) error) *MockRepository_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }

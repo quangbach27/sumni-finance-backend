@@ -27,29 +27,33 @@ func NewFundProviderRepo(
 
 func (r *fundProviderRepo) Create(
 	ctx context.Context,
-	fundProvider *fundprovider.FundProvider,
+	fp *fundprovider.FundProvider,
 ) error {
 	return r.queries.CreateFundProvider(ctx, store.CreateFundProviderParams{
-		ID:                fundProvider.ID(),
-		Balance:           fundProvider.Balance().Amount(),
-		Currency:          fundProvider.Currency().Code(),
-		UnallocatedAmount: fundProvider.UnallocatedBalance().Amount(),
-		Version:           fundProvider.Version(),
+		ID:                fp.ID(),
+		Name:              fp.Name(),
+		FpType:            fp.Type().String(),
+		Balance:           fp.Balance().Amount(),
+		Currency:          fp.Currency().Code(),
+		UnallocatedAmount: fp.UnallocatedBalance().Amount(),
+		Version:           fp.Version(),
 	})
 }
 
 func (r *fundProviderRepo) GetByID(ctx context.Context, fpID uuid.UUID) (*fundprovider.FundProvider, error) {
-	fundProviderModel, err := r.queries.GetFundProviderByID(ctx, fpID)
+	fpModel, err := r.queries.GetFundProviderByID(ctx, fpID)
 	if err != nil {
 		return nil, err
 	}
 
 	return fundprovider.UnmarshalFundProviderFromDatabase(
-		fundProviderModel.ID,
-		fundProviderModel.Balance,
-		fundProviderModel.UnallocatedAmount,
-		fundProviderModel.Currency,
-		fundProviderModel.Version,
+		fpModel.ID,
+		fpModel.Name,
+		fpModel.FpType,
+		fpModel.Balance,
+		fpModel.UnallocatedAmount,
+		fpModel.Currency,
+		fpModel.Version,
 	)
 }
 
@@ -60,13 +64,15 @@ func (r *fundProviderRepo) GetByIDs(ctx context.Context, fpID []uuid.UUID) ([]*f
 	}
 
 	fps := make([]*fundprovider.FundProvider, 0, len(fpModels))
-	for _, model := range fpModels {
+	for _, fpModel := range fpModels {
 		fp, err := fundprovider.UnmarshalFundProviderFromDatabase(
-			model.ID,
-			model.Balance,
-			model.UnallocatedAmount,
-			model.Currency,
-			model.Version,
+			fpModel.ID,
+			fpModel.Name,
+			fpModel.FpType,
+			fpModel.Balance,
+			fpModel.UnallocatedAmount,
+			fpModel.Currency,
+			fpModel.Version,
 		)
 		if err != nil {
 			return nil, err

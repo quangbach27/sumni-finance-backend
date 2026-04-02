@@ -28,9 +28,9 @@ func (hs HttpServer) AllocateFund(
 	}
 
 	// Convert request to command
-	providers := make([]command.AllocatedProviders, 0, len(req.Providers))
+	providers := make([]command.AllocatedProvider, 0, len(req.Providers))
 	for _, p := range req.Providers {
-		providers = append(providers, command.AllocatedProviders{
+		providers = append(providers, command.AllocatedProvider{
 			ID:              p.Id,
 			AllocatedAmount: p.AllocatedAmount,
 		})
@@ -39,8 +39,8 @@ func (hs HttpServer) AllocateFund(
 	err := hs.application.Commands.AllocateFund.Handle(
 		r.Context(),
 		command.AllocateFundCmd{
-			WalletID:  walletId,
-			Providers: providers,
+			WalletID:            walletId,
+			AllocationProviders: providers,
 		},
 	)
 	if err != nil {

@@ -27,14 +27,23 @@ type CreateFundProviderRequest struct {
 	// Currency Currency code (e.g., USD, VND, KRW)
 	Currency string `json:"currency"`
 
+	// FpType Type of fund provider (BANK for bank accounts, CASH for cash holdings)
+	FpType string `json:"fpType"`
+
 	// InitBalance Initial balance for the fund provider
 	InitBalance int64 `json:"initBalance"`
+
+	// Name Fund provider name followed by the last 4 digits of the account number (e.g., Techcombank 7316)
+	Name string `json:"name"`
 }
 
 // CreateWalletRequest defines model for CreateWalletRequest.
 type CreateWalletRequest struct {
 	// Currency Currency code (e.g., USD, VND, KRW)
 	Currency string `json:"currency"`
+
+	// Name Wallet Name (tai chinh tong, quy van phong, ...)
+	Name string `json:"name"`
 }
 
 // CreateWalletResponse defines model for CreateWalletResponse.
