@@ -27,15 +27,16 @@ func NewFundProviderRepo(
 
 func (r *fundProviderRepo) Create(
 	ctx context.Context,
-	fundProvider *fundprovider.FundProvider,
+	fp *fundprovider.FundProvider,
 ) error {
 	return r.queries.CreateFundProvider(ctx, store.CreateFundProviderParams{
-		ID:                fundProvider.ID(),
-		Name:              fundProvider.Name(),
-		Balance:           fundProvider.Balance().Amount(),
-		Currency:          fundProvider.Currency().Code(),
-		UnallocatedAmount: fundProvider.UnallocatedBalance().Amount(),
-		Version:           fundProvider.Version(),
+		ID:                fp.ID(),
+		Name:              fp.Name(),
+		FpType:            fp.Type().String(),
+		Balance:           fp.Balance().Amount(),
+		Currency:          fp.Currency().Code(),
+		UnallocatedAmount: fp.UnallocatedBalance().Amount(),
+		Version:           fp.Version(),
 	})
 }
 

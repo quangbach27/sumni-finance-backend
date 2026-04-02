@@ -60,7 +60,7 @@ WHERE id = ANY(sqlc.arg(fpIDs)::uuid[]);
 UPDATE finance.fund_providers fp
 SET
     balance = v.balance,
-    unallocated_amount = v.unallocatated_amount,
+    unallocated_amount = v.unallocated_amount,
     version = v.version + 1
 FROM (
     SELECT
