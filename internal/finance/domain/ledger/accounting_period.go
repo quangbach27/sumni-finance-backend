@@ -108,7 +108,7 @@ func (ap *AccountingPeriod) ClosingBalance() valueobject.Money  { return ap.clos
 func (ap *AccountingPeriod) EndDate() time.Time                 { return ap.endDate }
 func (ap *AccountingPeriod) Transactions() []*TransactionRecord { return ap.transactions }
 
-func (ap *AccountingPeriod) Record(transactionRecords ...*TransactionRecord) error {
+func (ap *AccountingPeriod) Record(transactionRecords []*TransactionRecord) error {
 	ap.transactions = append(ap.transactions, transactionRecords...)
 	return nil
 }

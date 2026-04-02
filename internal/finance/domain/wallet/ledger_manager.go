@@ -33,7 +33,7 @@ func NewLedgerManager(accountPeriods []*ledger.AccountingPeriod) (*LedgerManager
 			interval:  1,
 		},
 	}
-	
+
 	if len(accountPeriods) != 0 {
 		ledgerManager.accountPeriods = make(map[ledger.YearMonth]*ledger.AccountingPeriod, len(accountPeriods))
 
@@ -67,6 +67,15 @@ func (m *LedgerManager) OpenNewAccountingPeriod(
 	return nil
 }
 
-func (m *LedgerManager) Record(yearMonth ledger.YearMonth, trs []*ledger.TransactionRecord) error {
-	return nil
+func (m *LedgerManager) FindAccountingPeriod(yearMonth ledger.YearMonth) *ledger.AccountingPeriod {
+	return m.accountPeriods[yearMonth]
+}
+
+func (m *LedgerManager) Record(yearMonth ledger.YearMonth, txRecords []*ledger.TransactionRecord) error {
+	ap := m.FindAccountingPeriod(yearMonth)
+	if ap == nil {
+		return fmt.Errorf("account period: %s not found", yearMonth.String())
+	}
+
+	return ap.Record(txRecords)
 }

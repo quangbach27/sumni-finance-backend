@@ -16,17 +16,17 @@ var (
 	ErrAllocationAmountNegative      = errors.New("allocated amount is negative")
 )
 
-type ErrFundAllocatedMissing struct {
+type ErrFundAllocatedNotFound struct {
 	FpID string
 }
 
-func (e ErrFundAllocatedMissing) Error() string {
-	return fmt.Sprintf("fund provider: %s is missing", e.FpID)
+func (e ErrFundAllocatedNotFound) Error() string {
+	return fmt.Sprintf("fund provider: %s was not found", e.FpID)
 }
 
 type TransactionSpec struct {
-	year  int
-	month int
+	Year  int
+	Month int
 
 	TransactionNo   string
 	TransactionType string
@@ -162,7 +162,7 @@ func (w *Wallet) AllocateFromFundProvider(
 	allocatedAmount int64,
 ) error {
 	if fundProvider == nil {
-		return ErrFundAllocatedMissing{
+		return ErrFundAllocatedNotFound{
 			FpID: "unknown",
 		}
 	}
@@ -196,7 +196,7 @@ func (w *Wallet) AllocateFromFundProvider(
 func (w *Wallet) Topup(amount valueobject.Money, fpID uuid.UUID) error {
 	fp := w.providerManager.FindProvider(fpID)
 	if fp == nil {
-		return ErrFundAllocatedMissing{
+		return ErrFundAllocatedNotFound{
 			FpID: fpID.String(),
 		}
 	}
@@ -217,7 +217,7 @@ func (w *Wallet) Topup(amount valueobject.Money, fpID uuid.UUID) error {
 func (w *Wallet) Withdraw(amount valueobject.Money, fpID uuid.UUID) error {
 	fp := w.providerManager.FindProvider(fpID)
 	if fp == nil {
-		return ErrFundAllocatedMissing{
+		return ErrFundAllocatedNotFound{
 			FpID: fpID.String(),
 		}
 	}
@@ -240,16 +240,32 @@ func (w *Wallet) OpenAccountPeriod(yearMonth ledger.YearMonth) error {
 }
 
 func (w *Wallet) RecordTransactions(yearMonth ledger.YearMonth, specs ...TransactionSpec) error {
-	accountingPeriod := w.ledgerManager.accountPeriods[yearMonth]
-
+	accountingPeriod := w.ledgerManager.FindAccountingPeriod(yearMonth)
 	if accountingPeriod == nil || accountingPeriod.IsClose() {
-		return fmt.Errorf("account period: %s has been closed", yearMonth.String())
+		return fmt.Errorf("account period: %s not found or has been closed", yearMonth.String())
 	}
 
-	transactionRecords := make([]*ledger.TransactionRecord, 0, len(specs))
+	txRecords, err := w.buildTransactionRecordsFromSpec(specs)
+	if err != nil {
+		return fmt.Errorf("build transaction records failed: %w", err)
+	}
+
+	if err := w.ledgerManager.Record(yearMonth, txRecords); err != nil {
+		return fmt.Errorf("record transaction failed: %w", err)
+	}
+
+	return nil
+}
+
+func (w *Wallet) buildTransactionRecordsFromSpec(specs []TransactionSpec) ([]*ledger.TransactionRecord, error) {
+	if len(specs) == 0 {
+		return nil, errors.New("transaction spec is empty")
+	}
+
+	txRecords := make([]*ledger.TransactionRecord, 0, len(specs))
 
 	for _, spec := range specs {
-		transactionRecord, err := ledger.NewTransactionRecord(
+		txRecord, err := ledger.NewTransactionRecord(
 			spec.TransactionNo,
 			spec.TransactionType,
 			spec.Amount,
@@ -257,30 +273,24 @@ func (w *Wallet) RecordTransactions(yearMonth ledger.YearMonth, specs ...Transac
 			spec.fpID,
 		)
 		if err != nil {
-			return fmt.Errorf("record transaction: %w", err)
+			return nil, err
 		}
 
-		if transactionRecord.IsCredit() {
-			err = w.Topup(transactionRecord.Amount(), spec.fpID)
-			if err != nil {
-				return fmt.Errorf("record transaction failed: %w", err)
+		if txRecord.IsCredit() {
+			if err = w.Topup(txRecord.Amount(), spec.fpID); err != nil {
+				return nil, err
 			}
 		} else {
-			err = w.Withdraw(transactionRecord.Amount(), spec.fpID)
-			if err != nil {
-				return fmt.Errorf("record transaction failed: %w", err)
+			if err = w.Withdraw(txRecord.Amount(), spec.fpID); err != nil {
+				return nil, err
 			}
 		}
 
-		transactionRecord.SetFpBalance(w.providerManager.FindProvider(spec.fpID).Balance())
-		transactionRecord.SetWalletBalance(w.balance)
+		txRecord.SetFpBalance(w.providerManager.FindProvider(spec.fpID).Balance())
+		txRecord.SetWalletBalance(w.balance)
 
-		transactionRecords = append(transactionRecords, transactionRecord)
+		txRecords = append(txRecords, txRecord)
 	}
 
-	if err := w.ledgerManager.Record(yearMonth, transactionRecords); err != nil {
-		return fmt.Errorf("record transaction failed: %w", err)
-	}
-
-	return nil
+	return txRecords, nil
 }
