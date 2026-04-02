@@ -1,5 +1,12 @@
+pre-commit:
+  commands:
+    fmt:
+      run: gofmt -s -w .
+
 pre-push:
   commands:
+    fmt:
+      run: gofmt -s -w .
     lint:
       run: make lint
     test:
