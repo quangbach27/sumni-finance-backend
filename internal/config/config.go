@@ -141,6 +141,7 @@ func getEnvAsInt32(key string, defaultValue int32) int32 {
 			"error", err.Error(),
 			"default", defaultValue,
 		)
+		return defaultValue
 	}
 
 	return int32(formattedValue)
