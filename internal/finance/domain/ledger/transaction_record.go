@@ -18,6 +18,8 @@ type TransactionType struct {
 	value string
 }
 
+func (t TransactionType) String() string { return t.value }
+
 func NewTransactionType(typeStr string) (TransactionType, error) {
 	typeStrCleaned := strings.ToUpper(strings.TrimSpace(typeStr))
 	if typeStrCleaned == DebitTransaction.value {
@@ -89,7 +91,14 @@ func (tr *TransactionRecord) SetFpBalance(fpBalance valueobject.Money) {
 	tr.fpBalance = fpBalance
 }
 
-func (t *TransactionRecord) Amount() valueobject.Money { return t.amount }
+func (t *TransactionRecord) ID() uuid.UUID                    { return t.id }
+func (t *TransactionRecord) TransactionNo() string            { return t.transactionNo }
+func (t *TransactionRecord) TransactionType() TransactionType { return t.transactionType }
+func (t *TransactionRecord) Amount() valueobject.Money        { return t.amount }
+func (t *TransactionRecord) Description() string              { return t.description }
+func (t *TransactionRecord) WalletBalance() valueobject.Money { return t.walletBalance }
+func (t *TransactionRecord) FpID() uuid.UUID                  { return t.fpID }
+func (t *TransactionRecord) FpBalance() valueobject.Money     { return t.fpBalance }
 
 func (t *TransactionRecord) IsCredit() bool {
 	return t.transactionType.value == CreditTransaction.value

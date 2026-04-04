@@ -290,7 +290,7 @@ func TestFundProvider_Reserve(t *testing.T) {
 		hasErr            bool
 	}{
 		{
-			name:              "returns error when allocated amount exceed",
+			name:              "returns error when allocated amount exceed unallocated amount",
 			unallocatedAmount: 50,
 			allocatedAmount:   100,
 			hasErr:            true,

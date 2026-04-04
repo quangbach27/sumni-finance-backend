@@ -5,19 +5,24 @@
 package store
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
 type FinanceAccountingPeriod struct {
 	ID                   uuid.UUID `db:"id"`
 	YearMonth            string    `db:"year_month"`
-	StartDate            *int32    `db:"start_date"`
-	Interval             *int32    `db:"interval"`
+	StartDate            int32     `db:"start_date"`
+	Interval             int32     `db:"interval"`
+	EndTime              time.Time `db:"end_time"`
 	WalletOpeningBalance int64     `db:"wallet_opening_balance"`
-	TotalDebit           *int64    `db:"total_debit"`
-	TotalCredit          *int64    `db:"total_credit"`
-	WalletClosingBalance *int64    `db:"wallet_closing_balance"`
+	TotalDebit           int64     `db:"total_debit"`
+	TotalCredit          int64     `db:"total_credit"`
+	WalletClosingBalance int64     `db:"wallet_closing_balance"`
+	Status               string    `db:"status"`
 	WalletID             uuid.UUID `db:"wallet_id"`
+	Version              *int32    `db:"version"`
 }
 
 type FinanceFundProvider struct {

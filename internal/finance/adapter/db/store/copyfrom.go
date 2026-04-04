@@ -42,3 +42,43 @@ func (r iteratorForBulkInsertFundAllocations) Err() error {
 func (q *Queries) BulkInsertFundAllocations(ctx context.Context, arg []BulkInsertFundAllocationsParams) (int64, error) {
 	return q.db.CopyFrom(ctx, []string{"finance", "fund_provider_allocations"}, []string{"fp_id", "wallet_id", "allocated_amount"}, &iteratorForBulkInsertFundAllocations{rows: arg})
 }
+
+// iteratorForBulkInsertTransactionRecords implements pgx.CopyFromSource.
+type iteratorForBulkInsertTransactionRecords struct {
+	rows                 []BulkInsertTransactionRecordsParams
+	skippedFirstNextCall bool
+}
+
+func (r *iteratorForBulkInsertTransactionRecords) Next() bool {
+	if len(r.rows) == 0 {
+		return false
+	}
+	if !r.skippedFirstNextCall {
+		r.skippedFirstNextCall = true
+		return true
+	}
+	r.rows = r.rows[1:]
+	return len(r.rows) > 0
+}
+
+func (r iteratorForBulkInsertTransactionRecords) Values() ([]interface{}, error) {
+	return []interface{}{
+		r.rows[0].ID,
+		r.rows[0].TransactionNo,
+		r.rows[0].TransactionType,
+		r.rows[0].Amount,
+		r.rows[0].WalletBalance,
+		r.rows[0].WalletID,
+		r.rows[0].FpID,
+		r.rows[0].FpBalance,
+		r.rows[0].AccountingPeriodsID,
+	}, nil
+}
+
+func (r iteratorForBulkInsertTransactionRecords) Err() error {
+	return nil
+}
+
+func (q *Queries) BulkInsertTransactionRecords(ctx context.Context, arg []BulkInsertTransactionRecordsParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"finance", "transaction_records"}, []string{"id", "transaction_no", "transaction_type", "amount", "wallet_balance", "wallet_id", "fp_id", "fp_balance", "accounting_periods_id"}, &iteratorForBulkInsertTransactionRecords{rows: arg})
+}

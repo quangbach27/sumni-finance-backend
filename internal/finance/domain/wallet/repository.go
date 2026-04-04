@@ -26,4 +26,12 @@ type Repository interface {
 		allocationSpec ProviderAllocationSpec,
 		allocatedFunc func(*Wallet) error,
 	) error
+
+	CreateTransactionRecords(
+		ctx context.Context,
+		wID uuid.UUID,
+		allocationSpec ProviderAllocationSpec,
+		accountingPeriodIDs uuid.UUID,
+		updateFunc func(w *Wallet) error,
+	) error
 }

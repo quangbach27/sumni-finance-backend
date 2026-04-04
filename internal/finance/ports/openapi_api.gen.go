@@ -15,13 +15,19 @@ import (
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Create a new fund provider
-	// (POST /v1/fund-provider)
+	// (POST /v1/fund-providers)
 	CreateFundProvider(w http.ResponseWriter, r *http.Request)
 	// Create a new wallet
-	// (POST /v1/wallet)
+	// (POST /v1/wallets)
 	CreateWallet(w http.ResponseWriter, r *http.Request)
+	// Record transaction records for an accounting period
+	// (POST /v1/wallets/{walletId}/account-periods/{accountPeriodId})
+	RecordTransactionRecords(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID, accountPeriodId openapi_types.UUID)
+	// Open a new accounting period for a wallet
+	// (POST /v1/wallets/{walletId}/accounting-periods)
+	OpenAccountingPeriod(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID)
 	// Allocate funds to a wallet
-	// (POST /v1/wallet/{walletId}/allocate-fund)
+	// (POST /v1/wallets/{walletId}/allocate-fund-providers)
 	AllocateFund(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID)
 }
 
@@ -30,19 +36,31 @@ type ServerInterface interface {
 type Unimplemented struct{}
 
 // Create a new fund provider
-// (POST /v1/fund-provider)
+// (POST /v1/fund-providers)
 func (_ Unimplemented) CreateFundProvider(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // Create a new wallet
-// (POST /v1/wallet)
+// (POST /v1/wallets)
 func (_ Unimplemented) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Record transaction records for an accounting period
+// (POST /v1/wallets/{walletId}/account-periods/{accountPeriodId})
+func (_ Unimplemented) RecordTransactionRecords(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID, accountPeriodId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Open a new accounting period for a wallet
+// (POST /v1/wallets/{walletId}/accounting-periods)
+func (_ Unimplemented) OpenAccountingPeriod(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // Allocate funds to a wallet
-// (POST /v1/wallet/{walletId}/allocate-fund)
+// (POST /v1/wallets/{walletId}/allocate-fund-providers)
 func (_ Unimplemented) AllocateFund(w http.ResponseWriter, r *http.Request, walletId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
@@ -75,6 +93,65 @@ func (siw *ServerInterfaceWrapper) CreateWallet(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateWallet(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RecordTransactionRecords operation middleware
+func (siw *ServerInterfaceWrapper) RecordTransactionRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "walletId" -------------
+	var walletId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "walletId", chi.URLParam(r, "walletId"), &walletId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "walletId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "accountPeriodId" -------------
+	var accountPeriodId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountPeriodId", chi.URLParam(r, "accountPeriodId"), &accountPeriodId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountPeriodId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RecordTransactionRecords(w, r, walletId, accountPeriodId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenAccountingPeriod operation middleware
+func (siw *ServerInterfaceWrapper) OpenAccountingPeriod(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "walletId" -------------
+	var walletId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "walletId", chi.URLParam(r, "walletId"), &walletId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "walletId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenAccountingPeriod(w, r, walletId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -223,13 +300,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	}
 
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/v1/fund-provider", wrapper.CreateFundProvider)
+		r.Post(options.BaseURL+"/v1/fund-providers", wrapper.CreateFundProvider)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/v1/wallet", wrapper.CreateWallet)
+		r.Post(options.BaseURL+"/v1/wallets", wrapper.CreateWallet)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/v1/wallet/{walletId}/allocate-fund", wrapper.AllocateFund)
+		r.Post(options.BaseURL+"/v1/wallets/{walletId}/account-periods/{accountPeriodId}", wrapper.RecordTransactionRecords)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/wallets/{walletId}/accounting-periods", wrapper.OpenAccountingPeriod)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/wallets/{walletId}/allocate-fund-providers", wrapper.AllocateFund)
 	})
 
 	return r

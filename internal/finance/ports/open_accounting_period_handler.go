@@ -6,12 +6,18 @@ import (
 	"sumni-finance-backend/internal/common/server/httperr"
 	"sumni-finance-backend/internal/common/server/response"
 	"sumni-finance-backend/internal/finance/app/command"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Create a new wallet
-// (POST /v1/wallets)
-func (hs HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
-	var req CreateWalletRequest
+// Open a new accounting period for a wallet
+// (POST /v1/wallets/{walletId}/accounting-periods)
+func (hs HttpServer) OpenAccountingPeriod(
+	w http.ResponseWriter,
+	r *http.Request,
+	walletId openapi_types.UUID,
+) {
+	var req OpenAccountingPeriodRequest
 
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -21,10 +27,15 @@ func (hs HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := hs.application.Commands.CreateWallet.Handle(r.Context(), command.CreateWalletCmd{
-		Name:         req.Name,
-		CurrencyCode: req.Currency,
-	}); err != nil {
+	err := hs.application.Commands.OpenAccountingPeriod.Handle(
+		r.Context(),
+		command.OpenAccountingPeriodCmd{
+			WalletID: walletId,
+			Year:     req.Year,
+			Month:    req.Month,
+		},
+	)
+	if err != nil {
 		httperr.RespondWithSlugError(err, w, r)
 		return
 	}

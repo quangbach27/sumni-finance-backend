@@ -177,7 +177,7 @@ func TestAllocateFundHandler_Handle(t *testing.T) {
 				spec wallet.ProviderAllocationSpec,
 				updateFunc func(*wallet.Wallet) error,
 			) error {
-				pa, err := wallet.NewProviderAllocation(provider1, 40)
+				pa, err := wallet.NewFpAllocation(provider1, 40)
 				require.NoError(t, err)
 
 				w, err := wallet.UnmarshalWalletFromDatabase(

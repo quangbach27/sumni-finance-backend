@@ -3,7 +3,7 @@ package wallet
 import "github.com/google/uuid"
 
 type ProviderAllocationSpec interface {
-	IsSatisfiedBy(p ProviderAllocation) bool
+	IsSatisfiedBy(p FpAllocation) bool
 }
 
 type DefaultProviderAllocationSpec struct{}
@@ -12,7 +12,7 @@ func NewDefaultProviderAllocationSpec() DefaultProviderAllocationSpec {
 	return DefaultProviderAllocationSpec{}
 }
 
-func (spec DefaultProviderAllocationSpec) IsSatisfiedBy(p ProviderAllocation) bool {
+func (spec DefaultProviderAllocationSpec) IsSatisfiedBy(p FpAllocation) bool {
 	return true
 }
 
@@ -32,8 +32,8 @@ func NewProviderMatchesAnySpec(providerIDs []uuid.UUID) ProviderMatchesAnySpec {
 	}
 }
 
-func (spec ProviderMatchesAnySpec) IsSatisfiedBy(p ProviderAllocation) bool {
-	provider := p.Provider()
+func (spec ProviderMatchesAnySpec) IsSatisfiedBy(p FpAllocation) bool {
+	provider := p.FundProvider()
 	if provider == nil {
 		return false
 	}

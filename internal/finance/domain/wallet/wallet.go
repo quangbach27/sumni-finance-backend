@@ -25,12 +25,9 @@ func (e ErrFundAllocatedNotFound) Error() string {
 }
 
 type TransactionSpec struct {
-	Year  int
-	Month int
-
 	TransactionNo   string
 	TransactionType string
-	Amount          valueobject.Money
+	Amount          int64
 	Description     string
 	FpID            uuid.UUID
 }
@@ -41,10 +38,12 @@ type Wallet struct {
 	balance valueobject.Money
 	version int32
 
-	providerManager *ProviderManager
-	ledgerManager   *LedgerManager
+	fpAllocationManager *FundProviderAllocationManager
+	ledgerManager       *LedgerManager
 }
 
+// NewWallet constructs a new Wallet aggregate.
+// Note: To rehydrate a Wallet from database state, use UnmarshalWalletFromDatabase, UnmarshalWalletWithLedgerFromDatabase instead
 func NewWallet(currencyCode string, name string) (*Wallet, error) {
 	if name == "" {
 		return nil, errors.New("name is required")
@@ -65,30 +64,36 @@ func NewWallet(currencyCode string, name string) (*Wallet, error) {
 		return nil, err
 	}
 
+	fpAllocationManager, err := NewFpAllocationManager(nil)
+	if err != nil {
+		return nil, err
+	}
+
 	ledgerManager, err := NewLedgerManager(nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Wallet{
-		id:      id,
-		name:    name,
-		balance: balance,
-		version: 0,
-		providerManager: &ProviderManager{
-			providers: make(map[uuid.UUID]ProviderAllocation),
-		},
-		ledgerManager: ledgerManager,
+		id:                  id,
+		name:                name,
+		balance:             balance,
+		version:             0,
+		fpAllocationManager: fpAllocationManager,
+		ledgerManager:       ledgerManager,
 	}, nil
 }
 
+// UnmarshalWalletFromDatabase rehydrates a Wallet from persisted database state.
+// The Wallet is initialized with provider allocations and an empty ledger manager.
+// Note: Adding a new ledger manager afterward is supported and will not cause errors.
 func UnmarshalWalletFromDatabase(
 	id uuid.UUID,
 	name string,
 	balanceAmount int64,
 	currencyCode string,
 	version int32,
-	providerAllocations ...ProviderAllocation,
+	providerAllocations ...*FpAllocation,
 ) (*Wallet, error) {
 	v := validator.New()
 
@@ -111,7 +116,7 @@ func UnmarshalWalletFromDatabase(
 		return nil, err
 	}
 
-	providerManager, err := NewProviderManager(providerAllocations)
+	providerManager, err := NewFpAllocationManager(providerAllocations)
 	if err != nil {
 		return nil, err
 	}
@@ -122,23 +127,25 @@ func UnmarshalWalletFromDatabase(
 	}
 
 	return &Wallet{
-		id:              id,
-		name:            name,
-		balance:         balance,
-		version:         version,
-		providerManager: providerManager,
-		ledgerManager:   ledgerManager,
+		id:                  id,
+		name:                name,
+		balance:             balance,
+		version:             version,
+		fpAllocationManager: providerManager,
+		ledgerManager:       ledgerManager,
 	}, nil
 }
 
-func UnmarshalWalletFromDatabaseWithLedger(
+// UnmarshalWalletFromDatabase rehydrates a Wallet from persisted database state.
+// The Wallet is initialized with provider allocations and ledger manager.
+func UnmarshalWalletWithLedgerFromDatabase(
 	id uuid.UUID,
 	name string,
 	balanceAmount int64,
 	currencyCode string,
 	version int32,
 	accountingPeriods []*ledger.AccountingPeriod,
-	providerAllocations ...ProviderAllocation,
+	providerAllocations ...*FpAllocation,
 ) (*Wallet, error) {
 	w, err := UnmarshalWalletFromDatabase(
 		id,
@@ -162,29 +169,33 @@ func UnmarshalWalletFromDatabaseWithLedger(
 	return w, nil
 }
 
-func (w *Wallet) ID() uuid.UUID                     { return w.id }
-func (w *Wallet) Name() string                      { return w.name }
-func (w *Wallet) Balance() valueobject.Money        { return w.balance }
-func (w *Wallet) Currency() valueobject.Currency    { return w.balance.Currency() }
-func (w *Wallet) Version() int32                    { return w.version }
-func (w *Wallet) ProviderManager() *ProviderManager { return w.providerManager }
+func (w *Wallet) ID() uuid.UUID                                       { return w.id }
+func (w *Wallet) Name() string                                        { return w.name }
+func (w *Wallet) Balance() valueobject.Money                          { return w.balance }
+func (w *Wallet) Currency() valueobject.Currency                      { return w.balance.Currency() }
+func (w *Wallet) Version() int32                                      { return w.version }
+func (w *Wallet) FundProviderManager() *FundProviderAllocationManager { return w.fpAllocationManager }
+func (w *Wallet) LedgerManager() *LedgerManager                       { return w.ledgerManager }
 
-func (w *Wallet) AllocateFromFundProvider(
-	fundProvider *fundprovider.FundProvider,
+func (w *Wallet) SetAccountingPeriods(accountingPeriod ...*ledger.AccountingPeriod) error {
+	ledgerManager, err := NewLedgerManager(accountingPeriod)
+	if err != nil {
+		return err
+	}
+
+	w.ledgerManager = ledgerManager
+	return nil
+}
+
+// AllocateFundProvider registers a fund provider and increases the wallet balance by the allocated amount.
+// The allocated amount represents the portion of the provider’s funds reserved for this wallet.
+// It also updates the provider’s unallocated balance accordingly.
+func (w *Wallet) AllocateFundProvider(
+	fp *fundprovider.FundProvider,
 	allocatedAmount int64,
 ) error {
-	if fundProvider == nil {
-		return ErrFundAllocatedNotFound{
-			FpID: "unknown",
-		}
-	}
-
 	if allocatedAmount < 0 {
 		return ErrAllocationAmountNegative
-	}
-
-	if fp := w.ProviderManager().FindProvider(fundProvider.ID()); fp != nil {
-		return ErrFundProviderAlreadyRegistered
 	}
 
 	allocated, err := valueobject.NewMoney(allocatedAmount, w.Currency())
@@ -192,7 +203,7 @@ func (w *Wallet) AllocateFromFundProvider(
 		return err
 	}
 
-	if err = w.providerManager.AddFundProviderAndReserve(fundProvider, allocated); err != nil {
+	if err = w.fpAllocationManager.AddFundProviderAndReserve(fp, allocated); err != nil {
 		return err
 	}
 
@@ -205,15 +216,19 @@ func (w *Wallet) AllocateFromFundProvider(
 	return nil
 }
 
-func (w *Wallet) Topup(amount valueobject.Money, fpID uuid.UUID) error {
-	fp := w.providerManager.FindProvider(fpID)
-	if fp == nil {
+func (w *Wallet) TopUp(amount valueobject.Money, fpID uuid.UUID) error {
+	if amount.IsNegative() {
+		return errors.New("amount must be positive")
+	}
+
+	allocation, exist := w.fpAllocationManager.FindFundProviderAllocation(fpID)
+	if !exist {
 		return ErrFundAllocatedNotFound{
 			FpID: fpID.String(),
 		}
 	}
 
-	if err := fp.TopUp(amount); err != nil {
+	if err := allocation.TopUpFundProviderAndAllocation(amount); err != nil {
 		return err
 	}
 
@@ -227,14 +242,18 @@ func (w *Wallet) Topup(amount valueobject.Money, fpID uuid.UUID) error {
 }
 
 func (w *Wallet) Withdraw(amount valueobject.Money, fpID uuid.UUID) error {
-	fp := w.providerManager.FindProvider(fpID)
-	if fp == nil {
+	if amount.IsNegative() {
+		return errors.New("amount must be positive")
+	}
+
+	allocation, exist := w.fpAllocationManager.FindFundProviderAllocation(fpID)
+	if !exist {
 		return ErrFundAllocatedNotFound{
 			FpID: fpID.String(),
 		}
 	}
 
-	if err := fp.Withdraw(amount); err != nil {
+	if err := allocation.WithdrawFundProviderAndAllocation(amount); err != nil {
 		return err
 	}
 
@@ -247,18 +266,22 @@ func (w *Wallet) Withdraw(amount valueobject.Money, fpID uuid.UUID) error {
 	return nil
 }
 
-func (w *Wallet) OpenAccountPeriod(yearMonth ledger.YearMonth) error {
+func (w *Wallet) OpenAccountingPeriod(yearMonth ledger.YearMonth) error {
 	return w.ledgerManager.OpenNewAccountingPeriod(yearMonth, w.balance)
 }
 
 func (w *Wallet) RecordTransactions(yearMonth ledger.YearMonth, txSpecs ...TransactionSpec) error {
-	accountingPeriod := w.ledgerManager.FindAccountingPeriod(yearMonth)
-	if accountingPeriod == nil || accountingPeriod.IsClose() {
-		return fmt.Errorf("account period: %s not found or has been closed", yearMonth.String())
-	}
-
 	if len(txSpecs) == 0 {
 		return errors.New("transaction specs is empty")
+	}
+
+	accountingPeriod, exist := w.ledgerManager.FindAccountingPeriod(yearMonth)
+	if !exist {
+		return fmt.Errorf("account period: %s not found", yearMonth.String())
+	}
+
+	if accountingPeriod.IsClose() {
+		return fmt.Errorf("accounting period: %s has been closed", yearMonth.String())
 	}
 
 	for _, txSpec := range txSpecs {
@@ -276,10 +299,23 @@ func (w *Wallet) RecordTransactions(yearMonth ledger.YearMonth, txSpecs ...Trans
 }
 
 func (w *Wallet) buildTransactionRecordsFromSpec(txSpec TransactionSpec) (ledger.TransactionRecord, error) {
+	allocation, exist := w.fpAllocationManager.FindFundProviderAllocation(txSpec.FpID)
+	if !exist {
+		return ledger.TransactionRecord{}, ErrFundAllocatedNotFound{FpID: txSpec.FpID.String()}
+	}
+	amount, err := valueobject.NewMoney(txSpec.Amount, w.Currency())
+	if err != nil {
+		return ledger.TransactionRecord{}, err
+	}
+
+	if amount.Amount() <= 0 {
+		return ledger.TransactionRecord{}, fmt.Errorf("transaction amount can not be negative or zero")
+	}
+
 	txRecord, err := ledger.NewTransactionRecord(
 		txSpec.TransactionNo,
 		txSpec.TransactionType,
-		txSpec.Amount,
+		amount,
 		txSpec.Description,
 		txSpec.FpID,
 	)
@@ -288,7 +324,7 @@ func (w *Wallet) buildTransactionRecordsFromSpec(txSpec TransactionSpec) (ledger
 	}
 
 	if txRecord.IsCredit() {
-		if err = w.Topup(txRecord.Amount(), txSpec.FpID); err != nil {
+		if err = w.TopUp(txRecord.Amount(), txSpec.FpID); err != nil {
 			return ledger.TransactionRecord{}, err
 		}
 	} else {
@@ -297,7 +333,7 @@ func (w *Wallet) buildTransactionRecordsFromSpec(txSpec TransactionSpec) (ledger
 		}
 	}
 
-	txRecord.SetFpBalance(w.providerManager.FindProvider(txSpec.FpID).Balance())
+	txRecord.SetFpBalance(allocation.FundProvider().Balance())
 	txRecord.SetWalletBalance(w.balance)
 
 	return *txRecord, nil
