@@ -44,15 +44,19 @@ CREATE TABLE finance.accounting_periods (
 
     year_month varchar(100) NOT NULL,
 
-    start_date int DEFAULT 1,
-    interval int DEFAULT 1,
+    start_date int NOT NULL DEFAULT 1,
+    interval int NOT NULL DEFAULT 1,
+    end_time timestamp NOT NULL,
 
     wallet_opening_balance bigint NOT NULL,
-    total_debit bigint default 0,
-    total_credit bigint default 0,
-    wallet_closing_balance bigint default 0,
+    total_debit bigint NOT NULL default 0,
+    total_credit bigint NOT NULL default 0,
+    wallet_closing_balance bigint NOT NULL default 0,
+
+    status varchar(10) NOT NULL,
 
     wallet_id uuid NOT NULL,
+    version int DEFAULT 0,
 
     CONSTRAINT fk_accounting_periods_wallet
         FOREIGN KEY (wallet_id)

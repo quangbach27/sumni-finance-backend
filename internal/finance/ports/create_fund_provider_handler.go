@@ -9,7 +9,7 @@ import (
 )
 
 // Create a new fund provider
-// (POST /v1/fund-provider)
+// (POST /v1/fund-providers)
 func (hs HttpServer) CreateFundProvider(w http.ResponseWriter, r *http.Request) {
 	var req CreateFundProviderRequest
 

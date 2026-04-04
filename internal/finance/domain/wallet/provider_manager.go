@@ -9,63 +9,84 @@ import (
 	"github.com/google/uuid"
 )
 
-type ProviderManager struct {
-	providers map[uuid.UUID]ProviderAllocation
+type FundProviderAllocationManager struct {
+	fpAllocations map[uuid.UUID]*FpAllocation
 }
 
-func NewProviderManager(allocations []ProviderAllocation) (*ProviderManager, error) {
-	providers := make(map[uuid.UUID]ProviderAllocation, len(allocations))
+func NewFpAllocationManager(fpAllocations []*FpAllocation) (*FundProviderAllocationManager, error) {
+	capacity := len(fpAllocations)
+	if capacity == 0 {
+		capacity = 1
+	}
 
-	for _, allocation := range allocations {
-		if allocation.provider == nil {
+	allocations := make(map[uuid.UUID]*FpAllocation, capacity)
+
+	for _, allocation := range fpAllocations {
+		if allocation == nil || allocation.fp == nil {
 			return nil, errors.New("fundProvider can not be nil")
 		}
 
 		if allocation.allocated.IsZero() {
-			return nil, errors.New("allocated is required")
+			return nil, errors.New("allocated can not be empty")
 		}
 
-		_, exist := providers[allocation.provider.ID()]
+		_, exist := allocations[allocation.fp.ID()]
 		if exist {
-			return nil, fmt.Errorf("fundProvider must be unique: %s", allocation.provider.ID())
+			return nil, fmt.Errorf("fundProvider must be unique: %s", allocation.fp.ID())
 		}
 
-		providers[allocation.provider.ID()] = allocation
+		allocations[allocation.fp.ID()] = allocation
 	}
 
-	return &ProviderManager{
-		providers: providers,
+	return &FundProviderAllocationManager{
+		fpAllocations: allocations,
 	}, nil
 }
 
-func (m *ProviderManager) ProviderAllocations() []ProviderAllocation {
-	providerAllocations := make([]ProviderAllocation, 0, len(m.providers))
+func (m *FundProviderAllocationManager) FpAllocations() []FpAllocation {
+	fpAllocations := make([]FpAllocation, 0, len(m.fpAllocations))
 
-	for _, provider := range m.providers {
-		providerAllocations = append(providerAllocations, provider)
+	for _, allocation := range m.fpAllocations {
+		// TODO: consider to check nil
+		fpAllocations = append(fpAllocations, *allocation)
 	}
 
-	return providerAllocations
+	return fpAllocations
 }
 
-func (m *ProviderManager) FindProvider(id uuid.UUID) *fundprovider.FundProvider {
-	allocation := m.providers[id]
-	return allocation.provider
+// FindFundProviderAllocation returns the ProviderAllocation for the given fund provider ID.
+// When the bool return value is true, the returned *ProviderAllocation and its provider are guaranteed to be non-nil.
+func (m *FundProviderAllocationManager) FindFundProviderAllocation(fpID uuid.UUID) (*FpAllocation, bool) {
+	fpAllocation, exist := m.fpAllocations[fpID]
+
+	if !exist || fpAllocation == nil || fpAllocation.fp == nil {
+		return nil, false
+	}
+
+	return fpAllocation, true
 }
 
-func (m *ProviderManager) AddFundProviderAndReserve(
-	fundProvider *fundprovider.FundProvider,
+func (m *FundProviderAllocationManager) AddFundProviderAndReserve(
+	fp *fundprovider.FundProvider,
 	allocated valueobject.Money,
 ) error {
-	if err := fundProvider.Reserve(allocated); err != nil {
+	if fp == nil {
+		return errors.New("fund provider is nil")
+	}
+
+	if _, exist := m.FindFundProviderAllocation(fp.ID()); exist {
+		return ErrFundProviderAlreadyRegistered
+	}
+
+	if err := fp.Reserve(allocated); err != nil {
 		return err
 	}
 
-	providerAllocation, err := NewProviderAllocation(fundProvider, allocated.Amount())
+	fpAllocation, err := NewFpAllocation(fp, allocated.Amount())
 	if err != nil {
 		return err
 	}
 
-	m.providers[fundProvider.ID()] = providerAllocation
+	m.fpAllocations[fp.ID()] = fpAllocation
 	return nil
 }

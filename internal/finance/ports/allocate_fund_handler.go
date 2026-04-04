@@ -11,7 +11,7 @@ import (
 )
 
 // Allocate funds to a wallet
-// (POST /v1/wallet/{walletId}/allocate-fund)
+// (POST /v1/wallets/{walletId}/allocate-fund-providers)
 func (hs HttpServer) AllocateFund(
 	w http.ResponseWriter,
 	r *http.Request,

@@ -150,7 +150,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		provider, err := fundprovider.NewFundProvider("Techcombank7316", "BANK", 100, "USD")
 		require.NoError(t, err)
 
-		allocationProvider, err := wallet.NewProviderAllocation(provider, 50)
+		allocationProvider, err := wallet.NewFpAllocation(provider, 50)
 		require.NoError(t, err)
 
 		walletDomain, err := wallet.UnmarshalWalletFromDatabase(
@@ -163,7 +163,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(provider, 50)
+		err = walletDomain.AllocateFundProvider(provider, 50)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, wallet.ErrFundProviderAlreadyRegistered)
@@ -173,7 +173,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(nil, 100)
+		err = walletDomain.AllocateFundProvider(nil, 100)
 
 		require.Error(t, err)
 	})
@@ -185,7 +185,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(provider, -100)
+		err = walletDomain.AllocateFundProvider(provider, -100)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, wallet.ErrAllocationAmountNegative)
@@ -198,7 +198,7 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(provider, 110)
+		err = walletDomain.AllocateFundProvider(provider, 110)
 
 		require.Error(t, err)
 	})
@@ -212,13 +212,14 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(provider, 0)
+		err = walletDomain.AllocateFundProvider(provider, 0)
 
 		require.NoError(t, err)
 
-		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.Equal(t, actualProvider, provider)
-		assert.Equal(t, unallocatedBalance, actualProvider.UnallocatedBalance())
+		actualAllocation, found := walletDomain.FundProviderManager().FindFundProviderAllocation(provider.ID())
+		require.True(t, found)
+		assert.Equal(t, actualAllocation.FundProvider().ID(), provider.ID())
+		assert.Equal(t, unallocatedBalance, actualAllocation.FundProvider().UnallocatedBalance())
 	})
 
 	t.Run("unmarshal wallet successfully", func(t *testing.T) {
@@ -230,12 +231,13 @@ func TestWallet_AllocateFromFundProvider(t *testing.T) {
 		walletDomain, err := wallet.NewWallet("USD", "Tai chinh tong")
 		require.NoError(t, err)
 
-		err = walletDomain.AllocateFromFundProvider(provider, 50)
+		err = walletDomain.AllocateFundProvider(provider, 50)
 
 		require.NoError(t, err)
 
-		actualProvider := walletDomain.ProviderManager().FindProvider(provider.ID())
-		assert.Equal(t, actualProvider, provider)
-		assert.Equal(t, unallocatedBalance.Amount()-50, actualProvider.UnallocatedBalance().Amount())
+		actualAllocation, found := walletDomain.FundProviderManager().FindFundProviderAllocation(provider.ID())
+		require.True(t, found)
+		assert.Equal(t, actualAllocation.FundProvider().ID(), provider.ID())
+		assert.Equal(t, unallocatedBalance.Amount()-50, actualAllocation.FundProvider().UnallocatedBalance().Amount())
 	})
 }

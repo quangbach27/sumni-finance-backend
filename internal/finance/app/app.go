@@ -17,9 +17,11 @@ type Application struct {
 }
 
 type Commands struct {
-	AllocateFund       command.AllocateFundHandler
-	CreateFundProvider command.CreateFundProviderHandler
-	CreateWallet       command.CreateWalletHandler
+	AllocateFund             command.AllocateFundHandler
+	CreateFundProvider       command.CreateFundProviderHandler
+	CreateWallet             command.CreateWalletHandler
+	OpenAccountingPeriod     command.OpenAccountingPeriodHandler
+	RecordTransactionRecords command.RecordTransactionRecordsHandler
 }
 
 type Queries struct {
@@ -39,11 +41,15 @@ func NewApplication(pgPool *pgxpool.Pool) (Application, error) {
 		return Application{}, err
 	}
 
+	ledgerRepo := db.NewLedgerRepository(queries)
+
 	return Application{
 		Commands: Commands{
-			AllocateFund:       cqrs.ApplyCommandDecorators(command.NewAllocateFundHandler(walletRepo, fundProviderRepo)),
-			CreateFundProvider: cqrs.ApplyCommandDecorators(command.NewCreateFundProviderHandler(fundProviderRepo)),
-			CreateWallet:       cqrs.ApplyCommandDecorators(command.NewCreateWalletHandler(walletRepo)),
+			AllocateFund:             cqrs.ApplyCommandDecorators(command.NewAllocateFundHandler(walletRepo, fundProviderRepo)),
+			CreateFundProvider:       cqrs.ApplyCommandDecorators(command.NewCreateFundProviderHandler(fundProviderRepo)),
+			CreateWallet:             cqrs.ApplyCommandDecorators(command.NewCreateWalletHandler(walletRepo)),
+			OpenAccountingPeriod:     cqrs.ApplyCommandDecorators(command.NewOpenAccountingPeriodHandler(walletRepo, ledgerRepo)),
+			RecordTransactionRecords: cqrs.ApplyCommandDecorators(command.NewRecordTransactionRecordsHandler(walletRepo)),
 		},
 		Queries: Queries{},
 	}, nil

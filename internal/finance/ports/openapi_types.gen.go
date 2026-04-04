@@ -66,11 +66,56 @@ type ErrorResponse struct {
 	RequestId string `json:"request_id"`
 }
 
+// OpenAccountingPeriodRequest defines model for OpenAccountingPeriodRequest.
+type OpenAccountingPeriodRequest struct {
+	// Month The month for the accounting period (1-12)
+	Month int `json:"month"`
+
+	// WalletId The wallet ID to open accounting period for
+	WalletId openapi_types.UUID `json:"walletId"`
+
+	// Year The year for the accounting period
+	Year int `json:"year"`
+}
+
+// RecordTransactionRecordsRequest defines model for RecordTransactionRecordsRequest.
+type RecordTransactionRecordsRequest struct {
+	// TransactionRecords List of transaction records to record
+	TransactionRecords []TransactionRecord `json:"transactionRecords"`
+
+	// YearMonth The year and month in YYYY-MM format
+	YearMonth string `json:"yearMonth"`
+}
+
+// TransactionRecord defines model for TransactionRecord.
+type TransactionRecord struct {
+	// Amount Transaction amount
+	Amount int64 `json:"amount"`
+
+	// Description Transaction description
+	Description string `json:"description"`
+
+	// FundProviderId Fund provider ID
+	FundProviderId openapi_types.UUID `json:"fundProviderId"`
+
+	// TransactionNo Transaction number or reference
+	TransactionNo string `json:"transactionNo"`
+
+	// TransactionType Type of transaction (e.g., DEPOSIT, WITHDRAWAL, TRANSFER)
+	TransactionType string `json:"transactionType"`
+}
+
 // CreateFundProviderJSONRequestBody defines body for CreateFundProvider for application/json ContentType.
 type CreateFundProviderJSONRequestBody = CreateFundProviderRequest
 
 // CreateWalletJSONRequestBody defines body for CreateWallet for application/json ContentType.
 type CreateWalletJSONRequestBody = CreateWalletRequest
+
+// RecordTransactionRecordsJSONRequestBody defines body for RecordTransactionRecords for application/json ContentType.
+type RecordTransactionRecordsJSONRequestBody = RecordTransactionRecordsRequest
+
+// OpenAccountingPeriodJSONRequestBody defines body for OpenAccountingPeriod for application/json ContentType.
+type OpenAccountingPeriodJSONRequestBody = OpenAccountingPeriodRequest
 
 // AllocateFundJSONRequestBody defines body for AllocateFund for application/json ContentType.
 type AllocateFundJSONRequestBody = AllocateFundRequest

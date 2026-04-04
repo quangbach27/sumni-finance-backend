@@ -8,7 +8,7 @@ servers:
     description: Local development server
 
 paths:
-  /v1/fund-provider:
+  /v1/fund-providers:
     post:
       summary: Create a new fund provider
       description: Creates a new fund provider with an initial balance and currency
@@ -37,7 +37,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /v1/wallet:
+  /v1/wallets:
     post:
       summary: Create a new wallet
       description: Creates a new wallet with initial fund provider allocations
@@ -70,7 +70,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
-  /v1/wallet/{walletId}/allocate-fund:
+  /v1/wallets/{walletId}/allocate-fund-providers:
     post:
       summary: Allocate funds to a wallet
       description: Allocates funds from one or more fund providers to a wallet
@@ -102,6 +102,99 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Wallet or fund provider not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/wallets/{walletId}/accounting-periods:
+    post:
+      summary: Open a new accounting period for a wallet
+      description: Opens a new accounting period for the specified wallet
+      operationId: openAccountingPeriod
+      tags:
+        - Wallet
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          description: The wallet ID to open accounting period for
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenAccountingPeriodRequest"
+      responses:
+        "201":
+          description: Accounting period opened successfully
+        "400":
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Wallet not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /v1/wallets/{walletId}/account-periods/{accountPeriodId}:
+    post:
+      summary: Record transaction records for an accounting period
+      description: Records transaction records for a specific accounting period in a wallet
+      operationId: recordTransactionRecords
+      tags:
+        - Wallet
+      parameters:
+        - name: walletId
+          in: path
+          required: true
+          description: The wallet ID
+          schema:
+            type: string
+            format: uuid
+        - name: accountPeriodId
+          in: path
+          required: true
+          description: The accounting period ID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordTransactionRecordsRequest"
+      responses:
+        "201":
+          description: Transaction records recorded successfully
+        "400":
+          description: Bad request - Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Wallet or accounting period not found
           content:
             application/json:
               schema:
@@ -174,6 +267,79 @@ components:
           minItems: 1
           items:
             $ref: "#/components/schemas/AllocatedProvider"
+
+    OpenAccountingPeriodRequest:
+      type: object
+      required:
+        - walletId
+        - year
+        - month
+      properties:
+        walletId:
+          type: string
+          format: uuid
+          description: The wallet ID to open accounting period for
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        year:
+          type: integer
+          description: The year for the accounting period
+          example: 2024
+        month:
+          type: integer
+          description: The month for the accounting period (1-12)
+          example: 4
+          minimum: 1
+          maximum: 12
+
+    RecordTransactionRecordsRequest:
+      type: object
+      required:
+        - yearMonth
+        - transactionRecords
+      properties:
+        yearMonth:
+          type: string
+          description: The year and month in YYYY-MM format
+          example: "2024-04"
+          pattern: "^\\d{4}-\\d{2}$"
+        transactionRecords:
+          type: array
+          description: List of transaction records to record
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/TransactionRecord"
+
+    TransactionRecord:
+      type: object
+      required:
+        - fundProviderId
+        - amount
+        - transactionNo
+        - transactionType
+        - description
+      properties:
+        fundProviderId:
+          type: string
+          format: uuid
+          description: Fund provider ID
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        amount:
+          type: integer
+          format: int64
+          description: Transaction amount
+          example: 100000
+        transactionNo:
+          type: string
+          description: Transaction number or reference
+          example: "TXN-2024-001"
+        transactionType:
+          type: string
+          description: Type of transaction (e.g., DEPOSIT, WITHDRAWAL, TRANSFER)
+          example: "DEPOSIT"
+        description:
+          type: string
+          description: Transaction description
+          example: "Monthly salary deposit"
 
     AllocatedProvider:
       type: object

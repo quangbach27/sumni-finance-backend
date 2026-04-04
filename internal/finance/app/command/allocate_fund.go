@@ -67,7 +67,7 @@ func (h *allocateFundHandler) Handle(ctx context.Context, cmd AllocateFundCmd) e
 					return fmt.Errorf("fund provider not found: %s", ap.ID.String())
 				}
 
-				err = w.AllocateFromFundProvider(fp, ap.AllocatedAmount)
+				err = w.AllocateFundProvider(fp, ap.AllocatedAmount)
 				if err != nil {
 					return err
 				}

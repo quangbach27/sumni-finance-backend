@@ -9,11 +9,11 @@ import (
 
 type LedgerConfig struct {
 	startDate ledger.PeriodStartDay // day
-	interval  int                   // month
+	interval  int32                 // month
 }
 
 func (lc LedgerConfig) StartDate() ledger.PeriodStartDay { return lc.startDate }
-func (lc LedgerConfig) Interval() int                    { return lc.interval }
+func (lc LedgerConfig) Interval() int32                  { return lc.interval }
 
 type LedgerManager struct {
 	config LedgerConfig
@@ -41,12 +41,24 @@ func NewLedgerManager(accountPeriods []*ledger.AccountingPeriod) (*LedgerManager
 		accountPeriods: make(map[ledger.YearMonth]*ledger.AccountingPeriod, capacity),
 	}
 
-	// Populate existing periods
 	for _, ap := range accountPeriods {
+		if ap == nil {
+			return nil, errors.New("accounting period can not be nil")
+		}
+
 		ledgerManager.accountPeriods[ap.YearMonth()] = ap
 	}
 
 	return ledgerManager, nil
+}
+
+func (m *LedgerManager) FindAccountingPeriod(yearMonth ledger.YearMonth) (*ledger.AccountingPeriod, bool) {
+	ap, exist := m.accountPeriods[yearMonth]
+	if !exist || ap == nil {
+		return nil, false
+	}
+
+	return ap, true
 }
 
 func (m *LedgerManager) OpenNewAccountingPeriod(
@@ -71,14 +83,10 @@ func (m *LedgerManager) OpenNewAccountingPeriod(
 	return nil
 }
 
-func (m *LedgerManager) FindAccountingPeriod(yearMonth ledger.YearMonth) *ledger.AccountingPeriod {
-	return m.accountPeriods[yearMonth]
-}
-
 func (m *LedgerManager) Record(yearMonth ledger.YearMonth, txRecord ledger.TransactionRecord) error {
-	ap := m.FindAccountingPeriod(yearMonth)
-	if ap == nil {
-		return fmt.Errorf("account period: %s not found", yearMonth.String())
+	ap, exist := m.FindAccountingPeriod(yearMonth)
+	if !exist {
+		return fmt.Errorf("account period %s not found", yearMonth.String())
 	}
 
 	return ap.Record(txRecord)

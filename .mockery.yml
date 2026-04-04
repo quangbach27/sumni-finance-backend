@@ -1,19 +1,14 @@
-all: false
+with-expecter: true
 dir: "{{.InterfaceDir}}/mocks"
-filename: mocks.go
-force-file-write: true
-formatter: goimports
-generate: true
-include-auto-generated: false
-log-level: info
-structname: "{{.Mock}}{{.InterfaceName}}"
-pkgname: "mocks"
-recursive: false
-template: testify
+filename: "mocks.go"
+outpkg: "mocks"
 packages:
   sumni-finance-backend/internal/finance/domain/fundprovider:
     interfaces:
       Repository:
   sumni-finance-backend/internal/finance/domain/wallet:
+    interfaces:
+      Repository:
+  sumni-finance-backend/internal/finance/domain/ledger:
     interfaces:
       Repository:

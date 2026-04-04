@@ -160,7 +160,7 @@ func TestYearMonth_UnmarshallYearMonthFromDatabase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ym, err := ledger.UnmarshalYearMonthFromDatabase(tt.ymStr)
+			ym, err := ledger.UnmarshalYearMonthFromString(tt.ymStr)
 
 			if tt.hasErr {
 				require.Error(t, err)

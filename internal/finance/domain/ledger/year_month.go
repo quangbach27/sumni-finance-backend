@@ -30,7 +30,7 @@ func NewYearMonth(
 	}, nil
 }
 
-func UnmarshalYearMonthFromDatabase(ymStr string) (YearMonth, error) {
+func UnmarshalYearMonthFromString(ymStr string) (YearMonth, error) {
 	ymStrCleaned := strings.TrimSpace(ymStr)
 
 	res := strings.Split(ymStrCleaned, ",")
