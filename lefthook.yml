@@ -1,13 +1,11 @@
 pre-commit:
   commands:
     fmt:
-      run: gofmt -s -w .
+      run: make fmt
 
 pre-push:
   commands:
-    fmt:
-      run: gofmt -s -w .
     lint:
       run: make lint
     test:
-      run: make test
+      run: make test-unit

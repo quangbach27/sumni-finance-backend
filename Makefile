@@ -1,69 +1,54 @@
 SERVICE := sumni-finance-backend
 
-.PHONY: test
-test:
-	@./scripts/test.sh .e2e.env
-
-.PHONY: test-ci
-test-ci: 
-	@CI=true ./scripts/test.sh .e2e.env
-
-.PHONY: dev
-dev:
-	DEBUG=$(DEBUG) docker compose up --build $(SERVICE) -d	
-
-.PHONY: logs
-logs:
-	docker logs -f $(SERVICE)
-
-.PHONY: stop
-stop:
-	docker compose down $(SERVICE)
+.PHONY: up
+up:
+	docker compose up ${SERVICE}
 
 .PHONY: down
 down:
+	docker compose down
+
+.PHONY: down-volumes
+down-volumes:
 	docker compose down -v
+
+# Test
+.PHONY: test
+test:
+	$(MAKE) test-unit
+	$(MAKE) test-integration
+	$(MAKE) test-component
+
+.PHONY: test-unit
+test-unit:
+	go test -race -v -timeout=2m ./...
+
+.PHONY: test-integration
+test-integration:
+	go test -tags=integration -v -count=1 ./...
+
+.PHONY: test-component
+test-component:
+	go test -tags=component -v -count=1 ./tests/...
+
+# Tooling
+.PHONY: gen
+gen:
+	go generate ./...
 
 .PHONY: lint
 lint:
-	golangci-lint run
+	golangci-lint run ./...
 
-.PHONY: sqlc-generate
-sqlc-generate:
-	sqlc generate -f ./internal/$(DOMAIN)/adapter/db/store/sqlc.yml
+.PHONY: tidy
+tidy:
+	go mod tidy
 
-.PHONY: docs
-docs:
-	docker compose up swagger-ui -d
+.PHONY: fmt
+fmt:
+	go tool gofumpt -l -w .
 
-.PHONY: openapi_http
-openapi_http:
-	@./scripts/openapi-http.sh $(SERVICE) $(OUTPUT) $(PACKAGE)
-
-## -------------------------------------
-# Database Config Variables (Use environment variables if set, otherwise use default placeholders)
-POSTGRES_USER ?= sumni
-POSTGRES_PASSWORD ?= sumni
-POSTGRES_HOST ?= localhost
-POSTGRES_DATABASE ?= sumni-finance
-POSTGRES_PORT ?= 5432
-
-DB_URL := postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DATABASE}?sslmode=disable
-MIGRATE_PATH := db/migrations
-
-.PHONY: migrate-create
-migrate-create:
-	migrate create -ext sql -dir $(MIGRATE_PATH) -seq $(NAME)
-
-.PHONY: migrate-up
-migrate-up:
-	migrate -database "$(DB_URL)" -path $(MIGRATE_PATH) up
-
-.PHONY: migrate-down
-migrate-down:
-	migrate -database "$(DB_URL)" -path $(MIGRATE_PATH) down 1
-
-.PHONY: migrate-status
-migrate-status:
-	@echo "Checking migration status..."
-	@migrate -database "$(DB_URL)" -path $(MIGRATE_PATH) version
+.PHONY: mod-update
+mod-update:
+	go get -u=patch ./...
+	go mod tidy
