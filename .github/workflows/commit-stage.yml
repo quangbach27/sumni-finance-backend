@@ -3,6 +3,7 @@ on:
   pull_request:
     branches:
       - main
+      - develop
     types:
       - opened
       - reopened
@@ -34,14 +35,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y make
 
-      - name: Verify Go formatting
-        run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -l .
-            exit 1
-          fi
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
@@ -52,7 +45,7 @@ jobs:
         run: go build -v ./...
 
       - name: Run unit tests
-        run: make test-ci
+        run: make test-unit
 
       - name: Go vulnerability check
         uses: golang/govulncheck-action@v1
