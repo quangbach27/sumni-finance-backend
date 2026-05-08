@@ -75,7 +75,10 @@ func (s Svc) Run(ctx context.Context, port string) error {
 	go func() {
 		<-ctx.Done()
 
-		err := s.echoRouter.Shutdown(context.Background())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		err := s.echoRouter.Shutdown(shutdownCtx)
 		if err != nil {
 			log.FromContext(ctx).Error("shutting down http server failed")
 		}
@@ -83,6 +86,8 @@ func (s Svc) Run(ctx context.Context, port string) error {
 
 	s.echoRouter.Server.WriteTimeout = 15 * time.Second
 	s.echoRouter.Server.ReadHeaderTimeout = 5 * time.Second
+	// s.echoRouter.Server.ReadTimeout = 15 * time.Second
+	// s.echoRouter.Server.IdleTimeout = 60 * time.Second
 
 	err := s.echoRouter.Start(port)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

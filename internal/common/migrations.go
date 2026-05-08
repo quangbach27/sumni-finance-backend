@@ -25,19 +25,24 @@ func MigrateDatabaseUp(
 	migrationsDir string,
 ) error {
 	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			log.FromContext(ctx).Warn("failed to close db")
+		}
+	}()
 
 	d, err := iofs.New(fs, migrationsDir)
 	if err != nil {
 		return fmt.Errorf("could not create iofs driver: %w", err)
 	}
 
-	if _, err := db.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+string(moduleName)); err != nil {
+	if _, err := db.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+moduleName); err != nil {
 		return fmt.Errorf("could not create schema %s: %w", moduleName, err)
 	}
 
 	migDb, err := pgxMigrate.WithInstance(db, &pgxMigrate.Config{
-		SchemaName:      string(moduleName),
+		SchemaName:      moduleName,
 		MigrationsTable: "schema_migrations",
 	})
 	if err != nil {

@@ -24,7 +24,7 @@ services:
       - .env
     environment:
       DEBUG: "${DEBUG:-false}"
-      GOCACHE: /go-cache
+      GOCACHE: /app/go-cache
     depends_on:
     - sumni-finance-db
     # - keycloak
@@ -37,7 +37,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: sumni-finance
     healthcheck:
-      test: pg_isready -U user -d eats
+      test: pg_isready -U user -d sumni-finance
       interval: 1s
       retries: 120
       start_period: 2s
