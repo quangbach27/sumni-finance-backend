@@ -25,16 +25,16 @@ test-unit:
 
 .PHONY: test-integration
 test-integration:
-	go test -tags=integration -v -count=1 ./...
+	go test -tags=integration -v -count=1 ./internal/...
 
 .PHONY: test-component
 test-component:
-	go test -tags=component -v -count=1 ./tests/...
+	go test -tags=component -v -count=1 ./internal/tests/...
 
 # Tooling
 .PHONY: gen
 gen:
-	go generate ./...
+	go generate ./internal/...
 
 .PHONY: lint
 lint:

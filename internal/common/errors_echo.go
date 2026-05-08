@@ -15,12 +15,14 @@ func EchoErrorHandler(err error, c echo.Context) {
 		return
 	}
 
+	logger := log.FromContext(c.Request().Context())
+
 	httpErrorResponse, httpStatus := httpErrorResponseFromErr(err)
 
-	log.FromContext(c.Request().Context()).With("err", err).Error("Handling HTTP error")
+	logger.Error("Handling HTTP error", "error", err)
 
 	if err := c.JSON(httpStatus, httpErrorResponse); err != nil {
-		log.FromContext(c.Request().Context()).With("error", err).Error("Failed to send error response")
+		logger.Error("Failed to send error response", "error", err)
 	}
 }
 
@@ -40,13 +42,19 @@ type HttpErrorDetail struct {
 func httpErrorResponseFromErr(err error) (HttpErrorResponse, int) {
 	publicError := "Internal Server Error"
 	statusCode := http.StatusInternalServerError
+	errorSlug := "internal_server_error"
 
 	var he *echo.HTTPError
 	if errors.As(err, &he) {
 		statusCode = he.Code
 		publicError = http.StatusText(statusCode)
+		errorSlug = strings.ToLower(strings.ReplaceAll(publicError, " ", "_"))
+
+		return HttpErrorResponse{
+			Slug:    errorSlug,
+			Message: publicError,
+		}, statusCode
 	}
-	errorSlug := strings.ToLower(strings.ReplaceAll(publicError, " ", "_"))
 
 	var commonErr Error
 	if errors.As(err, &commonErr) {
@@ -66,11 +74,9 @@ func httpErrorResponseFromErr(err error) (HttpErrorResponse, int) {
 		httpDetails = append(httpDetails, HttpErrorDetail(detail))
 	}
 
-	httpErrorResponse := HttpErrorResponse{
+	return HttpErrorResponse{
 		Slug:    errorSlug,
 		Message: publicError,
 		Details: httpDetails,
-	}
-
-	return httpErrorResponse, statusCode
+	}, statusCode
 }

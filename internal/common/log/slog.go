@@ -3,13 +3,18 @@ package log
 import (
 	"log/slog"
 	"os"
+
+	"github.com/ThreeDotsLabs/humanslog"
 )
 
 func Init(level slog.Level) {
-	opts := &slog.HandlerOptions{
-		Level: level,
+	opts := &humanslog.Options{
+		HandlerOptions: &slog.HandlerOptions{
+			Level: level,
+		},
+		TimeFormat: "[15:04:05.000]",
 	}
-	handler := slog.NewTextHandler(os.Stderr, opts)
 
-	slog.SetDefault(slog.New(handler))
+	logger := slog.New(humanslog.NewHandler(os.Stderr, opts))
+	slog.SetDefault(logger)
 }

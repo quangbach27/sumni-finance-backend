@@ -37,21 +37,21 @@ func (c Error) Error() string {
 
 func (c Error) WithDetails(details []ErrorDetails) Error {
 	return Error{
-		c.HttpErrorCode,
-		c.PublicError,
-		c.ErrorSlug,
-		c.InternalError,
-		append(c.Details, details...),
+		HttpErrorCode: c.HttpErrorCode,
+		PublicError:   c.PublicError,
+		ErrorSlug:     c.ErrorSlug,
+		InternalError: c.InternalError,
+		Details:       append(c.Details, details...),
 	}
 }
 
 func (c Error) WithInternalError(err error) Error {
 	return Error{
-		c.HttpErrorCode,
-		c.PublicError,
-		c.ErrorSlug,
-		err,
-		c.Details,
+		HttpErrorCode: c.HttpErrorCode,
+		PublicError:   c.PublicError,
+		ErrorSlug:     c.ErrorSlug,
+		InternalError: err,
+		Details:       c.Details,
 	}
 }
 

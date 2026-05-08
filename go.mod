@@ -3,11 +3,12 @@ module sumni-finance-backend
 go 1.26.1
 
 require (
+	github.com/ThreeDotsLabs/humanslog v0.1.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
-	github.com/labstack/echo/v4 v4.15.1
+	github.com/labstack/echo/v4 v4.15.2
 	github.com/labstack/gommon v0.5.0
 	github.com/lithammer/shortuuid/v3 v3.0.7
 	github.com/stretchr/testify v1.11.1
@@ -30,7 +31,7 @@ require (
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/incu6us/goimports-reviser/v3 v3.12.6 // indirect
-	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa // indirect
+	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
