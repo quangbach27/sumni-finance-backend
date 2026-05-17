@@ -2,9 +2,8 @@ package shared
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-
-	"sumni-finance-backend/internal/common"
 
 	"github.com/shopspring/decimal"
 )
@@ -15,25 +14,8 @@ type Money struct {
 }
 
 func NewMoney(amount decimal.Decimal, currency Currency) (Money, error) {
-	errDetails := []common.ErrorDetails{}
-
-	if amount.IsZero() {
-		errDetails = append(errDetails, common.ErrorDetails{
-			EntityType: "money",
-			ErrorSlug:  "amount-empty",
-			Message:    "amount can't be empty",
-		})
-	}
-
 	if currency.IsZero() {
-		errDetails = append(errDetails, common.ErrorDetails{
-			EntityType: "money",
-			ErrorSlug:  "currency-empty",
-			Message:    "currency can't be empty",
-		})
-	}
-	if len(errDetails) > 0 {
-		return Money{}, common.NewInvalidInputError("invalid-money", "invalid money input").WithDetails(errDetails)
+		return Money{}, errors.New("currency can't be empty")
 	}
 
 	return Money{
@@ -89,6 +71,10 @@ func (m Money) IsZero() bool {
 
 func (m Money) Equal(o Money) bool {
 	return m.amount.Equal(o.amount) && m.currency.Equal(o.currency)
+}
+
+func (m Money) String() string {
+	return fmt.Sprintf("%s-%s", m.amount.String(), m.currency.String())
 }
 
 type moneyDto struct {

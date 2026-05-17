@@ -3,9 +3,7 @@ package shared_test
 import (
 	"testing"
 
-	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
-	"sumni-finance-backend/internal/common/testutils"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -21,51 +19,16 @@ func assertValidMoney(t *testing.T, amount decimal.Decimal, currency shared.Curr
 
 func TestNewMoney_ValidationErrors(t *testing.T) {
 	tests := []struct {
-		name           string
-		amount         decimal.Decimal
-		currency       shared.Currency
-		wantErrDetails []common.ErrorDetails
+		name     string
+		amount   decimal.Decimal
+		currency shared.Currency
+		wantErr  string
 	}{
-		{
-			name:     "zero-amount-reject",
-			amount:   decimal.Decimal{},
-			currency: shared.MustNewCurrency("VND"),
-			wantErrDetails: []common.ErrorDetails{
-				{
-					EntityType: "money",
-					ErrorSlug:  "amount-empty",
-					Message:    "amount can't be empty",
-				},
-			},
-		},
 		{
 			name:     "zero-currency-reject",
 			amount:   decimal.NewFromInt(100_000),
 			currency: shared.Currency{},
-			wantErrDetails: []common.ErrorDetails{
-				{
-					EntityType: "money",
-					ErrorSlug:  "currency-empty",
-					Message:    "currency can't be empty",
-				},
-			},
-		},
-		{
-			name:     "zero-amount-and-zero-currency-reject",
-			amount:   decimal.Decimal{},
-			currency: shared.Currency{},
-			wantErrDetails: []common.ErrorDetails{
-				{
-					EntityType: "money",
-					ErrorSlug:  "amount-empty",
-					Message:    "amount can't be empty",
-				},
-				{
-					EntityType: "money",
-					ErrorSlug:  "currency-empty",
-					Message:    "currency can't be empty",
-				},
-			},
+			wantErr:  "currency can't be empty",
 		},
 	}
 
@@ -75,7 +38,7 @@ func TestNewMoney_ValidationErrors(t *testing.T) {
 
 			_, err := shared.NewMoney(tt.amount, tt.currency)
 			require.Error(t, err)
-			testutils.AssertErrorDetails(t, err, tt.wantErrDetails)
+			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
 }
