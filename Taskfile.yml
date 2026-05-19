@@ -1,0 +1,77 @@
+version: '3'
+
+vars:
+  SERVICE: sumni-finance-backend
+
+tasks:
+  up:
+    cmds:
+      - docker compose up {{.CLI_ARGS}}
+    env:
+      COMPOSE_MENU: "false"
+  
+  up-clean:
+    cmds:
+      - task: down
+        vars:
+          CLI_ARGS: ""
+      - task: up
+
+  down:
+    cmds:
+      - docker compose down {{.CLI_ARGS}}
+
+  down-volumes:
+    cmds:
+      - docker compose down -v {{.CLI_ARGS}}
+
+  test:
+    desc: Run all tests (unit, integration, component)
+    cmds:
+      - task: test-unit
+      - task: test-integration
+      - task: test-component
+    
+
+  test-unit:
+    desc: Run unit tests
+    cmd: go test ./internal/... {{.CLI_ARGS}}
+
+  test-integration:
+    desc: Run integration tests
+    dotenv: ['.env.test']
+    cmd: go test -tags integration ./internal/... -count=1 {{.CLI_ARGS}}
+
+  test-component:
+    desc: Run component tests
+    cmd: go test -tags=component -v -count=1 ./internal/tests/... {{.CLI_ARGS}}
+
+  domain-coverage:
+    desc: Check domain test coverage
+    vars:
+      THRESHOLD: "85"
+    env:
+      MIN_COVERAGE: "{{.THRESHOLD}}"
+    cmds:
+      - chmod +x scripts/check_domain_coverage.sh
+      - bash scripts/check_domain_coverage.sh
+
+  gen:
+    desc: Run go generate
+    cmds: 
+      - go generate ./internal/...
+      - task: fmt
+
+  lint:
+    cmd: golangci-lint run ./...
+
+  tidy:
+    cmd: go mod tidy
+
+  fmt:
+    cmd: go tool gofumpt -l -w .
+
+  go-mod-update:
+    desc: Update Go module dependencies
+    cmds:
+      - go get -u ./...
