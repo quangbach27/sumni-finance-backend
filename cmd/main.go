@@ -37,7 +37,12 @@ func main() {
 		panic(err)
 	}
 
-	if err := svc.Run(ctx, ":8080"); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "4000"
+	}
+
+	if err := svc.Run(ctx, ":"+port); err != nil {
 		panic(err)
 	}
 }
