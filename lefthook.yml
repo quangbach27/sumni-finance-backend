@@ -1,11 +1,8 @@
-pre-commit:
-  commands:
-    fmt:
-      run: make fmt
-
 pre-push:
   commands:
+    test-unit:
+      run: task test-unit
     lint:
-      run: make lint
-    test:
-      run: make test-unit
+      run: task lint
+    fmt:
+      run: task fmt

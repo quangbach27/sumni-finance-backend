@@ -2,6 +2,6 @@ package shared
 
 import "sumni-finance-backend/internal/common"
 
-type GroupUUID struct {
+type OfficeUUID struct {
 	common.UUID
 }
