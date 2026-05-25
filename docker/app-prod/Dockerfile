@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/main.go
 
 # Stage 2: Runtime
-FROM gcr.io/distroless/static-debian12:nonroot
+FROM gcr.io/distroless/static-debian13:nonroot-amd64
 
 COPY --from=builder /app/server /server
 
