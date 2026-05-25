@@ -9,9 +9,9 @@ import (
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/common/testutils"
+	"sumni-finance-backend/internal/finance/adapters/db"
+	"sumni-finance-backend/internal/finance/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/finance/app/models"
-	"sumni-finance-backend/internal/finance/db"
-	"sumni-finance-backend/internal/finance/db/dbmodels"
 	"sumni-finance-backend/internal/finance/domain"
 
 	"github.com/google/go-cmp/cmp/cmpopts"

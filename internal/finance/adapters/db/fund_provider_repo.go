@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"sumni-finance-backend/internal/common"
-	"sumni-finance-backend/internal/finance/db/dbmodels"
+	"sumni-finance-backend/internal/finance/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/finance/domain"
 
 	"github.com/jackc/pgx/v5"
