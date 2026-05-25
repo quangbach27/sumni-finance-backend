@@ -6,6 +6,7 @@ import (
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/common/testutils"
+	"sumni-finance-backend/internal/finance/app/models"
 	"sumni-finance-backend/internal/finance/domain"
 
 	"github.com/shopspring/decimal"
@@ -19,24 +20,35 @@ func TestBankFundProviderMetadata(t *testing.T) {
 			name          string
 			accountNumber string
 			bankName      string
+			bankOwner     string
 			wantErr       string
 		}{
 			{
 				name:          "reject-empty-account-number",
 				accountNumber: "",
 				bankName:      "Techcombank",
+				bankOwner:     "Bui Quang Bach",
 				wantErr:       "account number can't be empty",
 			},
 			{
 				name:          "reject-empty-bank-name",
 				accountNumber: "7777777316",
 				bankName:      "",
+				bankOwner:     "Bui Quang Bach",
 				wantErr:       "bank name can't be empty",
 			},
 			{
-				name:          "accept-create-bank-metadata",
+				name:          "reject-empty-bank-owner",
 				accountNumber: "7777777316",
 				bankName:      "Techcombank",
+				bankOwner:     "",
+				wantErr:       "bank owner name can't be emtpy",
+			},
+			{
+				name:          "create-bank-metadata-success",
+				accountNumber: "7777777316",
+				bankName:      "Techcombank",
+				bankOwner:     "Bui Quang Bach",
 			},
 		}
 
@@ -44,7 +56,7 @@ func TestBankFundProviderMetadata(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				t.Parallel()
 
-				bankMetadata, err := domain.NewBankFundProviderMetadata(tt.accountNumber, tt.bankName)
+				bankMetadata, err := domain.NewBankFundProviderMetadata(tt.accountNumber, tt.bankName, tt.bankOwner)
 				if tt.wantErr != "" {
 					require.Error(t, err)
 					assert.Contains(t, err.Error(), tt.wantErr)
@@ -64,7 +76,7 @@ func TestBankFundProviderMetadata(t *testing.T) {
 		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
 		assert.False(t, bankMetadata.IsZero())
 
-		zeroMetadata := domain.BankFundProviderMetadata{}
+		zeroMetadata := domain.FundProviderBankMetadata{}
 		assert.True(t, zeroMetadata.IsZero())
 	})
 
@@ -73,11 +85,8 @@ func TestBankFundProviderMetadata(t *testing.T) {
 
 		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
 
-		bankType := domain.MustNewFundProviderType("BANK")
-		cashType := domain.MustNewFundProviderType("CASH")
-
-		assert.True(t, bankMetadata.MatchesType(bankType))
-		assert.False(t, bankMetadata.MatchesType(cashType))
+		assert.True(t, bankMetadata.MatchesType(domain.FundProviderTypeBank))
+		assert.False(t, bankMetadata.MatchesType(domain.FundProviderTypeCash))
 	})
 }
 
@@ -122,7 +131,7 @@ func TestCashFundProviderMetadata(t *testing.T) {
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
 		assert.False(t, cashMetadata.IsZero())
 
-		zeroMetadata := domain.CashFundProviderMetadata{}
+		zeroMetadata := domain.FundProviderCashMetadata{}
 		assert.True(t, zeroMetadata.IsZero())
 	})
 
@@ -131,11 +140,8 @@ func TestCashFundProviderMetadata(t *testing.T) {
 
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
 
-		bankType := domain.MustNewFundProviderType("BANK")
-		cashType := domain.MustNewFundProviderType("CASH")
-
-		assert.True(t, cashMetadata.MatchesType(cashType))
-		assert.False(t, cashMetadata.MatchesType(bankType))
+		assert.True(t, cashMetadata.MatchesType(domain.FundProviderTypeCash))
+		assert.False(t, cashMetadata.MatchesType(domain.FundProviderTypeBank))
 	})
 }
 
@@ -143,6 +149,7 @@ func TestNewFundProvider(t *testing.T) {
 	t.Run("ValidationsErrors", func(t *testing.T) {
 		vnd := shared.MustNewCurrency("VND")
 
+		validOfficeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 		initBalance := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
 		bankMetadata := assertValidBankMetadata(t, "7777777316", "Bui Quang Bach")
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
@@ -150,6 +157,7 @@ func TestNewFundProvider(t *testing.T) {
 		tests := []struct {
 			name             string
 			fpName           string
+			officeUUID       models.OfficeUUID
 			fundProviderType domain.FundProviderType
 			initBalance      shared.Money
 			metadata         domain.FundProviderMetadata
@@ -158,7 +166,8 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-empty-name",
 				fpName:           "",
-				fundProviderType: domain.MustNewFundProviderType("BANK"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
 				initBalance:      initBalance,
 				metadata:         bankMetadata,
 				wantErrDetails: []common.ErrorDetails{
@@ -170,8 +179,24 @@ func TestNewFundProvider(t *testing.T) {
 				},
 			},
 			{
+				name:             "reject-empty-office-uuid",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       models.OfficeUUID{},
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-office-uuid",
+						Message:    "office uuid can't be empty",
+					},
+				},
+			},
+			{
 				name:             "reject-empty-fund-provider-type",
 				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
 				fundProviderType: domain.FundProviderType{},
 				initBalance:      initBalance,
 				metadata:         bankMetadata,
@@ -190,7 +215,8 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-empty-init-balance",
 				fpName:           "Techcombank-Bach",
-				fundProviderType: domain.MustNewFundProviderType("BANK"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
 				initBalance:      shared.Money{},
 				metadata:         bankMetadata,
 				wantErrDetails: []common.ErrorDetails{
@@ -204,9 +230,10 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-empty-bank-fund-provider-metadata",
 				fpName:           "Techcombank-Bach",
-				fundProviderType: domain.MustNewFundProviderType("BANK"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
 				initBalance:      initBalance,
-				metadata:         domain.BankFundProviderMetadata{},
+				metadata:         domain.FundProviderBankMetadata{},
 				wantErrDetails: []common.ErrorDetails{
 					{
 						EntityType: "fund_provider",
@@ -218,9 +245,10 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-empty-cash-fund-provider-metadata",
 				fpName:           "Techcombank-Bach",
-				fundProviderType: domain.MustNewFundProviderType("BANK"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
 				initBalance:      initBalance,
-				metadata:         domain.CashFundProviderMetadata{},
+				metadata:         domain.FundProviderCashMetadata{},
 				wantErrDetails: []common.ErrorDetails{
 					{
 						EntityType: "fund_provider",
@@ -232,7 +260,8 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-cash-metadata-for-non-cash-provider",
 				fpName:           "Techcombank-Bach",
-				fundProviderType: domain.MustNewFundProviderType("BANK"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
 				initBalance:      initBalance,
 				metadata:         cashMetadata,
 				wantErrDetails: []common.ErrorDetails{
@@ -245,7 +274,8 @@ func TestNewFundProvider(t *testing.T) {
 			{
 				name:             "reject-bank-metadata-for--non-bank-provider",
 				fpName:           "Techcombank-Bach",
-				fundProviderType: domain.MustNewFundProviderType("CASH"),
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeCash,
 				initBalance:      initBalance,
 				metadata:         bankMetadata,
 				wantErrDetails: []common.ErrorDetails{
@@ -261,6 +291,7 @@ func TestNewFundProvider(t *testing.T) {
 			t.Run(tt.name, func(t *testing.T) {
 				_, err := domain.NewFundProvider(
 					tt.fpName,
+					tt.officeUUID,
 					tt.fundProviderType,
 					tt.initBalance,
 					tt.metadata,
@@ -274,6 +305,7 @@ func TestNewFundProvider(t *testing.T) {
 	t.Run("Sucess", func(t *testing.T) {
 		vnd := shared.MustNewCurrency("VND")
 		initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
+		officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 
 		t.Run("create bank fund provider sucessfully", func(t *testing.T) {
 			t.Parallel()
@@ -282,22 +314,26 @@ func TestNewFundProvider(t *testing.T) {
 
 			fp, err := domain.NewFundProvider(
 				"Techcombank-Bach",
-				domain.MustNewFundProviderType("BANK"),
+				officeUUID,
+				domain.FundProviderTypeBank,
 				initBalance,
 				bankMetadata,
 			)
 			require.NoError(t, err)
 
 			assert.False(t, fp.UUID().IsZero())
+			assert.Equal(t, officeUUID, fp.OfficeUUID())
 			assert.Equal(t, "Techcombank-Bach", fp.Name())
-			assert.Equal(t, fp.Type().String(), "BANK")
+			assert.Equal(t, fp.Type(), domain.FundProviderTypeBank)
 			assert.True(t, fp.Balance().Equal(initBalance))
 			assert.True(t, fp.AvailableMoney().Equal(initBalance))
 			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
 
-			assert.Equal(t, fp.Metadata(), bankMetadata)
-			assert.Equal(t, fp.Metadata().AccountNumber(), "7777777316")
-			assert.Equal(t, fp.Metadata().BankName(), "Techcombank")
+			bankMeta, ok := fp.BankMetadata()
+			require.True(t, ok)
+			assert.Equal(t, bankMeta, bankMetadata)
+			assert.Equal(t, bankMeta.AccountNumber(), "7777777316")
+			assert.Equal(t, bankMeta.BankName(), "Techcombank")
 		})
 
 		t.Run("create cash fund provider sucessfully", func(t *testing.T) {
@@ -307,21 +343,25 @@ func TestNewFundProvider(t *testing.T) {
 
 			fp, err := domain.NewFundProvider(
 				"Techcombank-Bach",
-				domain.MustNewFundProviderType("CASH"),
+				officeUUID,
+				domain.FundProviderTypeCash,
 				initBalance,
 				cashMetadata,
 			)
 			require.NoError(t, err)
 
 			assert.False(t, fp.UUID().IsZero())
+			assert.Equal(t, officeUUID, fp.OfficeUUID())
 			assert.Equal(t, "Techcombank-Bach", fp.Name())
-			assert.Equal(t, fp.Type().String(), "CASH")
+			assert.Equal(t, fp.Type(), domain.FundProviderTypeCash)
 			assert.True(t, fp.Balance().Equal(initBalance))
 			assert.True(t, fp.AvailableMoney().Equal(initBalance))
 			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
 
-			assert.Equal(t, fp.Metadata(), cashMetadata)
-			assert.Equal(t, fp.Metadata().OwnerName(), "Huynh Trang")
+			cashMeta, ok := fp.CashMetadata()
+			require.True(t, ok)
+			assert.Equal(t, cashMeta, cashMetadata)
+			assert.Equal(t, cashMeta.OwnerName(), "Huynh Trang")
 		})
 	})
 
@@ -348,327 +388,14 @@ func TestNewFundProvider(t *testing.T) {
 	})
 }
 
-func TestFundProvider_TopUp(t *testing.T) {
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
-
-	vnd := shared.MustNewCurrency("VND")
-	krw := shared.MustNewCurrency("KRW")
-	initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-
-	t.Run("reject-when-top-up-empty-money", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		wantErr := fp.TopUp(shared.Money{})
-
-		require.Error(t, wantErr)
-		assert.Contains(t, wantErr.Error(), "money for top up can't be empty")
-	})
-
-	t.Run("reject-when-top-up-zero-amount", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m1 := assertValidMoney(t, decimal.NewFromInt(0), vnd)
-
-		m2 := assertValidMoney(t, decimal.Zero, vnd)
-
-		wantErr1 := fp.TopUp(m1)
-		require.Error(t, wantErr1)
-
-		wantErr2 := fp.TopUp(m2)
-		require.Error(t, wantErr2)
-	})
-
-	t.Run("reject-when-top-up-negative-amount", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(-100_000), vnd)
-
-		err = fp.TopUp(m)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "money for top up can't be negative")
-	})
-
-	t.Run("reject-when-top-up-money-with-different-currency", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance, // VND
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(100_000), krw) // KRW does not match with Fund Provider currency (VND)
-
-		wantErr := fp.TopUp(m)
-		require.Error(t, wantErr)
-	})
-
-	t.Run("top-up-money-sucessfully", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
-
-		err = fp.TopUp(m)
-		require.NoError(t, err)
-
-		wantBalance := assertValidMoney(t, decimal.NewFromInt(1_100_000), vnd)
-
-		assert.True(t, fp.Balance().Equal(wantBalance))
-	})
-}
-
-func TestFundProvider_Withdraw(t *testing.T) {
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
-
-	vnd := shared.MustNewCurrency("VND")
-	krw := shared.MustNewCurrency("KRW")
-	initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-
-	t.Run("reject-when-withdraw-empty-money", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-
-		require.NoError(t, err)
-		wantErr := fp.Withdraw(shared.Money{})
-		require.Error(t, wantErr)
-		assert.Contains(t, wantErr.Error(), "money for withdraw can't be empty")
-	})
-
-	t.Run("reject-when-withdraw-zero-amount", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.Zero, vnd)
-
-		wantErr := fp.Withdraw(m)
-		require.Error(t, wantErr)
-	})
-
-	t.Run("reject-when-withdraw-negative-amount", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(-100_000), vnd)
-
-		err = fp.Withdraw(m)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "money for withdraw can't be negative")
-	})
-
-	t.Run("reject-when-top-up-money-with-different-currency", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(100_000), krw)
-		require.NoError(t, err)
-
-		wantErr := fp.TopUp(m)
-		require.Error(t, wantErr)
-	})
-
-	t.Run("top-up-money-sucess", func(t *testing.T) {
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		m := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
-
-		err = fp.Withdraw(m)
-		require.NoError(t, err)
-
-		wantBalance := assertValidMoney(t, decimal.NewFromInt(900_000), vnd)
-
-		assert.True(t, fp.Balance().Equal(wantBalance))
-	})
-}
-
-func TestFundProvider_Reserve(t *testing.T) {
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
-
-	vnd := shared.MustNewCurrency("VND")
-	krw := shared.MustNewCurrency("KRW")
-	t.Run("Validations Errors", func(t *testing.T) {
-		tests := []struct {
-			name           string
-			allocatedMoney func(t *testing.T) shared.Money
-			wantErr        string
-		}{
-			{
-				name: "reject-allocation-money-currency-mismatch",
-				allocatedMoney: func(t *testing.T) shared.Money {
-					m := assertValidMoney(t, decimal.NewFromInt(1_000_000), krw)
-
-					return m
-				},
-				wantErr: "allocation money currency must match fund provider currency",
-			},
-			{
-				name: "reject-allocation-money-exceed-fund-provider-unallocated",
-				allocatedMoney: func(t *testing.T) shared.Money {
-					m := assertValidMoney(t, decimal.NewFromInt(2_000_000), vnd)
-
-					return m
-				},
-				wantErr: "allocation money can't exceed fund provider unallocated",
-			},
-			{
-				name: "reject-negative-allocation-money",
-				allocatedMoney: func(t *testing.T) shared.Money {
-					m := assertValidMoney(t, decimal.NewFromInt(-10_000), vnd)
-
-					return m
-				},
-				wantErr: "allocation money can't be negative",
-			},
-			{
-				name: "accept-allocation-money-zero",
-				allocatedMoney: func(t *testing.T) shared.Money {
-					m := assertValidMoney(t, decimal.Zero, vnd)
-
-					return m
-				},
-			},
-			{
-				name: "accept-allocation-money",
-				allocatedMoney: func(t *testing.T) shared.Money {
-					m := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
-
-					return m
-				},
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-
-				fp, err := domain.NewFundProvider(
-					"Techcombank-Bach",
-					domain.MustNewFundProviderType("BANK"),
-					initBalance,
-					bankMetadata,
-				)
-				require.NoError(t, err)
-
-				allocatedMoney := tt.allocatedMoney(t)
-				originalUnallocated := fp.AvailableMoney()
-
-				err = fp.Reserve(allocatedMoney)
-
-				if tt.wantErr != "" {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tt.wantErr)
-					return
-				}
-
-				require.NoError(t, err)
-				wantNewUnallocation, err := originalUnallocated.Sub(allocatedMoney)
-				require.NoError(t, err)
-				assert.True(t, fp.AvailableMoney().Equal(wantNewUnallocation))
-			})
-		}
-	})
-
-	t.Run("Reserve Success", func(t *testing.T) {
-		initBalance, err := shared.NewMoney(decimal.NewFromInt(1_000_000), vnd)
-		require.NoError(t, err)
-
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		allocationMoney, err := shared.NewMoney(decimal.NewFromInt(600_000), vnd)
-		require.NoError(t, err)
-
-		err = fp.Reserve(allocationMoney)
-		require.NoError(t, err)
-
-		wantUnallocated, err := shared.NewMoney(decimal.NewFromInt(400_000), vnd)
-		require.NoError(t, err)
-		assert.True(t, fp.AvailableMoney().Equal(wantUnallocated))
-	})
-
-	t.Run("Reserve Zero Amount Success", func(t *testing.T) {
-		initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-
-		fp, err := domain.NewFundProvider(
-			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
-			initBalance,
-			bankMetadata,
-		)
-		require.NoError(t, err)
-
-		zeroMoney := assertValidMoney(t, decimal.Zero, vnd)
-
-		err = fp.Reserve(zeroMoney)
-		require.NoError(t, err)
-
-		assert.True(t, fp.AvailableMoney().Equal(initBalance))
-	})
-}
-
-func assertValidBankMetadata(t *testing.T, accountNo string, bankName string) domain.BankFundProviderMetadata {
-	bankMetadata, err := domain.NewBankFundProviderMetadata(accountNo, bankName)
+func assertValidBankMetadata(t *testing.T, accountNo string, bankName string) domain.FundProviderBankMetadata {
+	bankMetadata, err := domain.NewBankFundProviderMetadata(accountNo, bankName, "Bui Quang Bach")
 	require.NoError(t, err)
 
 	return bankMetadata
 }
 
-func assertValidCashMetadata(t *testing.T, ownerName string) domain.CashFundProviderMetadata {
+func assertValidCashMetadata(t *testing.T, ownerName string) domain.FundProviderCashMetadata {
 	cashMetadata, err := domain.NewCashFundProviderMetadata(ownerName)
 	require.NoError(t, err)
 

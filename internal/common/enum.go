@@ -71,6 +71,10 @@ func (e Enum[T]) MarshalText() (text []byte, err error) {
 	return []byte(e.value), nil
 }
 
+func (e Enum[T]) Equal(o Enum[T]) bool {
+	return e.value == o.value
+}
+
 type Enumerable interface {
 	Values() []string
 }

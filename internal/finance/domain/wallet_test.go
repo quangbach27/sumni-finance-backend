@@ -6,6 +6,7 @@ import (
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/common/testutils"
+	"sumni-finance-backend/internal/finance/app/models"
 	"sumni-finance-backend/internal/finance/domain"
 
 	"github.com/shopspring/decimal"
@@ -168,7 +169,8 @@ func TestNewWallet(t *testing.T) {
 			t.Run(tt.testName, func(t *testing.T) {
 				fp1, err := domain.NewFundProvider(
 					"Techcombank-Bach",
-					domain.MustNewFundProviderType("BANK"),
+					models.OfficeUUID{UUID: common.NewUUIDv7()},
+					domain.FundProviderTypeBank,
 					initBalance,
 					bankMetadata,
 				)
@@ -201,7 +203,8 @@ func TestNewWallet(t *testing.T) {
 
 		fp1, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
+			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			domain.FundProviderTypeBank,
 			initBalance,
 			bankMetadata,
 		)
@@ -209,7 +212,8 @@ func TestNewWallet(t *testing.T) {
 
 		fp2, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			domain.MustNewFundProviderType("CASH"),
+			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			domain.FundProviderTypeCash,
 			initBalance,
 			cashMetadata,
 		)
@@ -256,7 +260,8 @@ func TestNewWallet(t *testing.T) {
 
 		fp1, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			domain.MustNewFundProviderType("BANK"),
+			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			domain.FundProviderTypeBank,
 			initBalance,
 			bankMetadata,
 		)
@@ -264,7 +269,8 @@ func TestNewWallet(t *testing.T) {
 
 		fp2, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			domain.MustNewFundProviderType("CASH"),
+			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			domain.FundProviderTypeCash,
 			initBalance,
 			cashMetadata,
 		)
@@ -331,10 +337,10 @@ func TestWallet_AllocateFundProvider(t *testing.T) {
 	createValidFundProvider := func(
 		balance shared.Money,
 		metadata domain.FundProviderMetadata,
-	) *domain.FundProvider[domain.FundProviderMetadata] {
+	) *domain.FundProvider {
 		t.Helper()
 
-		fp, err := domain.NewFundProvider("Vi tai chinh tong", domain.MustNewFundProviderType("BANK"), balance, metadata)
+		fp, err := domain.NewFundProvider("Vi tai chinh tong", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, balance, metadata)
 		require.NoError(t, err)
 
 		return fp
@@ -356,7 +362,7 @@ func TestWallet_AllocateFundProvider(t *testing.T) {
 			},
 			{
 				name:         "reject-empty-fund-provider",
-				fundProvider: &domain.FundProvider[domain.BankFundProviderMetadata]{},
+				fundProvider: &domain.FundProvider{},
 				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
 			},
 			{
@@ -512,7 +518,7 @@ func TestWallet_TopUp(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				fp, err := domain.NewFundProvider("Techcombank-Bach", domain.MustNewFundProviderType("BANK"), initBalanceVnd, bankMetadata)
+				fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
 				w, err := domain.NewWallet("tai chinh tong", "", vnd, nil)
@@ -536,7 +542,7 @@ func TestWallet_TopUp(t *testing.T) {
 
 		initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
 
-		fp, err := domain.NewFundProvider("Techcombank-Bach", domain.MustNewFundProviderType("BANK"), initBalanceVnd, bankMetadata)
+		fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 		require.NoError(t, err)
 
 		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, []domain.NewFundProviderAllocationData{
@@ -650,10 +656,10 @@ func TestWallet_Withdraw(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				fp, err := domain.NewFundProvider("Techcombank-Bach", domain.MustNewFundProviderType("BANK"), initBalanceVnd, bankMetadata)
+				fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
-				fp2, err := domain.NewFundProvider("Techcombank-Bach", domain.MustNewFundProviderType("BANK"), initBalanceVnd, bankMetadata)
+				fp2, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
 				allocationMoney := assertValidMoney(t, decimal.NewFromInt(200_000), vnd)
@@ -684,7 +690,7 @@ func TestWallet_Withdraw(t *testing.T) {
 
 		initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
 
-		fp, err := domain.NewFundProvider("Techcombank-Bach", domain.MustNewFundProviderType("BANK"), initBalanceVnd, bankMetadata)
+		fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 		require.NoError(t, err)
 
 		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, []domain.NewFundProviderAllocationData{
@@ -708,5 +714,72 @@ func TestWallet_Withdraw(t *testing.T) {
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(900_000), vnd), snapshot.FundProviderBalance)
 
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(100_000), vnd), snapshot.WalletAllocation)
+	})
+}
+
+func TestNewPeriodConfig(t *testing.T) {
+	t.Run("Validation Errors", func(t *testing.T) {
+		tests := []struct {
+			name             string
+			intervalInMonths int
+			dayOfMonth       int
+			wantErr          string
+		}{
+			{
+				name:             "reject-day-of-month-zero",
+				intervalInMonths: 1,
+				dayOfMonth:       0,
+				wantErr:          "day of month must be between 1 and 27",
+			},
+			{
+				name:             "reject-day-of-month-negative",
+				intervalInMonths: 1,
+				dayOfMonth:       -1,
+				wantErr:          "day of month must be between 1 and 27",
+			},
+			{
+				name:             "reject-day-of-month-above-27",
+				intervalInMonths: 1,
+				dayOfMonth:       28,
+				wantErr:          "day of month must be between 1 and 27",
+			},
+			// intervalInMonths validations
+			{
+				name:             "reject-interval-in-months-zero",
+				intervalInMonths: 0,
+				dayOfMonth:       1,
+				wantErr:          "interval in months must be between 1 and 5",
+			},
+			{
+				name:             "reject-interval-in-months-negative",
+				intervalInMonths: -1,
+				dayOfMonth:       1,
+				wantErr:          "interval in months must be between 1 and 5",
+			},
+			{
+				name:             "reject-interval-in-months-above-5",
+				intervalInMonths: 6,
+				dayOfMonth:       1,
+				wantErr:          "interval in months must be between 1 and 5",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := domain.NewAccountingPeriodConfig(tt.intervalInMonths, tt.dayOfMonth)
+				require.Error(t, err)
+
+				assert.Contains(t, err.Error(), tt.wantErr)
+			})
+		}
+	})
+
+	t.Run("create-period-config", func(t *testing.T) {
+		config, err := domain.NewAccountingPeriodConfig(2, 5)
+		require.NoError(t, err)
+
+		assert.Equal(t, 2, config.IntervalInMonths())
+		assert.Equal(t, 5, config.DayOfMonth())
+		assert.False(t, config.IsZero())
 	})
 }

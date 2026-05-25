@@ -14,9 +14,9 @@ import (
 type AllocatableFundProvider interface {
 	UUID() FundProviderUUID
 	Balance() shared.Money
-	Reserve(m shared.Money) error
-	TopUp(m shared.Money) error
-	Withdraw(m shared.Money) error
+	reserve(m shared.Money) error
+	topUp(m shared.Money) error
+	withdraw(m shared.Money) error
 }
 
 type WalletUUID struct {
@@ -237,7 +237,7 @@ func newFundProviderRegistry(currency shared.Currency, allocationsData []NewFund
 			return nil, fmt.Errorf("duplicate fund provider '%s' is not allowed", fp.UUID())
 		}
 
-		err := data.FundProvider.Reserve(data.Amount)
+		err := data.FundProvider.reserve(data.Amount)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to allocate fund provider %s with amount %s: %w",
@@ -281,7 +281,7 @@ func (m *fundProviderRegistry) register(fp AllocatableFundProvider, amount share
 		return fmt.Errorf("amount currency %s does not match with wallet currency %s", amount.Currency().Code(), m.currency.Code())
 	}
 
-	err := fp.Reserve(amount)
+	err := fp.reserve(amount)
 	if err != nil {
 		return fmt.Errorf("failed to reserve fund provider: %w", err)
 	}
@@ -301,7 +301,7 @@ func (m *fundProviderRegistry) increaseAllocation(fpUUID FundProviderUUID, amoun
 
 	allocation := m.allocations[fpUUID]
 
-	err := allocation.fundProvider.TopUp(amount)
+	err := allocation.fundProvider.topUp(amount)
 	if err != nil {
 		return shared.Money{}, shared.Money{}, err
 	}
@@ -333,10 +333,45 @@ func (m *fundProviderRegistry) decreaseAllocation(fpUUID FundProviderUUID, amoun
 	}
 	allocation.amount = newAllocationAmount
 
-	err = allocation.fundProvider.Withdraw(amount)
+	err = allocation.fundProvider.withdraw(amount)
 	if err != nil {
 		return shared.Money{}, shared.Money{}, fmt.Errorf("failed withdraw fund provider: %w", err)
 	}
 
 	return allocation.fundProvider.Balance(), allocation.amount, nil
+}
+
+type AccountingPeriodConfig struct {
+	intervalInMonths int
+	dayOfMonth       int
+}
+
+func (c AccountingPeriodConfig) IntervalInMonths() int {
+	return c.intervalInMonths
+}
+
+func (c AccountingPeriodConfig) DayOfMonth() int {
+	return c.dayOfMonth
+}
+
+func (c AccountingPeriodConfig) IsZero() bool {
+	return c == AccountingPeriodConfig{}
+}
+
+func NewAccountingPeriodConfig(
+	intervalInMonths,
+	dayOfMonth int,
+) (AccountingPeriodConfig, error) {
+	if dayOfMonth < 1 || dayOfMonth > 27 {
+		return AccountingPeriodConfig{}, errors.New("day of month must be between 1 and 27")
+	}
+
+	if intervalInMonths < 1 || intervalInMonths > 5 {
+		return AccountingPeriodConfig{}, errors.New("interval in months must be between 1 and 5")
+	}
+
+	return AccountingPeriodConfig{
+		intervalInMonths: intervalInMonths,
+		dayOfMonth:       dayOfMonth,
+	}, nil
 }

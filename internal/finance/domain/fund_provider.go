@@ -1,149 +1,181 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
+	"sumni-finance-backend/internal/finance/app/models"
 )
+
+type FundProviderRepository interface {
+	GetFundProviders(ctx context.Context, fundProviderUUID []FundProviderUUID) ([]*FundProvider, error)
+	SaveFundProvider(ctx context.Context, fundProvider *FundProvider) error
+}
 
 type FundProviderUUID struct {
 	common.UUID
 }
 
 type FundProviderType struct {
-	common.Enum[FundProviderCode]
+	common.Enum[FundProviderTypeStr]
 }
 
-func (at FundProviderType) Code() string {
-	return at.String()
+type FundProviderTypeStr string
+
+func (ts FundProviderTypeStr) Values() []string {
+	return []string{"bank", "cash"}
 }
 
-func MustNewFundProviderType(value string) FundProviderType {
-	return common.MustEnum[FundProviderType](value)
-}
-
-type FundProviderCode string
-
-func (ts FundProviderCode) Values() []string {
-	return []string{"BANK", "CASH"}
-}
+var (
+	FundProviderTypeBank = common.MustEnum[FundProviderType]("bank")
+	FundProviderTypeCash = common.MustEnum[FundProviderType]("cash")
+)
 
 type FundProviderMetadata interface {
 	MatchesType(accountType FundProviderType) bool
 	IsZero() bool
 }
 
-type BankFundProviderMetadata struct {
+type FundProviderBankMetadata struct {
 	accountNumber string
 	bankName      string
+	accountOwner  string
 }
 
 func NewBankFundProviderMetadata(
 	accountNumber string,
 	bankName string,
-) (BankFundProviderMetadata, error) {
+	accountOwner string,
+) (FundProviderBankMetadata, error) {
 	cleansedAccountNumber := strings.TrimSpace(accountNumber)
 	cleansedBankName := strings.TrimSpace(bankName)
+	cleansedAccountOwner := strings.TrimSpace(accountOwner)
 	if cleansedAccountNumber == "" {
-		return BankFundProviderMetadata{}, errors.New("account number can't be empty")
+		return FundProviderBankMetadata{}, errors.New("account number can't be empty")
 	}
 
 	if cleansedBankName == "" {
-		return BankFundProviderMetadata{}, errors.New("bank name can't be empty")
+		return FundProviderBankMetadata{}, errors.New("bank name can't be empty")
 	}
 
-	return BankFundProviderMetadata{
+	if cleansedAccountOwner == "" {
+		return FundProviderBankMetadata{}, errors.New("bank owner name can't be emtpy")
+	}
+
+	return FundProviderBankMetadata{
 		accountNumber: cleansedAccountNumber,
 		bankName:      cleansedBankName,
+		accountOwner:  accountOwner,
 	}, nil
 }
 
-func (bm BankFundProviderMetadata) AccountNumber() string {
+func (bm FundProviderBankMetadata) AccountNumber() string {
 	return bm.accountNumber
 }
 
-func (bm BankFundProviderMetadata) BankName() string {
+func (bm FundProviderBankMetadata) BankName() string {
 	return bm.bankName
 }
 
-func (bm BankFundProviderMetadata) MatchesType(fpType FundProviderType) bool {
-	return fpType.String() == "BANK"
+func (bm FundProviderBankMetadata) AccountOwner() string {
+	return bm.accountOwner
 }
 
-func (bm BankFundProviderMetadata) IsZero() bool {
-	return bm == BankFundProviderMetadata{}
+func (bm FundProviderBankMetadata) MatchesType(fpType FundProviderType) bool {
+	return fpType == FundProviderTypeBank
 }
 
-type CashFundProviderMetadata struct {
+func (bm FundProviderBankMetadata) IsZero() bool {
+	return bm == FundProviderBankMetadata{}
+}
+
+type FundProviderCashMetadata struct {
 	ownerName string
 }
 
-func NewCashFundProviderMetadata(ownerName string) (CashFundProviderMetadata, error) {
+func NewCashFundProviderMetadata(ownerName string) (FundProviderCashMetadata, error) {
 	cleansedOwnerName := strings.TrimSpace(ownerName)
 	if cleansedOwnerName == "" {
-		return CashFundProviderMetadata{}, errors.New("owner name can't be empty")
+		return FundProviderCashMetadata{}, errors.New("owner name can't be empty")
 	}
 
-	return CashFundProviderMetadata{ownerName: cleansedOwnerName}, nil
+	return FundProviderCashMetadata{ownerName: cleansedOwnerName}, nil
 }
 
-func (cm CashFundProviderMetadata) OwnerName() string {
+func (cm FundProviderCashMetadata) OwnerName() string {
 	return cm.ownerName
 }
 
-func (cm CashFundProviderMetadata) MatchesType(fpType FundProviderType) bool {
-	return fpType.String() == "CASH"
+func (cm FundProviderCashMetadata) MatchesType(fpType FundProviderType) bool {
+	return fpType == FundProviderTypeCash
 }
 
-func (cm CashFundProviderMetadata) IsZero() bool {
-	return cm == CashFundProviderMetadata{}
+func (cm FundProviderCashMetadata) IsZero() bool {
+	return cm == FundProviderCashMetadata{}
 }
 
-type FundProvider[T FundProviderMetadata] struct {
-	uuid FundProviderUUID
+type FundProvider struct {
+	uuid       FundProviderUUID
+	officeUUID models.OfficeUUID
 
 	name             string
 	fundProviderType FundProviderType
 
 	balance          shared.Money
 	availableBalance shared.Money
-	currency         shared.Currency
 
-	metadata T
+	currency shared.Currency
+
+	metadata FundProviderMetadata
 }
 
-func (fp *FundProvider[T]) UUID() FundProviderUUID {
+func (fp *FundProvider) UUID() FundProviderUUID {
 	return fp.uuid
 }
 
-func (fp *FundProvider[T]) Name() string {
+func (fp *FundProvider) OfficeUUID() models.OfficeUUID {
+	return fp.officeUUID
+}
+
+func (fp *FundProvider) Name() string {
 	return fp.name
 }
 
-func (fp *FundProvider[T]) Type() FundProviderType {
+func (fp *FundProvider) Type() FundProviderType {
 	return fp.fundProviderType
 }
 
-func (fp *FundProvider[T]) Balance() shared.Money {
+func (fp *FundProvider) Balance() shared.Money {
 	return fp.balance
 }
 
-func (fp *FundProvider[T]) AvailableMoney() shared.Money {
+func (fp *FundProvider) AvailableMoney() shared.Money {
 	return fp.availableBalance
 }
 
-func (fp *FundProvider[T]) Currency() shared.Currency {
+func (fp *FundProvider) Currency() shared.Currency {
 	return fp.currency
 }
 
-func (fp *FundProvider[T]) Metadata() T {
+func (fp *FundProvider) Metadata() FundProviderMetadata {
 	return fp.metadata
 }
 
-func (fp *FundProvider[T]) TopUp(m shared.Money) error {
+func (fp *FundProvider) BankMetadata() (FundProviderBankMetadata, bool) {
+	m, ok := fp.metadata.(FundProviderBankMetadata)
+	return m, ok
+}
+
+func (fp *FundProvider) CashMetadata() (FundProviderCashMetadata, bool) {
+	m, ok := fp.metadata.(FundProviderCashMetadata)
+	return m, ok
+}
+
+func (fp *FundProvider) topUp(m shared.Money) error {
 	if m.Amount().IsZero() {
 		return errors.New("money for top up can't be empty")
 	}
@@ -162,7 +194,7 @@ func (fp *FundProvider[T]) TopUp(m shared.Money) error {
 	return nil
 }
 
-func (fp *FundProvider[T]) Withdraw(m shared.Money) error {
+func (fp *FundProvider) withdraw(m shared.Money) error {
 	if m.Amount().IsZero() {
 		return errors.New("money for withdraw can't be empty")
 	}
@@ -181,7 +213,7 @@ func (fp *FundProvider[T]) Withdraw(m shared.Money) error {
 	return nil
 }
 
-func (fp *FundProvider[T]) Reserve(m shared.Money) error {
+func (fp *FundProvider) reserve(m shared.Money) error {
 	if !fp.currency.Equal(m.Currency()) {
 		return errors.New("allocation money currency must match fund provider currency")
 	}
@@ -204,12 +236,13 @@ func (fp *FundProvider[T]) Reserve(m shared.Money) error {
 	return nil
 }
 
-func NewFundProvider[T FundProviderMetadata](
+func NewFundProvider(
 	name string,
+	officeUUID models.OfficeUUID,
 	fundProviderType FundProviderType,
 	initBalance shared.Money,
-	metadata T,
-) (*FundProvider[T], error) {
+	metadata FundProviderMetadata,
+) (*FundProvider, error) {
 	errDetails := []common.ErrorDetails{}
 
 	cleansedName := strings.TrimSpace(name)
@@ -218,6 +251,14 @@ func NewFundProvider[T FundProviderMetadata](
 			EntityType: "fund_provider",
 			ErrorSlug:  "empty-name",
 			Message:    "name can't be empty",
+		})
+	}
+
+	if officeUUID.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "fund_provider",
+			ErrorSlug:  "empty-office-uuid",
+			Message:    "office uuid can't be empty",
 		})
 	}
 
@@ -248,7 +289,7 @@ func NewFundProvider[T FundProviderMetadata](
 			errDetails = append(errDetails, common.ErrorDetails{
 				EntityType: "fund_provider",
 				ErrorSlug:  "metadata-mismatch",
-				Message:    fmt.Sprintf("metadata %T does not match with %s fund provider", metadata, fundProviderType.String()),
+				Message:    fmt.Sprintf("metadata %T does not match with %s provider", metadata, fundProviderType.String()),
 			})
 		}
 	}
@@ -257,8 +298,9 @@ func NewFundProvider[T FundProviderMetadata](
 		return nil, common.NewInvalidInputError("invalid-fund-provider", "invalid fund provider").WithDetails(errDetails)
 	}
 
-	return &FundProvider[T]{
+	return &FundProvider{
 		uuid:             FundProviderUUID{UUID: common.NewUUIDv7()},
+		officeUUID:       officeUUID,
 		name:             cleansedName,
 		fundProviderType: fundProviderType,
 		balance:          initBalance,
