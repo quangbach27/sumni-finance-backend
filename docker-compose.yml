@@ -1,4 +1,3 @@
-version: "3.8"
 name: "wild-workouts"
 
 services:
@@ -24,23 +23,25 @@ services:
       - .env
     environment:
       DEBUG: "${DEBUG:-false}"
-      GOCACHE: /go-cache
+      GOCACHE: /app/go-cache
     depends_on:
     - sumni-finance-db
     # - keycloak
 
   sumni-finance-db:
-    image: postgres:16-alpine
-    container_name: sumni-finance-db
+    image: postgres:17.6-alpine3.22
+    restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: sumni
-      POSTGRES_PASSWORD: sumni
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
       POSTGRES_DB: sumni-finance
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: always
+    healthcheck:
+      test: pg_isready -U user -d sumni-finance
+      interval: 1s
+      retries: 120
+      start_period: 2s
 
   swagger-ui:
     image: swaggerapi/swagger-ui:latest

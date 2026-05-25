@@ -1,13 +1,8 @@
-pre-commit:
-  commands:
-    fmt:
-      run: gofmt -s -w .
-
 pre-push:
   commands:
-    fmt:
-      run: gofmt -s -w .
+    test-unit:
+      run: task test-unit
     lint:
-      run: make lint
-    test:
-      run: make test
+      run: task lint
+    fmt:
+      run: task fmt

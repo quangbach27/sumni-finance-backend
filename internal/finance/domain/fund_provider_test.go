@@ -1,0 +1,410 @@
+package domain_test
+
+import (
+	"testing"
+
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/shared"
+	"sumni-finance-backend/internal/common/testutils"
+	"sumni-finance-backend/internal/finance/app/models"
+	"sumni-finance-backend/internal/finance/domain"
+
+	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestBankFundProviderMetadata(t *testing.T) {
+	t.Run("NewBankFundProviderMetadata", func(t *testing.T) {
+		tests := []struct {
+			name          string
+			accountNumber string
+			bankName      string
+			bankOwner     string
+			wantErr       string
+		}{
+			{
+				name:          "reject-empty-account-number",
+				accountNumber: "",
+				bankName:      "Techcombank",
+				bankOwner:     "Bui Quang Bach",
+				wantErr:       "account number can't be empty",
+			},
+			{
+				name:          "reject-empty-bank-name",
+				accountNumber: "7777777316",
+				bankName:      "",
+				bankOwner:     "Bui Quang Bach",
+				wantErr:       "bank name can't be empty",
+			},
+			{
+				name:          "reject-empty-bank-owner",
+				accountNumber: "7777777316",
+				bankName:      "Techcombank",
+				bankOwner:     "",
+				wantErr:       "bank owner name can't be emtpy",
+			},
+			{
+				name:          "create-bank-metadata-success",
+				accountNumber: "7777777316",
+				bankName:      "Techcombank",
+				bankOwner:     "Bui Quang Bach",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				bankMetadata, err := domain.NewBankFundProviderMetadata(tt.accountNumber, tt.bankName, tt.bankOwner)
+				if tt.wantErr != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tt.wantErr)
+					return
+				}
+
+				require.NoError(t, err)
+				assert.Equal(t, bankMetadata.AccountNumber(), tt.accountNumber)
+				assert.Equal(t, bankMetadata.BankName(), tt.bankName)
+			})
+		}
+	})
+
+	t.Run("IsZero", func(t *testing.T) {
+		t.Parallel()
+
+		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		assert.False(t, bankMetadata.IsZero())
+
+		zeroMetadata := domain.FundProviderBankMetadata{}
+		assert.True(t, zeroMetadata.IsZero())
+	})
+
+	t.Run("MatchesType", func(t *testing.T) {
+		t.Parallel()
+
+		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+
+		assert.True(t, bankMetadata.MatchesType(domain.FundProviderTypeBank))
+		assert.False(t, bankMetadata.MatchesType(domain.FundProviderTypeCash))
+	})
+}
+
+func TestCashFundProviderMetadata(t *testing.T) {
+	t.Run("NewCashFundProviderMetadata", func(t *testing.T) {
+		tests := []struct {
+			name      string
+			ownerName string
+			wantErr   string
+		}{
+			{
+				name:      "reject-empty-owner",
+				ownerName: "",
+				wantErr:   "owner name can't be empty",
+			},
+			{
+				name:      "create-valid-cash-metadata",
+				ownerName: "Bui Quang Bach",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+
+				cashMetadata, err := domain.NewCashFundProviderMetadata(tt.ownerName)
+				if tt.wantErr != "" {
+					require.Error(t, err)
+					assert.Contains(t, err.Error(), tt.wantErr)
+					return
+				}
+
+				require.NoError(t, err)
+				assert.Equal(t, cashMetadata.OwnerName(), tt.ownerName)
+			})
+		}
+	})
+
+	t.Run("IsZero", func(t *testing.T) {
+		t.Parallel()
+
+		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
+		assert.False(t, cashMetadata.IsZero())
+
+		zeroMetadata := domain.FundProviderCashMetadata{}
+		assert.True(t, zeroMetadata.IsZero())
+	})
+
+	t.Run("MatchesType", func(t *testing.T) {
+		t.Parallel()
+
+		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
+
+		assert.True(t, cashMetadata.MatchesType(domain.FundProviderTypeCash))
+		assert.False(t, cashMetadata.MatchesType(domain.FundProviderTypeBank))
+	})
+}
+
+func TestNewFundProvider(t *testing.T) {
+	t.Run("ValidationsErrors", func(t *testing.T) {
+		vnd := shared.MustNewCurrency("VND")
+
+		validOfficeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
+		initBalance := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
+		bankMetadata := assertValidBankMetadata(t, "7777777316", "Bui Quang Bach")
+		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
+
+		tests := []struct {
+			name             string
+			fpName           string
+			officeUUID       models.OfficeUUID
+			fundProviderType domain.FundProviderType
+			initBalance      shared.Money
+			metadata         domain.FundProviderMetadata
+			wantErrDetails   []common.ErrorDetails
+		}{
+			{
+				name:             "reject-empty-name",
+				fpName:           "",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-name",
+						Message:    "name can't be empty",
+					},
+				},
+			},
+			{
+				name:             "reject-empty-office-uuid",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       models.OfficeUUID{},
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-office-uuid",
+						Message:    "office uuid can't be empty",
+					},
+				},
+			},
+			{
+				name:             "reject-empty-fund-provider-type",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderType{},
+				initBalance:      initBalance,
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-fund-provider-type",
+						Message:    "fund provider type can't be empty",
+					},
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "metadata-mismatch",
+					},
+				},
+			},
+			{
+				name:             "reject-empty-init-balance",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      shared.Money{},
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-balance",
+						Message:    "balance can't be empty",
+					},
+				},
+			},
+			{
+				name:             "reject-empty-bank-fund-provider-metadata",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         domain.FundProviderBankMetadata{},
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-metadata",
+						Message:    "metadata can't not be empty",
+					},
+				},
+			},
+			{
+				name:             "reject-empty-cash-fund-provider-metadata",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         domain.FundProviderCashMetadata{},
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "empty-metadata",
+						Message:    "metadata can't not be empty",
+					},
+				},
+			},
+			{
+				name:             "reject-cash-metadata-for-non-cash-provider",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeBank,
+				initBalance:      initBalance,
+				metadata:         cashMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "metadata-mismatch",
+					},
+				},
+			},
+			{
+				name:             "reject-bank-metadata-for--non-bank-provider",
+				fpName:           "Techcombank-Bach",
+				officeUUID:       validOfficeUUID,
+				fundProviderType: domain.FundProviderTypeCash,
+				initBalance:      initBalance,
+				metadata:         bankMetadata,
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "fund_provider",
+						ErrorSlug:  "metadata-mismatch",
+					},
+				},
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := domain.NewFundProvider(
+					tt.fpName,
+					tt.officeUUID,
+					tt.fundProviderType,
+					tt.initBalance,
+					tt.metadata,
+				)
+				require.Error(t, err)
+				testutils.AssertErrorDetails(t, err, tt.wantErrDetails)
+			})
+		}
+	})
+
+	t.Run("Sucess", func(t *testing.T) {
+		vnd := shared.MustNewCurrency("VND")
+		initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
+		officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
+
+		t.Run("create bank fund provider sucessfully", func(t *testing.T) {
+			t.Parallel()
+
+			bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+
+			fp, err := domain.NewFundProvider(
+				"Techcombank-Bach",
+				officeUUID,
+				domain.FundProviderTypeBank,
+				initBalance,
+				bankMetadata,
+			)
+			require.NoError(t, err)
+
+			assert.False(t, fp.UUID().IsZero())
+			assert.Equal(t, officeUUID, fp.OfficeUUID())
+			assert.Equal(t, "Techcombank-Bach", fp.Name())
+			assert.Equal(t, fp.Type(), domain.FundProviderTypeBank)
+			assert.True(t, fp.Balance().Equal(initBalance))
+			assert.True(t, fp.AvailableMoney().Equal(initBalance))
+			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
+
+			bankMeta, ok := fp.BankMetadata()
+			require.True(t, ok)
+			assert.Equal(t, bankMeta, bankMetadata)
+			assert.Equal(t, bankMeta.AccountNumber(), "7777777316")
+			assert.Equal(t, bankMeta.BankName(), "Techcombank")
+		})
+
+		t.Run("create cash fund provider sucessfully", func(t *testing.T) {
+			t.Parallel()
+
+			cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
+
+			fp, err := domain.NewFundProvider(
+				"Techcombank-Bach",
+				officeUUID,
+				domain.FundProviderTypeCash,
+				initBalance,
+				cashMetadata,
+			)
+			require.NoError(t, err)
+
+			assert.False(t, fp.UUID().IsZero())
+			assert.Equal(t, officeUUID, fp.OfficeUUID())
+			assert.Equal(t, "Techcombank-Bach", fp.Name())
+			assert.Equal(t, fp.Type(), domain.FundProviderTypeCash)
+			assert.True(t, fp.Balance().Equal(initBalance))
+			assert.True(t, fp.AvailableMoney().Equal(initBalance))
+			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
+
+			cashMeta, ok := fp.CashMetadata()
+			require.True(t, ok)
+			assert.Equal(t, cashMeta, cashMetadata)
+			assert.Equal(t, cashMeta.OwnerName(), "Huynh Trang")
+		})
+	})
+
+	t.Run("Withdraw", func(t *testing.T) {
+		tests := []struct {
+			name string
+		}{}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+			})
+		}
+	})
+
+	t.Run("Allocate", func(t *testing.T) {
+		tests := []struct {
+			name string
+		}{}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+			})
+		}
+	})
+}
+
+func assertValidBankMetadata(t *testing.T, accountNo string, bankName string) domain.FundProviderBankMetadata {
+	bankMetadata, err := domain.NewBankFundProviderMetadata(accountNo, bankName, "Bui Quang Bach")
+	require.NoError(t, err)
+
+	return bankMetadata
+}
+
+func assertValidCashMetadata(t *testing.T, ownerName string) domain.FundProviderCashMetadata {
+	cashMetadata, err := domain.NewCashFundProviderMetadata(ownerName)
+	require.NoError(t, err)
+
+	return cashMetadata
+}
+
+func assertValidMoney(t *testing.T, amount decimal.Decimal, currency shared.Currency) shared.Money {
+	t.Helper()
+	money, err := shared.NewMoney(amount, currency)
+	require.NoError(t, err)
+	return money
+}
