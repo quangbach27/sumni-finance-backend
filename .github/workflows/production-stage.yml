@@ -4,14 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Image version (commit SHA)
-        required: true
-        default: ${{ github.sha }}
+        description: "Image version (commit SHA) — leave blank to use latest on this branch"
+        required: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  VERSION: ${{ github.event.inputs.version }}
+  VERSION: ${{ github.event.inputs.version || github.sha }}
 
 jobs:
   deploy:
