@@ -1,0 +1,19 @@
+name: Acceptance Stage
+on:
+  workflow_run:
+    workflows: ['Commit Stage']
+    types: [completed]
+    branches: main
+concurrency: acceptance
+
+env: 
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  VERSION: ${{ github.sha }}
+
+jobs:
+  functional:
+    name: Component Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Running component tests"
