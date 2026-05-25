@@ -3,10 +3,10 @@ on:
   workflow_run:
     workflows: ['Commit Stage']
     types: [completed]
-    branches:
-      - main
-      - develop
-concurrency: acceptance
+
+concurrency:
+  group: acceptance-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
 
 env: 
   REGISTRY: ghcr.io
@@ -15,7 +15,7 @@ env:
 
 jobs:
   functional:
-    name: Component Tests
+    name: Funtional Tests
     runs-on: ubuntu-24.04
     steps:
-      - run: echo "Running component tests"
+      - run: echo "Running Functional tests"
