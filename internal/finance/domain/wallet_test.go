@@ -15,11 +15,12 @@ import (
 )
 
 func TestNewWallet(t *testing.T) {
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+	bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 
 	vnd := shared.MustNewCurrency("VND")
 	krw := shared.MustNewCurrency("KRW")
 
+	officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 	initBalance := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
 
 	t.Run("Validation Errors", func(t *testing.T) {
@@ -28,9 +29,10 @@ func TestNewWallet(t *testing.T) {
 			wName           string
 			description     string
 			currency        shared.Currency
+			officeUUID      models.OfficeUUID
 			allocationsData func(
 				t *testing.T,
-				fp1 domain.AllocatableFundProvider,
+				fp1 *domain.FundProvider,
 			) []domain.NewFundProviderAllocationData
 			wantErrDetails []common.ErrorDetails
 		}{
@@ -39,13 +41,14 @@ func TestNewWallet(t *testing.T) {
 				wName:       "",
 				description: "wallet contains church money",
 				currency:    vnd,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					allocated := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -53,7 +56,7 @@ func TestNewWallet(t *testing.T) {
 					{
 						EntityType: "wallet",
 						ErrorSlug:  "empty-name",
-						Message:    "name can't not be empty",
+						Message:    "name can't be empty",
 					},
 				},
 			},
@@ -62,13 +65,14 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    shared.Currency{},
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					allocated := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -76,7 +80,25 @@ func TestNewWallet(t *testing.T) {
 					{
 						EntityType: "wallet",
 						ErrorSlug:  "empty-currency",
-						Message:    "currency can't not be empty",
+						Message:    "currency can't be empty",
+					},
+				},
+			},
+			{
+				testName:    "reject-empty-office-uuid",
+				wName:       "Vi tai chinh tong",
+				description: "wallet contains church money",
+				currency:    vnd,
+				officeUUID:  models.OfficeUUID{},
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
+					t.Helper()
+					return []domain.NewFundProviderAllocationData{}
+				},
+				wantErrDetails: []common.ErrorDetails{
+					{
+						EntityType: "wallet",
+						ErrorSlug:  "empty-office-uuid",
+						Message:    "office uuid can't be empty",
 					},
 				},
 			},
@@ -85,12 +107,30 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    vnd,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: nil,
-							Amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+							FundProvider:     nil,
+							AllocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+						},
+					}
+				},
+			},
+			{
+				testName:    "reject-office-uuid-missmatch-between-fund-provider-and-wallet",
+				wName:       "Vi tai chinh tong",
+				description: "wallet contains church money",
+				currency:    krw,
+				officeUUID:  models.OfficeUUID{UUID: common.NewUUIDv7()},
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
+					t.Helper()
+					allocated := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
+					return []domain.NewFundProviderAllocationData{
+						{
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -100,13 +140,14 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    krw,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					allocated := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -116,14 +157,15 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    vnd,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 
 					allocated := assertValidMoney(t, decimal.NewFromInt(-100_000), vnd)
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -133,12 +175,13 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    vnd,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       shared.Money{},
+							FundProvider:     fp1,
+							AllocationAmount: shared.Money{},
 						},
 					}
 				},
@@ -148,17 +191,18 @@ func TestNewWallet(t *testing.T) {
 				wName:       "Vi tai chinh tong",
 				description: "wallet contains church money",
 				currency:    vnd,
-				allocationsData: func(t *testing.T, fp1 domain.AllocatableFundProvider) []domain.NewFundProviderAllocationData {
+				officeUUID:  officeUUID,
+				allocationsData: func(t *testing.T, fp1 *domain.FundProvider) []domain.NewFundProviderAllocationData {
 					t.Helper()
 					allocated := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
 					return []domain.NewFundProviderAllocationData{
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 						{
-							FundProvider: fp1,
-							Amount:       allocated,
+							FundProvider:     fp1,
+							AllocationAmount: allocated,
 						},
 					}
 				},
@@ -169,7 +213,7 @@ func TestNewWallet(t *testing.T) {
 			t.Run(tt.testName, func(t *testing.T) {
 				fp1, err := domain.NewFundProvider(
 					"Techcombank-Bach",
-					models.OfficeUUID{UUID: common.NewUUIDv7()},
+					officeUUID,
 					domain.FundProviderTypeBank,
 					initBalance,
 					bankMetadata,
@@ -182,6 +226,7 @@ func TestNewWallet(t *testing.T) {
 					tt.wName,
 					tt.description,
 					tt.currency,
+					tt.officeUUID,
 					tt.allocationsData(t, fp1),
 				)
 
@@ -194,7 +239,7 @@ func TestNewWallet(t *testing.T) {
 	})
 
 	t.Run("create-wallet-success", func(t *testing.T) {
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
 
 		vnd := shared.MustNewCurrency("VND")
@@ -203,7 +248,7 @@ func TestNewWallet(t *testing.T) {
 
 		fp1, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			officeUUID,
 			domain.FundProviderTypeBank,
 			initBalance,
 			bankMetadata,
@@ -212,7 +257,7 @@ func TestNewWallet(t *testing.T) {
 
 		fp2, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			officeUUID,
 			domain.FundProviderTypeCash,
 			initBalance,
 			cashMetadata,
@@ -226,14 +271,15 @@ func TestNewWallet(t *testing.T) {
 			"Vi Tai Chinh Tong",
 			"Wallet contains office money",
 			vnd,
+			officeUUID,
 			[]domain.NewFundProviderAllocationData{
 				{
-					FundProvider: fp1,
-					Amount:       allocationAmount1,
+					FundProvider:     fp1,
+					AllocationAmount: allocationAmount1,
 				},
 				{
-					FundProvider: fp2,
-					Amount:       allocationAmount2,
+					FundProvider:     fp2,
+					AllocationAmount: allocationAmount2,
 				},
 			},
 		)
@@ -243,15 +289,16 @@ func TestNewWallet(t *testing.T) {
 		assert.Equal(t, w.Name(), "Vi Tai Chinh Tong")
 		assert.True(t, w.Currency().Equal(vnd))
 		assert.Equal(t, w.Description(), "Wallet contains office money")
+		assert.Equal(t, w.OfficeUUID(), officeUUID)
 
 		assert.True(t, w.Balance().Equal(assertValidMoney(t, decimal.NewFromInt(900_000), vnd))) // sum of all allocations in fund provider registry
 
-		assert.True(t, fp1.AvailableMoney().Equal(assertValidMoney(t, decimal.NewFromInt(500_000), vnd)))
-		assert.True(t, fp2.AvailableMoney().Equal(assertValidMoney(t, decimal.NewFromInt(600_000), vnd)))
+		assert.True(t, fp1.AvailableBalance().Equal(assertValidMoney(t, decimal.NewFromInt(500_000), vnd)))
+		assert.True(t, fp2.AvailableBalance().Equal(assertValidMoney(t, decimal.NewFromInt(600_000), vnd)))
 	})
 
 	t.Run("create-wallet-success-with-zero-amount-allocation", func(t *testing.T) {
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
 
 		vnd := shared.MustNewCurrency("VND")
@@ -260,7 +307,7 @@ func TestNewWallet(t *testing.T) {
 
 		fp1, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			officeUUID,
 			domain.FundProviderTypeBank,
 			initBalance,
 			bankMetadata,
@@ -269,7 +316,7 @@ func TestNewWallet(t *testing.T) {
 
 		fp2, err := domain.NewFundProvider(
 			"Techcombank-Bach",
-			models.OfficeUUID{UUID: common.NewUUIDv7()},
+			officeUUID,
 			domain.FundProviderTypeCash,
 			initBalance,
 			cashMetadata,
@@ -283,14 +330,15 @@ func TestNewWallet(t *testing.T) {
 			"Vi Tai Chinh Tong",
 			"Wallet contains office money",
 			vnd,
+			officeUUID,
 			[]domain.NewFundProviderAllocationData{
 				{
-					FundProvider: fp1,
-					Amount:       allocationAmount1,
+					FundProvider:     fp1,
+					AllocationAmount: allocationAmount1,
 				},
 				{
-					FundProvider: fp2,
-					Amount:       allocationAmount2,
+					FundProvider:     fp2,
+					AllocationAmount: allocationAmount2,
 				},
 			},
 		)
@@ -302,8 +350,8 @@ func TestNewWallet(t *testing.T) {
 		assert.Equal(t, w.Description(), "Wallet contains office money")
 		assert.True(t, w.Balance().Equal(assertValidMoney(t, decimal.Zero, vnd)))
 
-		assert.True(t, fp1.AvailableMoney().Equal(initBalance))
-		assert.True(t, fp2.AvailableMoney().Equal(initBalance))
+		assert.True(t, fp1.AvailableBalance().Equal(initBalance))
+		assert.True(t, fp2.AvailableBalance().Equal(initBalance))
 	})
 
 	t.Run("create-wallet-success-without-fund-allocation", func(t *testing.T) {
@@ -313,6 +361,7 @@ func TestNewWallet(t *testing.T) {
 			"Vi Tai Chinh Tong",
 			"Wallet contains office money",
 			vnd,
+			officeUUID,
 			nil,
 		)
 		require.NoError(t, err)
@@ -326,94 +375,131 @@ func TestNewWallet(t *testing.T) {
 }
 
 func TestWallet_AllocateFundProvider(t *testing.T) {
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
-
 	vnd := shared.MustNewCurrency("VND")
 	krw := shared.MustNewCurrency("KRW")
 
 	initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
 	initBalanceKrw := assertValidMoney(t, decimal.NewFromInt(1_000_000), krw)
 
-	createValidFundProvider := func(
-		balance shared.Money,
-		metadata domain.FundProviderMetadata,
-	) *domain.FundProvider {
-		t.Helper()
-
-		fp, err := domain.NewFundProvider("Vi tai chinh tong", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, balance, metadata)
-		require.NoError(t, err)
-
-		return fp
-	}
+	officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 
 	t.Run("Validation Errors", func(t *testing.T) {
 		tests := []struct {
-			name         string
-			mutate       func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider)
-			fundProvider domain.AllocatableFundProvider
-			amount       shared.Money
-			wantErr      string
+			name                    string
+			allocationData          domain.NewFundProviderAllocationData
+			officeUUID              models.OfficeUUID
+			fundProvider            *domain.FundProvider
+			isFundProviderAllocated bool
+			allocationAmount        shared.Money
+			wantErr                 string
 		}{
 			{
-				name:         "reject-nil-fund-provider",
-				fundProvider: nil,
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
-				wantErr:      "fund provider can't be empty",
+				name:             "reject-nil-fund-provider",
+				fundProvider:     nil,
+				officeUUID:       officeUUID,
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+				wantErr:          "fund provider can't be empty",
 			},
 			{
-				name:         "reject-empty-fund-provider",
-				fundProvider: &domain.FundProvider{},
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+				name:       "reject-empty-amount",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceVnd,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: shared.Money{},
+				wantErr:          "amount can't be empty",
 			},
 			{
-				name:         "reject-empty-amount",
-				fundProvider: createValidFundProvider(initBalanceVnd, bankMetadata),
-				amount:       shared.Money{},
-				wantErr:      "amount can't be empty",
+				name:       "reject-amount-does-not-match-with-wallet-currency",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceVnd,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), krw),
 			},
 			{
-				name:         "reject-amount-does-not-match-with-wallet-currenct",
-				fundProvider: createValidFundProvider(initBalanceVnd, bankMetadata),
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), krw),
+				name:       "reject-fund-provider-does-not-match-with-wallet-currenct",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceKrw,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
 			},
 			{
-				name:         "reject-fund-provider-does-not-match-with-wallet-currenct",
-				fundProvider: createValidFundProvider(initBalanceKrw, bankMetadata),
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+				name:       "reject-fund-provider-and-amount-does-not-match-with-wallet-currenct",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceKrw,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), krw),
 			},
 			{
-				name:         "reject-fund-provider-and-amount-does-not-match-with-wallet-currenct",
-				fundProvider: createValidFundProvider(initBalanceKrw, bankMetadata),
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), krw),
+				name:       "reject-fund-provider-already-allocated",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceVnd,
+					domain.FundProviderTypeBank,
+				),
+				isFundProviderAllocated: true,
+				allocationAmount:        assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
 			},
 			{
-				name: "reject-fund-provider-already-allocated",
-				mutate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider) {
-					t.Helper()
-
-					err := w.AllocateFundProvider(fp, assertValidMoney(t, decimal.NewFromInt(100_000), w.Currency()))
-					require.NoError(t, err)
-				},
-				fundProvider: createValidFundProvider(initBalanceVnd, bankMetadata),
-				amount:       assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
+				name:       "reject-when-fund-provider-and-wallet-does-not-belong-in-the-same-office",
+				officeUUID: models.OfficeUUID{UUID: common.NewUUIDv7()},
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceKrw,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(100_000), vnd),
 			},
 			{
-				name:         "reject-amount-exceed-fund-provider-available-balance",
-				fundProvider: createValidFundProvider(initBalanceVnd, bankMetadata),
-				amount:       assertValidMoney(t, decimal.NewFromInt(1_100_000), vnd),
+				name:       "reject-amount-exceed-fund-provider-available-balance",
+				officeUUID: officeUUID,
+				fundProvider: validFundProvider(
+					t,
+					officeUUID,
+					initBalanceVnd,
+					domain.FundProviderTypeBank,
+				),
+				allocationAmount: assertValidMoney(t, decimal.NewFromInt(1_100_000), vnd),
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				w, err := domain.NewWallet("tai chinh tong", "", vnd, nil)
-				require.NoError(t, err)
-
-				if tt.mutate != nil {
-					tt.mutate(t, w, tt.fundProvider)
+				var allocationsData []domain.NewFundProviderAllocationData
+				if tt.isFundProviderAllocated {
+					allocationsData = append(allocationsData, domain.NewFundProviderAllocationData{
+						FundProvider:     tt.fundProvider,
+						AllocationAmount: shared.UnmarshalMoney(decimal.Zero, vnd),
+					})
 				}
 
-				err = w.AllocateFundProvider(tt.fundProvider, tt.amount)
+				w, err := domain.NewWallet(
+					"tai chinh tong", "",
+					vnd,
+					tt.officeUUID,
+					allocationsData,
+				)
+				require.NoError(t, err)
+
+				err = w.AllocateFundProvider(tt.fundProvider, tt.allocationAmount)
 				require.Error(t, err)
 
 				assert.Contains(t, err.Error(), tt.wantErr)
@@ -422,9 +508,20 @@ func TestWallet_AllocateFundProvider(t *testing.T) {
 	})
 
 	t.Run("Allocate success", func(t *testing.T) {
-		fp := createValidFundProvider(initBalanceVnd, bankMetadata)
+		fp := validFundProvider(
+			t,
+			officeUUID,
+			initBalanceVnd,
+			domain.FundProviderTypeBank,
+		)
 
-		w, err := domain.NewWallet("tai chinh tong", "", vnd, nil)
+		w, err := domain.NewWallet(
+			"tai chinh tong",
+			"",
+			vnd,
+			officeUUID,
+			nil,
+		)
 		require.NoError(t, err)
 
 		allocationAmount := assertValidMoney(t, decimal.NewFromInt(200_000), vnd)
@@ -433,13 +530,24 @@ func TestWallet_AllocateFundProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, w.Balance().Equal(allocationAmount))
-		assert.True(t, fp.AvailableMoney().Equal(assertValidMoney(t, decimal.NewFromInt(800_000), vnd))) // initBalance - allocationAmount = 800_000
+		assert.True(t, fp.AvailableBalance().Equal(assertValidMoney(t, decimal.NewFromInt(800_000), vnd))) // initBalance - allocationAmount = 800_000
 	})
 
 	t.Run("Allocate success with zero money", func(t *testing.T) {
-		fp := createValidFundProvider(initBalanceVnd, bankMetadata)
+		fp := validFundProvider(
+			t,
+			officeUUID,
+			initBalanceVnd,
+			domain.FundProviderTypeBank,
+		)
 
-		w, err := domain.NewWallet("tai chinh tong", "", vnd, nil)
+		w, err := domain.NewWallet(
+			"tai chinh tong",
+			"",
+			vnd,
+			officeUUID,
+			nil,
+		)
 		require.NoError(t, err)
 
 		zeroAmount := assertValidMoney(t, decimal.Zero, vnd)
@@ -448,7 +556,7 @@ func TestWallet_AllocateFundProvider(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, w.Balance().Equal(zeroAmount))
-		assert.True(t, fp.AvailableMoney().Equal(initBalanceVnd)) // Available Money does not change
+		assert.True(t, fp.AvailableBalance().Equal(initBalanceVnd)) // Available Money does not change
 	})
 }
 
@@ -457,12 +565,12 @@ func TestWallet_TopUp(t *testing.T) {
 	vnd := shared.MustNewCurrency("VND")
 
 	initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+	bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 
 	t.Run("Validation Errors", func(t *testing.T) {
 		tests := []struct {
 			name       string
-			allocateFn func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money)
+			allocateFn func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money)
 			amount     shared.Money
 			fpUUID     domain.FundProviderUUID
 			wantErr    string
@@ -470,7 +578,7 @@ func TestWallet_TopUp(t *testing.T) {
 			{
 				name:   "reject-empty-amount",
 				amount: shared.Money{},
-				allocateFn: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocateFn: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -481,7 +589,7 @@ func TestWallet_TopUp(t *testing.T) {
 			{
 				name:   "reject-zero-amount",
 				amount: assertValidMoney(t, decimal.Zero, vnd),
-				allocateFn: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocateFn: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -492,7 +600,7 @@ func TestWallet_TopUp(t *testing.T) {
 			{
 				name:   "reject-negative-amount",
 				amount: assertValidMoney(t, decimal.NewFromInt(-100_000), vnd),
-				allocateFn: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocateFn: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -502,7 +610,7 @@ func TestWallet_TopUp(t *testing.T) {
 			},
 			{
 				name: "reject-amount-currency-mismatch",
-				allocateFn: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocateFn: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -518,10 +626,12 @@ func TestWallet_TopUp(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
+				officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
+
+				fp, err := domain.NewFundProvider("Techcombank-Bach", officeUUID, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
-				w, err := domain.NewWallet("tai chinh tong", "", vnd, nil)
+				w, err := domain.NewWallet("tai chinh tong", "", vnd, officeUUID, nil)
 				require.NoError(t, err)
 
 				if tt.allocateFn != nil {
@@ -537,18 +647,19 @@ func TestWallet_TopUp(t *testing.T) {
 	})
 
 	t.Run("top-up-success", func(t *testing.T) {
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 		vnd := shared.MustNewCurrency("VND")
 
 		initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
+		officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 
-		fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
+		fp, err := domain.NewFundProvider("Techcombank-Bach", officeUUID, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 		require.NoError(t, err)
 
-		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, []domain.NewFundProviderAllocationData{
+		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, officeUUID, []domain.NewFundProviderAllocationData{
 			{
-				FundProvider: fp,
-				Amount:       assertValidMoney(t, decimal.NewFromInt(200_000), vnd),
+				FundProvider:     fp,
+				AllocationAmount: assertValidMoney(t, decimal.NewFromInt(200_000), vnd),
 			},
 		})
 		require.NoError(t, err)
@@ -565,7 +676,7 @@ func TestWallet_TopUp(t *testing.T) {
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(1_200_000), vnd), fp.Balance())
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(1_200_000), vnd), snapshot.FundProviderBalance)
 
-		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(400_000), vnd), snapshot.WalletAllocation)
+		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(400_000), vnd), snapshot.AllocationMoney)
 	})
 }
 
@@ -574,19 +685,19 @@ func TestWallet_Withdraw(t *testing.T) {
 	vnd := shared.MustNewCurrency("VND")
 
 	initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
-	bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+	bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 
 	t.Run("Validation Errors", func(t *testing.T) {
 		tests := []struct {
 			name     string
-			allocate func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money)
+			allocate func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money)
 			amount   shared.Money
 			wantErr  string
 		}{
 			{
 				name:   "reject-empty-amount",
 				amount: shared.Money{},
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -596,7 +707,7 @@ func TestWallet_Withdraw(t *testing.T) {
 			},
 			{
 				name: "reject-zero-amount",
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -607,7 +718,7 @@ func TestWallet_Withdraw(t *testing.T) {
 			},
 			{
 				name: "reject-negative-amount",
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -618,7 +729,7 @@ func TestWallet_Withdraw(t *testing.T) {
 			},
 			{
 				name: "reject-amount-currency-mismatch",
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -632,7 +743,7 @@ func TestWallet_Withdraw(t *testing.T) {
 			},
 			{
 				name: "reject-amount-greater-than-wallet-balance",
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -643,7 +754,7 @@ func TestWallet_Withdraw(t *testing.T) {
 			},
 			{
 				name: "reject-amount-greater-than-fund-provider-allocation",
-				allocate: func(t *testing.T, w *domain.Wallet, fp domain.AllocatableFundProvider, amount shared.Money) {
+				allocate: func(t *testing.T, w *domain.Wallet, fp *domain.FundProvider, amount shared.Money) {
 					t.Helper()
 
 					err := w.AllocateFundProvider(fp, amount)
@@ -656,18 +767,20 @@ func TestWallet_Withdraw(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
+				officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
+
+				fp, err := domain.NewFundProvider("Techcombank-Bach", officeUUID, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
-				fp2, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
+				fp2, err := domain.NewFundProvider("Techcombank-Bach", officeUUID, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 				require.NoError(t, err)
 
 				allocationMoney := assertValidMoney(t, decimal.NewFromInt(200_000), vnd)
 
-				w, err := domain.NewWallet("tai chinh tong", "", vnd, []domain.NewFundProviderAllocationData{
+				w, err := domain.NewWallet("tai chinh tong", "", vnd, officeUUID, []domain.NewFundProviderAllocationData{
 					{
-						FundProvider: fp2,
-						Amount:       allocationMoney,
+						FundProvider:     fp2,
+						AllocationAmount: allocationMoney,
 					},
 				})
 				require.NoError(t, err)
@@ -685,18 +798,19 @@ func TestWallet_Withdraw(t *testing.T) {
 	})
 
 	t.Run("withdraw-success", func(t *testing.T) {
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 		vnd := shared.MustNewCurrency("VND")
 
 		initBalanceVnd := assertValidMoney(t, decimal.NewFromInt(1_000_000), vnd)
+		officeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 
-		fp, err := domain.NewFundProvider("Techcombank-Bach", models.OfficeUUID{UUID: common.NewUUIDv7()}, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
+		fp, err := domain.NewFundProvider("Techcombank-Bach", officeUUID, domain.FundProviderTypeBank, initBalanceVnd, bankMetadata)
 		require.NoError(t, err)
 
-		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, []domain.NewFundProviderAllocationData{
+		w, err := domain.NewWallet("Vi Tai Chinh Tong", "", vnd, officeUUID, []domain.NewFundProviderAllocationData{
 			{
-				FundProvider: fp,
-				Amount:       assertValidMoney(t, decimal.NewFromInt(200_000), vnd),
+				FundProvider:     fp,
+				AllocationAmount: assertValidMoney(t, decimal.NewFromInt(200_000), vnd),
 			},
 		})
 		require.NoError(t, err)
@@ -713,73 +827,37 @@ func TestWallet_Withdraw(t *testing.T) {
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(900_000), vnd), fp.Balance())
 		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(900_000), vnd), snapshot.FundProviderBalance)
 
-		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(100_000), vnd), snapshot.WalletAllocation)
+		assert.Equal(t, assertValidMoney(t, decimal.NewFromInt(100_000), vnd), snapshot.AllocationMoney)
 	})
 }
 
-func TestNewPeriodConfig(t *testing.T) {
-	t.Run("Validation Errors", func(t *testing.T) {
-		tests := []struct {
-			name             string
-			intervalInMonths int
-			dayOfMonth       int
-			wantErr          string
-		}{
-			{
-				name:             "reject-day-of-month-zero",
-				intervalInMonths: 1,
-				dayOfMonth:       0,
-				wantErr:          "day of month must be between 1 and 27",
-			},
-			{
-				name:             "reject-day-of-month-negative",
-				intervalInMonths: 1,
-				dayOfMonth:       -1,
-				wantErr:          "day of month must be between 1 and 27",
-			},
-			{
-				name:             "reject-day-of-month-above-27",
-				intervalInMonths: 1,
-				dayOfMonth:       28,
-				wantErr:          "day of month must be between 1 and 27",
-			},
-			// intervalInMonths validations
-			{
-				name:             "reject-interval-in-months-zero",
-				intervalInMonths: 0,
-				dayOfMonth:       1,
-				wantErr:          "interval in months must be between 1 and 5",
-			},
-			{
-				name:             "reject-interval-in-months-negative",
-				intervalInMonths: -1,
-				dayOfMonth:       1,
-				wantErr:          "interval in months must be between 1 and 5",
-			},
-			{
-				name:             "reject-interval-in-months-above-5",
-				intervalInMonths: 6,
-				dayOfMonth:       1,
-				wantErr:          "interval in months must be between 1 and 5",
-			},
-		}
+func validFundProvider(
+	t *testing.T,
+	officeUUID models.OfficeUUID,
+	initBalance shared.Money,
+	fpType domain.FundProviderType,
+) *domain.FundProvider {
+	t.Helper()
 
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				_, err := domain.NewAccountingPeriodConfig(tt.intervalInMonths, tt.dayOfMonth)
-				require.Error(t, err)
+	var metadata domain.FundProviderMetadata
+	var err error
 
-				assert.Contains(t, err.Error(), tt.wantErr)
-			})
-		}
-	})
-
-	t.Run("create-period-config", func(t *testing.T) {
-		config, err := domain.NewAccountingPeriodConfig(2, 5)
+	switch fpType {
+	case domain.FundProviderTypeBank:
+		metadata = validBankMetadata(t, "7777777316", "Techcombank")
+	case domain.FundProviderTypeCash:
+		metadata, err = domain.NewCashFundProviderMetadata("Huynh Trang")
 		require.NoError(t, err)
+	}
 
-		assert.Equal(t, 2, config.IntervalInMonths())
-		assert.Equal(t, 5, config.DayOfMonth())
-		assert.False(t, config.IsZero())
-	})
+	fp, err := domain.NewFundProvider(
+		"Vi tai chinh tong",
+		officeUUID,
+		domain.FundProviderTypeBank,
+		initBalance,
+		metadata,
+	)
+	require.NoError(t, err)
+
+	return fp
 }

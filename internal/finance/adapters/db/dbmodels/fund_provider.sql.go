@@ -137,3 +137,23 @@ func (q *Queries) InsertFundProvider(ctx context.Context, arg InsertFundProvider
 	)
 	return err
 }
+
+const updateFundProviderBalance = `-- name: UpdateFundProviderBalance :exec
+UPDATE finances.fund_providers
+SET 
+    balance = COALESCE($1, balance),
+    available_balance =  COALESCE($2, available_balance)
+WHERE
+    fund_provider_uuid = $3
+`
+
+type UpdateFundProviderBalanceParams struct {
+	Balance          *decimal.Decimal
+	AvailableBalance *decimal.Decimal
+	FundProviderUuid domain.FundProviderUUID
+}
+
+func (q *Queries) UpdateFundProviderBalance(ctx context.Context, arg UpdateFundProviderBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateFundProviderBalance, arg.Balance, arg.AvailableBalance, arg.FundProviderUuid)
+	return err
+}

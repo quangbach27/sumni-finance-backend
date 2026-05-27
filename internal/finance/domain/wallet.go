@@ -1,22 +1,34 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
+	"sumni-finance-backend/internal/finance/app/models"
 
 	"github.com/shopspring/decimal"
 )
 
-type AllocatableFundProvider interface {
-	UUID() FundProviderUUID
-	Balance() shared.Money
-	reserve(m shared.Money) error
-	topUp(m shared.Money) error
-	withdraw(m shared.Money) error
+type WalletRepository interface {
+	GetWalletWithAllocations(ctx context.Context, walletUUID WalletUUID) (*Wallet, error)
+
+	SaveWallet(
+		ctx context.Context,
+		fundProvidersUUIDs []FundProviderUUID,
+		createFn func(
+			fundProviders map[FundProviderUUID]*FundProvider,
+		) (*Wallet, *Ledger, error),
+	) error
+
+	UpdateFundProviderAllocations(
+		ctx context.Context,
+		walletUUID WalletUUID,
+		updateFn func(wallet *Wallet) error,
+	) error
 }
 
 type WalletUUID struct {
@@ -28,10 +40,11 @@ type Wallet struct {
 	name        string
 	description string
 
-	balance  shared.Money
-	currency shared.Currency
+	balance    shared.Money
+	currency   shared.Currency
+	officeUUID models.OfficeUUID
 
-	fundProviderRegister *fundProviderRegistry
+	fpRegistry *fundProviderRegistry
 }
 
 func (w *Wallet) UUID() WalletUUID {
@@ -54,11 +67,15 @@ func (w *Wallet) Currency() shared.Currency {
 	return w.currency
 }
 
+func (w *Wallet) OfficeUUID() models.OfficeUUID {
+	return w.officeUUID
+}
+
 type WalletAllocationSnapshot struct {
 	WalletUUID    WalletUUID
 	WalletBalance shared.Money
 
-	WalletAllocation shared.Money
+	AllocationMoney shared.Money
 
 	FundProviderUUID    FundProviderUUID
 	FundProviderBalance shared.Money
@@ -77,7 +94,7 @@ func (w *Wallet) TopUp(amount shared.Money, fpUUID FundProviderUUID) (WalletAllo
 		return WalletAllocationSnapshot{}, fmt.Errorf("top up amount currency %s does not match with wallet currency %s", amount.Currency().String(), w.currency.String())
 	}
 
-	fpBalance, allocationAmount, err := w.fundProviderRegister.increaseAllocation(fpUUID, amount)
+	fpBalance, allocationAmount, err := w.fpRegistry.increaseAllocation(fpUUID, amount)
 	if err != nil {
 		return WalletAllocationSnapshot{}, err
 	}
@@ -92,7 +109,7 @@ func (w *Wallet) TopUp(amount shared.Money, fpUUID FundProviderUUID) (WalletAllo
 	return WalletAllocationSnapshot{
 		WalletUUID:          w.uuid,
 		WalletBalance:       w.balance,
-		WalletAllocation:    allocationAmount,
+		AllocationMoney:     allocationAmount,
 		FundProviderUUID:    fpUUID,
 		FundProviderBalance: fpBalance,
 	}, nil
@@ -115,7 +132,7 @@ func (w *Wallet) Withdraw(amount shared.Money, fpUUID FundProviderUUID) (WalletA
 		return WalletAllocationSnapshot{}, fmt.Errorf("withdraw amount must be less then wallet balance")
 	}
 
-	fpBalance, allocationAmount, err := w.fundProviderRegister.decreaseAllocation(fpUUID, amount)
+	fpBalance, allocationAmount, err := w.fpRegistry.decreaseAllocation(fpUUID, amount)
 	if err != nil {
 		return WalletAllocationSnapshot{}, err
 	}
@@ -129,14 +146,14 @@ func (w *Wallet) Withdraw(amount shared.Money, fpUUID FundProviderUUID) (WalletA
 	return WalletAllocationSnapshot{
 		WalletUUID:          w.uuid,
 		WalletBalance:       w.balance,
-		WalletAllocation:    allocationAmount,
+		AllocationMoney:     allocationAmount,
 		FundProviderUUID:    fpUUID,
 		FundProviderBalance: fpBalance,
 	}, nil
 }
 
-func (w *Wallet) AllocateFundProvider(fp AllocatableFundProvider, amount shared.Money) error {
-	err := w.fundProviderRegister.register(fp, amount)
+func (w *Wallet) AllocateFundProvider(fp *FundProvider, amount shared.Money) error {
+	err := w.fpRegistry.register(fp, amount)
 	if err != nil {
 		return err
 	}
@@ -151,15 +168,30 @@ func (w *Wallet) AllocateFundProvider(fp AllocatableFundProvider, amount shared.
 	return nil
 }
 
+func (w *Wallet) FundProviderAllocations() []*FundProviderAllocation {
+	allocations := make([]*FundProviderAllocation, 0, len(w.fpRegistry.allocations))
+
+	for _, allocation := range w.fpRegistry.allocations {
+		allocations = append(allocations, allocation)
+	}
+
+	return allocations
+}
+
+func (w *Wallet) FindFundProviderAllocation(fpUUID FundProviderUUID) (*FundProviderAllocation, error) {
+	return w.fpRegistry.findAllocation(fpUUID)
+}
+
 type NewFundProviderAllocationData struct {
-	FundProvider AllocatableFundProvider
-	Amount       shared.Money
+	FundProvider     *FundProvider
+	AllocationAmount shared.Money
 }
 
 func NewWallet(
 	name string,
 	description string,
 	currency shared.Currency,
+	officeUUID models.OfficeUUID,
 	allocationsData []NewFundProviderAllocationData,
 ) (*Wallet, error) {
 	errDetails := []common.ErrorDetails{}
@@ -167,7 +199,7 @@ func NewWallet(
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "wallet",
 			ErrorSlug:  "empty-name",
-			Message:    "name can't not be empty",
+			Message:    "name can't be empty",
 		})
 	}
 
@@ -175,7 +207,15 @@ func NewWallet(
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "wallet",
 			ErrorSlug:  "empty-currency",
-			Message:    "currency can't not be empty",
+			Message:    "currency can't be empty",
+		})
+	}
+
+	if officeUUID.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "wallet",
+			ErrorSlug:  "empty-office-uuid",
+			Message:    "office uuid can't be empty",
 		})
 	}
 
@@ -183,7 +223,7 @@ func NewWallet(
 		return nil, common.NewInvalidInputError("invalid-wallet-input", "invalid wallet input").WithDetails(errDetails)
 	}
 
-	allocationManager, err := newFundProviderRegistry(currency, allocationsData)
+	fpregistry, err := newFundProviderRegistry(currency, officeUUID, allocationsData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create allocations manager: %w", err)
 	}
@@ -194,38 +234,44 @@ func NewWallet(
 	}
 
 	for _, allocation := range allocationsData {
-		balance, err = balance.Add(allocation.Amount)
+		balance, err = balance.Add(allocation.AllocationAmount)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &Wallet{
-		uuid:                 WalletUUID{UUID: common.NewUUIDv7()},
-		name:                 name,
-		description:          description,
-		balance:              balance,
-		currency:             currency,
-		fundProviderRegister: allocationManager,
+		uuid:        WalletUUID{UUID: common.NewUUIDv7()},
+		name:        name,
+		description: description,
+		balance:     balance,
+		currency:    currency,
+		officeUUID:  officeUUID,
+		fpRegistry:  fpregistry,
 	}, nil
 }
 
-type fundProviderRegistry struct {
-	currency    shared.Currency
-	allocations map[FundProviderUUID]*fundProviderAllocation
-}
-
-type fundProviderAllocation struct {
-	fundProvider AllocatableFundProvider
+type FundProviderAllocation struct {
+	fundProvider *FundProvider
 	amount       shared.Money
 }
 
-func newFundProviderRegistry(currency shared.Currency, allocationsData []NewFundProviderAllocationData) (*fundProviderRegistry, error) {
-	if currency.IsZero() {
-		return nil, errors.New("currency can't be empty")
-	}
+func (a *FundProviderAllocation) FundProvider() *FundProvider {
+	return a.fundProvider
+}
 
-	allocations := make(map[FundProviderUUID]*fundProviderAllocation, len(allocationsData))
+func (a *FundProviderAllocation) Amount() shared.Money {
+	return a.amount
+}
+
+type fundProviderRegistry struct {
+	officeUUID  models.OfficeUUID
+	currency    shared.Currency
+	allocations map[FundProviderUUID]*FundProviderAllocation
+}
+
+func newFundProviderRegistry(currency shared.Currency, officeUUID models.OfficeUUID, allocationsData []NewFundProviderAllocationData) (*fundProviderRegistry, error) {
+	allocations := make(map[FundProviderUUID]*FundProviderAllocation, len(allocationsData))
 
 	for _, data := range allocationsData {
 		fp := data.FundProvider
@@ -233,30 +279,45 @@ func newFundProviderRegistry(currency shared.Currency, allocationsData []NewFund
 			return nil, errors.New("fund provider can't be empty")
 		}
 
+		if !fp.officeUUID.UUID.Equals(officeUUID.UUID) {
+			return nil, fmt.Errorf("fund provider office (%s) does not match wallet office (%s)",
+				fp.OfficeUUID().String(), officeUUID.String())
+		}
+
 		if _, ok := allocations[fp.UUID()]; ok {
 			return nil, fmt.Errorf("duplicate fund provider '%s' is not allowed", fp.UUID())
 		}
 
-		err := data.FundProvider.reserve(data.Amount)
+		err := data.FundProvider.reserve(data.AllocationAmount)
 		if err != nil {
 			return nil, fmt.Errorf(
 				"failed to allocate fund provider %s with amount %s: %w",
 				data.FundProvider.UUID().String(),
-				data.Amount.String(),
+				data.AllocationAmount.String(),
 				err,
 			)
 		}
 
-		allocations[data.FundProvider.UUID()] = &fundProviderAllocation{
+		allocations[data.FundProvider.UUID()] = &FundProviderAllocation{
 			fundProvider: data.FundProvider,
-			amount:       data.Amount,
+			amount:       data.AllocationAmount,
 		}
 	}
 
 	return &fundProviderRegistry{
+		officeUUID:  officeUUID,
 		currency:    currency,
 		allocations: allocations,
 	}, nil
+}
+
+func (m *fundProviderRegistry) findAllocation(fpUUID FundProviderUUID) (*FundProviderAllocation, error) {
+	allocation, ok := m.allocations[fpUUID]
+	if !ok {
+		return nil, fmt.Errorf("fund provider %s does not exist", fpUUID.String())
+	}
+
+	return allocation, nil
 }
 
 func (m *fundProviderRegistry) hasFundProvider(fpUUID FundProviderUUID) bool {
@@ -264,9 +325,13 @@ func (m *fundProviderRegistry) hasFundProvider(fpUUID FundProviderUUID) bool {
 	return ok
 }
 
-func (m *fundProviderRegistry) register(fp AllocatableFundProvider, amount shared.Money) error {
+func (m *fundProviderRegistry) register(fp *FundProvider, amount shared.Money) error {
 	if fp == nil {
 		return errors.New("fund provider can't be empty")
+	}
+
+	if !m.officeUUID.UUID.Equals(fp.officeUUID.UUID) {
+		return errors.New("wallet and fund provider must belong to the same office")
 	}
 
 	if amount.IsZero() {
@@ -286,7 +351,7 @@ func (m *fundProviderRegistry) register(fp AllocatableFundProvider, amount share
 		return fmt.Errorf("failed to reserve fund provider: %w", err)
 	}
 
-	m.allocations[fp.UUID()] = &fundProviderAllocation{
+	m.allocations[fp.UUID()] = &FundProviderAllocation{
 		fundProvider: fp,
 		amount:       amount,
 	}
@@ -339,39 +404,4 @@ func (m *fundProviderRegistry) decreaseAllocation(fpUUID FundProviderUUID, amoun
 	}
 
 	return allocation.fundProvider.Balance(), allocation.amount, nil
-}
-
-type AccountingPeriodConfig struct {
-	intervalInMonths int
-	dayOfMonth       int
-}
-
-func (c AccountingPeriodConfig) IntervalInMonths() int {
-	return c.intervalInMonths
-}
-
-func (c AccountingPeriodConfig) DayOfMonth() int {
-	return c.dayOfMonth
-}
-
-func (c AccountingPeriodConfig) IsZero() bool {
-	return c == AccountingPeriodConfig{}
-}
-
-func NewAccountingPeriodConfig(
-	intervalInMonths,
-	dayOfMonth int,
-) (AccountingPeriodConfig, error) {
-	if dayOfMonth < 1 || dayOfMonth > 27 {
-		return AccountingPeriodConfig{}, errors.New("day of month must be between 1 and 27")
-	}
-
-	if intervalInMonths < 1 || intervalInMonths > 5 {
-		return AccountingPeriodConfig{}, errors.New("interval in months must be between 1 and 5")
-	}
-
-	return AccountingPeriodConfig{
-		intervalInMonths: intervalInMonths,
-		dayOfMonth:       dayOfMonth,
-	}, nil
 }

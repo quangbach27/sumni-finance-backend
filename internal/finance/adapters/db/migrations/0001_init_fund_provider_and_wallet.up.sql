@@ -18,9 +18,13 @@ CREATE TABLE finances.fund_providers
     available_balance DECIMAL(19, 4) NOT NULL,
     currency VARCHAR NOT NULL,
     fund_provider_type finances.fund_provider_type NOT NULL,
+
+    -- Bank Metadata
     bank_name varchar,
     bank_account_number varchar,
     bank_account_owner varchar,
+
+    -- Bank Metadata
     cash_owner_name varchar,
     office_uuid uuid NOT NULL,
 
@@ -37,7 +41,7 @@ CREATE TABLE finances.wallets (
     wallet_uuid uuid NOT NULL,
     name varchar NOT NULL UNIQUE,
     description varchar NOT NULL,
-    balance DECIMAL(19, 4),
+    balance DECIMAL(19, 4) NOT NULL,
     currency VARCHAR NOT NULL,
     office_uuid uuid NOT NULL,
 
@@ -47,10 +51,10 @@ CREATE TABLE finances.wallets (
     CONSTRAINT chk_wallets_balance_non_negative   CHECK (balance >= 0)
 );
 
-CREATE TABLE finances.wallet_allocations (
+CREATE TABLE finances.fund_provider_allocations (
     wallet_uuid uuid NOT NULL,
     fund_provider_uuid uuid NOT NULL,
-    allocation_amount DECIMAL(19, 4),
+    allocation_amount DECIMAL(19, 4) NOT NULL,
     PRIMARY KEY (wallet_uuid, fund_provider_uuid),
     FOREIGN KEY (wallet_uuid) REFERENCES finances.wallets(wallet_uuid),
     FOREIGN KEY (fund_provider_uuid) REFERENCES finances.fund_providers(fund_provider_uuid)

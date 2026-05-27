@@ -35,3 +35,12 @@ VALUES (
     sqlc.arg(cash_owner_name),
     sqlc.arg(office_uuid)
 );
+
+-- name: UpdateFundProviderBalance :exec
+UPDATE finances.fund_providers
+SET 
+    balance = COALESCE(sqlc.narg(balance), balance),
+    available_balance =  COALESCE(sqlc.narg(available_balance), available_balance)
+WHERE
+    fund_provider_uuid = sqlc.arg(fund_provider_uuid)
+;

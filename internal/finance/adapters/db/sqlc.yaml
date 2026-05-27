@@ -30,6 +30,13 @@ sql:
               import: "github.com/shopspring/decimal"
               type: "Decimal"
 
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+              pointer: true
+
           - db_type: "uuid"
             nullable: false
             go_type:
@@ -79,13 +86,13 @@ sql:
               import: "sumni-finance-backend/internal/finance/app/models"
               type: "OfficeUUID"
 
-          # finances.wallet_allocations
-          - column: "finances.wallet_allocations.wallet_uuid"
+          # finances.fund_provider_allocations
+          - column: "finances.fund_provider_allocations.wallet_uuid"
             go_type:
               import: "sumni-finance-backend/internal/finance/domain"
               type: "WalletUUID"
 
-          - column: "finances.wallet_allocations.fund_provider_uuid"
+          - column: "finances.fund_provider_allocations.fund_provider_uuid"
             go_type:
               import: "sumni-finance-backend/internal/finance/domain"
               type: "FundProviderUUID"

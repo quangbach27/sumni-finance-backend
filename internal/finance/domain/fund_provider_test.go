@@ -73,7 +73,7 @@ func TestBankFundProviderMetadata(t *testing.T) {
 	t.Run("IsZero", func(t *testing.T) {
 		t.Parallel()
 
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 		assert.False(t, bankMetadata.IsZero())
 
 		zeroMetadata := domain.FundProviderBankMetadata{}
@@ -83,7 +83,7 @@ func TestBankFundProviderMetadata(t *testing.T) {
 	t.Run("MatchesType", func(t *testing.T) {
 		t.Parallel()
 
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 
 		assert.True(t, bankMetadata.MatchesType(domain.FundProviderTypeBank))
 		assert.False(t, bankMetadata.MatchesType(domain.FundProviderTypeCash))
@@ -151,7 +151,7 @@ func TestNewFundProvider(t *testing.T) {
 
 		validOfficeUUID := models.OfficeUUID{UUID: common.NewUUIDv7()}
 		initBalance := assertValidMoney(t, decimal.NewFromInt(100_000), vnd)
-		bankMetadata := assertValidBankMetadata(t, "7777777316", "Bui Quang Bach")
+		bankMetadata := validBankMetadata(t, "7777777316", "Bui Quang Bach")
 		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
 
 		tests := []struct {
@@ -310,7 +310,7 @@ func TestNewFundProvider(t *testing.T) {
 		t.Run("create bank fund provider sucessfully", func(t *testing.T) {
 			t.Parallel()
 
-			bankMetadata := assertValidBankMetadata(t, "7777777316", "Techcombank")
+			bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
 
 			fp, err := domain.NewFundProvider(
 				"Techcombank-Bach",
@@ -326,7 +326,7 @@ func TestNewFundProvider(t *testing.T) {
 			assert.Equal(t, "Techcombank-Bach", fp.Name())
 			assert.Equal(t, fp.Type(), domain.FundProviderTypeBank)
 			assert.True(t, fp.Balance().Equal(initBalance))
-			assert.True(t, fp.AvailableMoney().Equal(initBalance))
+			assert.True(t, fp.AvailableBalance().Equal(initBalance))
 			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
 
 			bankMeta, ok := fp.BankMetadata()
@@ -355,7 +355,7 @@ func TestNewFundProvider(t *testing.T) {
 			assert.Equal(t, "Techcombank-Bach", fp.Name())
 			assert.Equal(t, fp.Type(), domain.FundProviderTypeCash)
 			assert.True(t, fp.Balance().Equal(initBalance))
-			assert.True(t, fp.AvailableMoney().Equal(initBalance))
+			assert.True(t, fp.AvailableBalance().Equal(initBalance))
 			assert.True(t, fp.Currency().Equal(initBalance.Currency()))
 
 			cashMeta, ok := fp.CashMetadata()
@@ -388,7 +388,7 @@ func TestNewFundProvider(t *testing.T) {
 	})
 }
 
-func assertValidBankMetadata(t *testing.T, accountNo string, bankName string) domain.FundProviderBankMetadata {
+func validBankMetadata(t *testing.T, accountNo string, bankName string) domain.FundProviderBankMetadata {
 	bankMetadata, err := domain.NewBankFundProviderMetadata(accountNo, bankName, "Bui Quang Bach")
 	require.NoError(t, err)
 

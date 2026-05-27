@@ -23,6 +23,7 @@ import (
 )
 
 func TestInsertFundProvider_Bank(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	database := testutils.NewDB(t)
@@ -38,26 +39,7 @@ func TestInsertFundProvider_Bank(t *testing.T) {
 	err := officeRepo.SaveOffice(ctx, office)
 	require.NoError(t, err)
 
-	bankMetadata, err := domain.NewBankFundProviderMetadata(
-		testutils.RandomString(10),
-		testutils.RandomString(10),
-		testutils.RandomString(10),
-	)
-	require.NoError(t, err)
-
-	vnd := shared.MustNewCurrency("VND")
-
-	initBalance, err := shared.NewMoney(decimal.NewFromInt(10_000_000), vnd)
-
-	fp, err := domain.NewFundProvider(
-		testutils.RandomString(10),
-		office.UUID,
-		domain.FundProviderTypeBank,
-		initBalance,
-		bankMetadata,
-	)
-
-	require.NoError(t, err)
+	fp := validFundProvider(t, office.UUID, decimal.NewFromInt(10_000_000), domain.FundProviderTypeBank)
 
 	err = fpRepo.SaveFundProvider(ctx, fp)
 	require.NoError(t, err)
@@ -67,12 +49,15 @@ func TestInsertFundProvider_Bank(t *testing.T) {
 	fpModel, err := queries.FundProviderByUUID(ctx, fp.UUID())
 	require.NoError(t, err)
 
+	bankMetadata, ok := fp.BankMetadata()
+	require.True(t, ok)
+
 	if diff := cmp.Diff(
 		dbmodels.FinancesFundProvider{
 			FundProviderUuid:  fp.UUID(),
 			Name:              fp.Name(),
 			Balance:           fp.Balance().Amount(),
-			AvailableBalance:  fp.AvailableMoney().Amount(),
+			AvailableBalance:  fp.AvailableBalance().Amount(),
 			Currency:          fp.Currency(),
 			FundProviderType:  fp.Type(),
 			BankName:          common.Ptr(bankMetadata.BankName()),
@@ -88,6 +73,7 @@ func TestInsertFundProvider_Bank(t *testing.T) {
 }
 
 func TestInsertFundProvider_Cash(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	database := testutils.NewDB(t)
@@ -103,21 +89,9 @@ func TestInsertFundProvider_Cash(t *testing.T) {
 	err := officeRepo.SaveOffice(ctx, office)
 	require.NoError(t, err)
 
-	cashMetadata, err := domain.NewCashFundProviderMetadata(testutils.RandomString(10))
-	require.NoError(t, err)
-
-	vnd := shared.MustNewCurrency("VND")
-
-	initBalance, err := shared.NewMoney(decimal.NewFromInt(10_000_000), vnd)
-
-	fp, err := domain.NewFundProvider(
-		testutils.RandomString(10),
-		office.UUID,
-		domain.FundProviderTypeCash,
-		initBalance,
-		cashMetadata,
-	)
-	require.NoError(t, err)
+	fp := validFundProvider(t, office.UUID, decimal.NewFromInt(10_000_000), domain.FundProviderTypeCash)
+	cashMetadata, ok := fp.CashMetadata()
+	require.True(t, ok)
 
 	err = fpRepo.SaveFundProvider(ctx, fp)
 	require.NoError(t, err)
@@ -132,7 +106,7 @@ func TestInsertFundProvider_Cash(t *testing.T) {
 			FundProviderUuid: fp.UUID(),
 			Name:             fp.Name(),
 			Balance:          fp.Balance().Amount(),
-			AvailableBalance: fp.AvailableMoney().Amount(),
+			AvailableBalance: fp.AvailableBalance().Amount(),
 			Currency:         fp.Currency(),
 			FundProviderType: fp.Type(),
 			OfficeUuid:       fp.OfficeUUID(),
@@ -142,4 +116,49 @@ func TestInsertFundProvider_Cash(t *testing.T) {
 	); diff != "" {
 		t.Errorf("fund provider mismatch (-want +got):\n%s", diff)
 	}
+}
+
+func validFundProvider(
+	t *testing.T,
+	officeUUID models.OfficeUUID,
+	initBalanceAmount decimal.Decimal,
+	fpType domain.FundProviderType,
+) *domain.FundProvider {
+	t.Helper()
+
+	vnd := shared.MustNewCurrency("VND")
+
+	fp, err := domain.NewFundProvider(
+		testutils.RandomString(10),
+		officeUUID,
+		fpType,
+		shared.UnmarshalMoney(initBalanceAmount, vnd),
+		validFundProviderMetadata(t, fpType),
+	)
+	require.NoError(t, err)
+
+	return fp
+}
+
+func validFundProviderMetadata(t *testing.T, fpType domain.FundProviderType) domain.FundProviderMetadata {
+	t.Helper()
+
+	var metadata domain.FundProviderMetadata
+	var err error
+	switch fpType {
+	case domain.FundProviderTypeBank:
+		metadata, err = domain.NewBankFundProviderMetadata(
+			testutils.RandomString(10),
+			testutils.RandomString(10),
+			testutils.RandomString(10),
+		)
+		require.NoError(t, err)
+	case domain.FundProviderTypeCash:
+		metadata, err = domain.NewCashFundProviderMetadata(testutils.RandomString(10))
+		require.NoError(t, err)
+	default:
+		t.Fatalf("unkown fund provider type: %s", fpType.String())
+	}
+
+	return metadata
 }

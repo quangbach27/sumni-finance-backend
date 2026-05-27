@@ -153,7 +153,7 @@ func (fp *FundProvider) Balance() shared.Money {
 	return fp.balance
 }
 
-func (fp *FundProvider) AvailableMoney() shared.Money {
+func (fp *FundProvider) AvailableBalance() shared.Money {
 	return fp.availableBalance
 }
 

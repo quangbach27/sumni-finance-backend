@@ -12,6 +12,7 @@ import (
 	"sumni-finance-backend/internal/finance/app/models"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,25 +23,22 @@ func TestOfficeRepo_SaveOffice(t *testing.T) {
 	officeRepo := db.NewOfficeRepo(database)
 
 	t.Run("insert new office", func(t *testing.T) {
-		office := models.Office{
-			UUID: models.OfficeUUID{UUID: common.NewUUIDv7()},
-			Name: testutils.RandomString(10),
-		}
+		office := validOffice(t)
+
 		err := officeRepo.SaveOffice(ctx, office)
 		require.NoError(t, err)
 
 		got, err := officeRepo.OfficeByUUID(ctx, office.UUID)
 		require.NoError(t, err)
+
 		if diff := cmp.Diff(office, got); diff != "" {
 			t.Errorf("office mismatch (-want +got):\n%s", diff)
 		}
 	})
 
 	t.Run("update existing office name", func(t *testing.T) {
-		original := models.Office{
-			UUID: models.OfficeUUID{UUID: common.NewUUIDv7()},
-			Name: testutils.RandomString(10),
-		}
+		original := validOffice(t)
+
 		err := officeRepo.SaveOffice(ctx, original)
 		require.NoError(t, err)
 
@@ -53,8 +51,30 @@ func TestOfficeRepo_SaveOffice(t *testing.T) {
 
 		got, err := officeRepo.OfficeByUUID(ctx, original.UUID)
 		require.NoError(t, err)
+
 		if diff := cmp.Diff(updated, got); diff != "" {
 			t.Errorf("office mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+func validOffice(t *testing.T) models.Office {
+	t.Helper()
+
+	return models.Office{
+		UUID: models.OfficeUUID{UUID: common.NewUUIDv7()},
+		Name: testutils.RandomString(15),
+	}
+}
+
+func assertInsertOffice(t *testing.T, database *pgxpool.Pool) models.Office {
+	t.Helper()
+
+	officeRepo := db.NewOfficeRepo(database)
+
+	office := validOffice(t)
+	err := officeRepo.SaveOffice(t.Context(), office)
+	require.NoError(t, err)
+
+	return office
 }

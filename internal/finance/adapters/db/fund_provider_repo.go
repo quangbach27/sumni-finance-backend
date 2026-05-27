@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/finance/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/finance/domain"
 
@@ -44,7 +45,7 @@ func (r *FundProviderRepository) SaveFundProvider(
 			FundProviderUuid: fundProvider.UUID(),
 			Name:             fundProvider.Name(),
 			Balance:          fundProvider.Balance().Amount(),
-			AvailableBalance: fundProvider.AvailableMoney().Amount(),
+			AvailableBalance: fundProvider.AvailableBalance().Amount(),
 			FundProviderType: fundProvider.Type(),
 			Currency:         fundProvider.Currency(),
 			OfficeUuid:       fundProvider.OfficeUUID(),
@@ -70,4 +71,36 @@ func addFundProviderMetadataToParams(fp *domain.FundProvider, params *dbmodels.I
 	if cashMetadata, ok := fp.CashMetadata(); ok {
 		params.CashOwnerName = common.Ptr(cashMetadata.OwnerName())
 	}
+}
+
+func unmarshalFundProviderFromDB(fundProviderDb dbmodels.FinancesFundProvider) *domain.FundProvider {
+	return domain.UnmarshalFundProvider(
+		fundProviderDb.FundProviderUuid,
+		fundProviderDb.OfficeUuid,
+		fundProviderDb.Name,
+		fundProviderDb.FundProviderType,
+		shared.UnmarshalMoney(fundProviderDb.Balance, fundProviderDb.Currency),
+		shared.UnmarshalMoney(fundProviderDb.AvailableBalance, fundProviderDb.Currency),
+		fundProviderDb.Currency,
+		unmarshalFundProviderMetadata(fundProviderDb),
+	)
+}
+
+func unmarshalFundProviderMetadata(fundProviderDb dbmodels.FinancesFundProvider) domain.FundProviderMetadata {
+	var metadata domain.FundProviderMetadata
+
+	switch fundProviderDb.FundProviderType {
+	case domain.FundProviderTypeBank:
+		metadata = domain.UnmarshalFundProviderBankMetadata(
+			common.Deref(fundProviderDb.BankName, ""),
+			common.Deref(fundProviderDb.BankAccountNumber, ""),
+			common.Deref(fundProviderDb.BankAccountOwner, ""),
+		)
+	case domain.FundProviderTypeCash:
+		metadata = domain.UnmarshalFundProviderCashMetadata(
+			common.Deref(fundProviderDb.CashOwnerName, ""),
+		)
+	}
+
+	return metadata
 }

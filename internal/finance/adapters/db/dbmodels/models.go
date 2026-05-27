@@ -8,7 +8,6 @@ import (
 	"database/sql/driver"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/shopspring/decimal"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/finance/app/models"
@@ -71,6 +70,12 @@ type FinancesFundProvider struct {
 	OfficeUuid        models.OfficeUUID
 }
 
+type FinancesFundProviderAllocation struct {
+	WalletUuid       domain.WalletUUID
+	FundProviderUuid domain.FundProviderUUID
+	AllocationAmount decimal.Decimal
+}
+
 type FinancesOffice struct {
 	OfficeUuid models.OfficeUUID
 	Name       string
@@ -80,13 +85,7 @@ type FinancesWallet struct {
 	WalletUuid  domain.WalletUUID
 	Name        string
 	Description string
-	Balance     pgtype.Numeric
+	Balance     decimal.Decimal
 	Currency    shared.Currency
 	OfficeUuid  models.OfficeUUID
-}
-
-type FinancesWalletAllocation struct {
-	WalletUuid       domain.WalletUUID
-	FundProviderUuid domain.FundProviderUUID
-	AllocationAmount pgtype.Numeric
 }

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"testing"
+	"time"
 
 	"sumni-finance-backend/internal/common"
 
@@ -17,7 +18,7 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 
 	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
+		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
 	}
 
 	pool, err := pgxpool.New(ctx, dsn)
@@ -32,12 +33,22 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 }
 
 func NewDB(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+
 	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
+		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
 	}
 
-	dbPgx, err := pgxpool.New(t.Context(), dsn)
+	config, err := pgxpool.ParseConfig(dsn)
+	require.NoError(t, err)
+
+	config.MaxConns = 30 // enough for concurrent tests
+	config.MinConns = 5  // pre-warm connections
+	config.MaxConnIdleTime = 30 * time.Second
+	config.ConnConfig.ConnectTimeout = 5 * time.Second
+
+	dbPgx, err := pgxpool.NewWithConfig(t.Context(), config)
 	require.NoError(t, err)
 
 	return dbPgx

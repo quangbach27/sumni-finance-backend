@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -13,46 +14,30 @@ import (
 
 const couldNotSerializeAccessErrMsg = "could not serialize access"
 
-type TxBeginer interface {
+type Beginner interface {
 	BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error)
-}
-
-func UpdateInReadCommitTx(
-	ctx context.Context,
-	db TxBeginer,
-	fn func(ctx context.Context, tx pgx.Tx) error,
-) error {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = time.Millisecond
-	b.MaxInterval = 500 * time.Millisecond
-	b.Multiplier = 2.0
-	b.RandomizationFactor = 0.5
-
-	_, err := backoff.Retry(
-		ctx,
-		func() (struct{}, error) {
-			err := updateInTx(ctx, db, pgx.ReadCommitted, fn)
-			if err != nil {
-				if strings.Contains(err.Error(), couldNotSerializeAccessErrMsg) {
-					// Retryable
-					return struct{}{}, err
-				} else {
-					return struct{}{}, backoff.Permanent(err)
-				}
-			}
-
-			return struct{}{}, nil
-		},
-		backoff.WithBackOff(b),
-		backoff.WithMaxElapsedTime(5),
-	)
-
-	return err
 }
 
 func UpdateInTx(
 	ctx context.Context,
-	db TxBeginer,
+	db Beginner,
+	fn func(ctx context.Context, tx pgx.Tx) error,
+) error {
+	return updateInTxWithIsolation(ctx, db, pgx.RepeatableRead, fn)
+}
+
+func UpdateInReadCommittedTx(
+	ctx context.Context,
+	db Beginner,
+	fn func(ctx context.Context, tx pgx.Tx) error,
+) error {
+	return updateInTxWithIsolation(ctx, db, pgx.ReadCommitted, fn)
+}
+
+func updateInTxWithIsolation(
+	ctx context.Context,
+	db Beginner,
+	isoLevel pgx.TxIsoLevel,
 	fn func(ctx context.Context, tx pgx.Tx) error,
 ) error {
 	b := backoff.NewExponentialBackOff()
@@ -64,10 +49,11 @@ func UpdateInTx(
 	_, err := backoff.Retry(
 		ctx,
 		func() (struct{}, error) {
-			err := updateInTx(ctx, db, pgx.RepeatableRead, fn)
+			err := updateInTx(ctx, db, isoLevel, fn)
 			if err != nil {
 				if strings.Contains(err.Error(), couldNotSerializeAccessErrMsg) {
 					// Retryable
+					slog.Warn("retrying", "error", err)
 					return struct{}{}, err
 				} else {
 					return struct{}{}, backoff.Permanent(err)
@@ -77,7 +63,7 @@ func UpdateInTx(
 			return struct{}{}, nil
 		},
 		backoff.WithBackOff(b),
-		backoff.WithMaxElapsedTime(5),
+		backoff.WithMaxTries(5),
 	)
 
 	return err
@@ -85,7 +71,7 @@ func UpdateInTx(
 
 func updateInTx(
 	ctx context.Context,
-	db TxBeginer,
+	db Beginner,
 	isoLevel pgx.TxIsoLevel,
 	fn func(ctx context.Context, tx pgx.Tx) error,
 ) (err error) {
