@@ -60,9 +60,9 @@ func TestInsertFundProvider_Bank(t *testing.T) {
 			AvailableBalance:  fp.AvailableBalance().Amount(),
 			Currency:          fp.Currency(),
 			FundProviderType:  fp.Type(),
-			BankName:          common.Ptr(bankMetadata.BankName()),
-			BankAccountNumber: common.Ptr(bankMetadata.AccountNumber()),
-			BankAccountOwner:  common.Ptr(bankMetadata.AccountOwner()),
+			BankInfo:          bankMetadata.BankInfo(),
+			BankAccountNumber: common.ToPtr(bankMetadata.AccountNumber()),
+			BankAccountOwner:  common.ToPtr(bankMetadata.AccountOwner()),
 			OfficeUuid:        fp.OfficeUUID(),
 		},
 		fpModel,
@@ -110,9 +110,10 @@ func TestInsertFundProvider_Cash(t *testing.T) {
 			Currency:         fp.Currency(),
 			FundProviderType: fp.Type(),
 			OfficeUuid:       fp.OfficeUUID(),
-			CashOwnerName:    common.Ptr(cashMetadata.OwnerName()),
+			CashOwnerName:    common.ToPtr(cashMetadata.OwnerName()),
 		},
 		fpModel,
+		cmpopts.EquateComparable(shared.SharedTypes...),
 	); diff != "" {
 		t.Errorf("fund provider mismatch (-want +got):\n%s", diff)
 	}
@@ -147,8 +148,8 @@ func validFundProviderMetadata(t *testing.T, fpType domain.FundProviderType) dom
 	var err error
 	switch fpType {
 	case domain.FundProviderTypeBank:
-		metadata, err = domain.NewBankFundProviderMetadata(
-			testutils.RandomString(10),
+		metadata, err = domain.NewFundProviderBankMetadata(
+			testutils.RandomBankInfo(t),
 			testutils.RandomString(10),
 			testutils.RandomString(10),
 		)

@@ -63,13 +63,13 @@ func (r *FundProviderRepository) SaveFundProvider(
 
 func addFundProviderMetadataToParams(fp *domain.FundProvider, params *dbmodels.InsertFundProviderParams) {
 	if bankMetadata, ok := fp.BankMetadata(); ok {
-		params.BankAccountNumber = common.Ptr(bankMetadata.AccountNumber())
-		params.BankName = common.Ptr(bankMetadata.BankName())
-		params.BankAccountOwner = common.Ptr(bankMetadata.AccountOwner())
+		params.BankInfo = bankMetadata.BankInfo()
+		params.BankAccountNumber = common.ToPtr(bankMetadata.AccountNumber())
+		params.BankAccountOwner = common.ToPtr(bankMetadata.AccountOwner())
 	}
 
 	if cashMetadata, ok := fp.CashMetadata(); ok {
-		params.CashOwnerName = common.Ptr(cashMetadata.OwnerName())
+		params.CashOwnerName = common.ToPtr(cashMetadata.OwnerName())
 	}
 }
 
@@ -86,19 +86,19 @@ func unmarshalFundProviderFromDB(fundProviderDb dbmodels.FinancesFundProvider) *
 	)
 }
 
-func unmarshalFundProviderMetadata(fundProviderDb dbmodels.FinancesFundProvider) domain.FundProviderMetadata {
+func unmarshalFundProviderMetadata(fpModel dbmodels.FinancesFundProvider) domain.FundProviderMetadata {
 	var metadata domain.FundProviderMetadata
 
-	switch fundProviderDb.FundProviderType {
+	switch fpModel.FundProviderType {
 	case domain.FundProviderTypeBank:
 		metadata = domain.UnmarshalFundProviderBankMetadata(
-			common.Deref(fundProviderDb.BankName, ""),
-			common.Deref(fundProviderDb.BankAccountNumber, ""),
-			common.Deref(fundProviderDb.BankAccountOwner, ""),
+			fpModel.BankInfo,
+			common.Deref(fpModel.BankAccountNumber, ""),
+			common.Deref(fpModel.BankAccountOwner, ""),
 		)
 	case domain.FundProviderTypeCash:
 		metadata = domain.UnmarshalFundProviderCashMetadata(
-			common.Deref(fundProviderDb.CashOwnerName, ""),
+			common.Deref(fpModel.CashOwnerName, ""),
 		)
 	}
 

@@ -17,8 +17,8 @@ import (
 type FinancesFundProviderType string
 
 const (
-	FinancesFundProviderTypeBank FinancesFundProviderType = "bank"
-	FinancesFundProviderTypeCash FinancesFundProviderType = "cash"
+	FinancesFundProviderTypeBANKACCOUNT FinancesFundProviderType = "BANK_ACCOUNT"
+	FinancesFundProviderTypeCASH        FinancesFundProviderType = "CASH"
 )
 
 func (e *FinancesFundProviderType) Scan(src interface{}) error {
@@ -63,11 +63,11 @@ type FinancesFundProvider struct {
 	AvailableBalance  decimal.Decimal
 	Currency          shared.Currency
 	FundProviderType  domain.FundProviderType
-	BankName          *string
+	OfficeUuid        models.OfficeUUID
+	BankInfo          shared.BankInfo
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwnerName     *string
-	OfficeUuid        models.OfficeUUID
 }
 
 type FinancesFundProviderAllocation struct {

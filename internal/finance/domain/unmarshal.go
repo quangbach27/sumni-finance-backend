@@ -6,14 +6,14 @@ import (
 )
 
 func UnmarshalFundProviderBankMetadata(
-	bankName string,
+	bankInfo shared.BankInfo,
 	accountNumber string,
 	accountOwner string,
 ) FundProviderBankMetadata {
 	return FundProviderBankMetadata{
+		bankInfo:      bankInfo,
 		accountNumber: accountNumber,
 		accountOwner:  accountOwner,
-		bankName:      bankName,
 	}
 }
 

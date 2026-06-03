@@ -14,137 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBankFundProviderMetadata(t *testing.T) {
-	t.Run("NewBankFundProviderMetadata", func(t *testing.T) {
-		tests := []struct {
-			name          string
-			accountNumber string
-			bankName      string
-			bankOwner     string
-			wantErr       string
-		}{
-			{
-				name:          "reject-empty-account-number",
-				accountNumber: "",
-				bankName:      "Techcombank",
-				bankOwner:     "Bui Quang Bach",
-				wantErr:       "account number can't be empty",
-			},
-			{
-				name:          "reject-empty-bank-name",
-				accountNumber: "7777777316",
-				bankName:      "",
-				bankOwner:     "Bui Quang Bach",
-				wantErr:       "bank name can't be empty",
-			},
-			{
-				name:          "reject-empty-bank-owner",
-				accountNumber: "7777777316",
-				bankName:      "Techcombank",
-				bankOwner:     "",
-				wantErr:       "bank owner name can't be emtpy",
-			},
-			{
-				name:          "create-bank-metadata-success",
-				accountNumber: "7777777316",
-				bankName:      "Techcombank",
-				bankOwner:     "Bui Quang Bach",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				bankMetadata, err := domain.NewBankFundProviderMetadata(tt.accountNumber, tt.bankName, tt.bankOwner)
-				if tt.wantErr != "" {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tt.wantErr)
-					return
-				}
-
-				require.NoError(t, err)
-				assert.Equal(t, bankMetadata.AccountNumber(), tt.accountNumber)
-				assert.Equal(t, bankMetadata.BankName(), tt.bankName)
-			})
-		}
-	})
-
-	t.Run("IsZero", func(t *testing.T) {
-		t.Parallel()
-
-		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
-		assert.False(t, bankMetadata.IsZero())
-
-		zeroMetadata := domain.FundProviderBankMetadata{}
-		assert.True(t, zeroMetadata.IsZero())
-	})
-
-	t.Run("MatchesType", func(t *testing.T) {
-		t.Parallel()
-
-		bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
-
-		assert.True(t, bankMetadata.MatchesType(domain.FundProviderTypeBank))
-		assert.False(t, bankMetadata.MatchesType(domain.FundProviderTypeCash))
-	})
-}
-
-func TestCashFundProviderMetadata(t *testing.T) {
-	t.Run("NewCashFundProviderMetadata", func(t *testing.T) {
-		tests := []struct {
-			name      string
-			ownerName string
-			wantErr   string
-		}{
-			{
-				name:      "reject-empty-owner",
-				ownerName: "",
-				wantErr:   "owner name can't be empty",
-			},
-			{
-				name:      "create-valid-cash-metadata",
-				ownerName: "Bui Quang Bach",
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.name, func(t *testing.T) {
-				t.Parallel()
-
-				cashMetadata, err := domain.NewCashFundProviderMetadata(tt.ownerName)
-				if tt.wantErr != "" {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tt.wantErr)
-					return
-				}
-
-				require.NoError(t, err)
-				assert.Equal(t, cashMetadata.OwnerName(), tt.ownerName)
-			})
-		}
-	})
-
-	t.Run("IsZero", func(t *testing.T) {
-		t.Parallel()
-
-		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
-		assert.False(t, cashMetadata.IsZero())
-
-		zeroMetadata := domain.FundProviderCashMetadata{}
-		assert.True(t, zeroMetadata.IsZero())
-	})
-
-	t.Run("MatchesType", func(t *testing.T) {
-		t.Parallel()
-
-		cashMetadata := assertValidCashMetadata(t, "Huynh Trang")
-
-		assert.True(t, cashMetadata.MatchesType(domain.FundProviderTypeCash))
-		assert.False(t, cashMetadata.MatchesType(domain.FundProviderTypeBank))
-	})
-}
-
 func TestNewFundProvider(t *testing.T) {
 	t.Run("ValidationsErrors", func(t *testing.T) {
 		vnd := shared.MustNewCurrency("VND")
@@ -310,7 +179,7 @@ func TestNewFundProvider(t *testing.T) {
 		t.Run("create bank fund provider sucessfully", func(t *testing.T) {
 			t.Parallel()
 
-			bankMetadata := validBankMetadata(t, "7777777316", "Techcombank")
+			bankMetadata := validBankMetadata(t, "7777777316", "Bui Quang Bach")
 
 			fp, err := domain.NewFundProvider(
 				"Techcombank-Bach",
@@ -333,7 +202,7 @@ func TestNewFundProvider(t *testing.T) {
 			require.True(t, ok)
 			assert.Equal(t, bankMeta, bankMetadata)
 			assert.Equal(t, bankMeta.AccountNumber(), "7777777316")
-			assert.Equal(t, bankMeta.BankName(), "Techcombank")
+			assert.Equal(t, bankMeta.AccountOwner(), "Bui Quang Bach")
 		})
 
 		t.Run("create cash fund provider sucessfully", func(t *testing.T) {
@@ -388,10 +257,10 @@ func TestNewFundProvider(t *testing.T) {
 	})
 }
 
-func validBankMetadata(t *testing.T, accountNo string, bankName string) domain.FundProviderBankMetadata {
-	bankMetadata, err := domain.NewBankFundProviderMetadata(accountNo, bankName, "Bui Quang Bach")
+func validBankMetadata(t *testing.T, accountNo string, accountOwner string) domain.FundProviderBankMetadata {
+	t.Helper()
+	bankMetadata, err := domain.NewFundProviderBankMetadata(newBankInfoForMetadataTest(t), accountNo, accountOwner)
 	require.NoError(t, err)
-
 	return bankMetadata
 }
 

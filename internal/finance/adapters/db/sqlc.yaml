@@ -43,6 +43,13 @@ sql:
               import: "sumni-finance-backend/internal/common"
               type: "UUID"
 
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              import: "sumni-finance-backend/internal/common"
+              type: "UUID"
+              pointer: true
+
           # finances.offices
           - column: "finances.offices.office_uuid"
             go_type:
@@ -69,6 +76,11 @@ sql:
             go_type:
               import: "sumni-finance-backend/internal/finance/app/models"
               type: "OfficeUUID"
+
+          - column: "finances.fund_providers.bank_info"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "BankInfo"
 
           # finances.wallets
           - column: "finances.wallets.wallet_uuid"

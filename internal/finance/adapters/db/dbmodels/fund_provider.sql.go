@@ -16,7 +16,7 @@ import (
 )
 
 const fundProviderByUUID = `-- name: FundProviderByUUID :one
-SELECT fund_provider_uuid, name, balance, available_balance, currency, fund_provider_type, bank_name, bank_account_number, bank_account_owner, cash_owner_name, office_uuid
+SELECT fund_provider_uuid, name, balance, available_balance, currency, fund_provider_type, office_uuid, bank_info, bank_account_number, bank_account_owner, cash_owner_name
 FROM finances.fund_providers
 WHERE fund_provider_uuid = $1
 `
@@ -31,17 +31,17 @@ func (q *Queries) FundProviderByUUID(ctx context.Context, fundProviderUuid domai
 		&i.AvailableBalance,
 		&i.Currency,
 		&i.FundProviderType,
-		&i.BankName,
+		&i.OfficeUuid,
+		&i.BankInfo,
 		&i.BankAccountNumber,
 		&i.BankAccountOwner,
 		&i.CashOwnerName,
-		&i.OfficeUuid,
 	)
 	return i, err
 }
 
 const fundProvidersByUUIDs = `-- name: FundProvidersByUUIDs :many
-SELECT fund_provider_uuid, name, balance, available_balance, currency, fund_provider_type, bank_name, bank_account_number, bank_account_owner, cash_owner_name, office_uuid
+SELECT fund_provider_uuid, name, balance, available_balance, currency, fund_provider_type, office_uuid, bank_info, bank_account_number, bank_account_owner, cash_owner_name
 FROM finances.fund_providers
 WHERE fund_provider_uuid = ANY($1::UUID[])
 `
@@ -62,11 +62,11 @@ func (q *Queries) FundProvidersByUUIDs(ctx context.Context, fundProviderUuids []
 			&i.AvailableBalance,
 			&i.Currency,
 			&i.FundProviderType,
-			&i.BankName,
+			&i.OfficeUuid,
+			&i.BankInfo,
 			&i.BankAccountNumber,
 			&i.BankAccountOwner,
 			&i.CashOwnerName,
-			&i.OfficeUuid,
 		); err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ INSERT INTO finances.fund_providers (
     available_balance,
     currency,
     fund_provider_type,
-    bank_name,
+    bank_info,
     bank_account_number,
     bank_account_owner,
     cash_owner_name,
@@ -114,7 +114,7 @@ type InsertFundProviderParams struct {
 	AvailableBalance  decimal.Decimal
 	Currency          shared.Currency
 	FundProviderType  domain.FundProviderType
-	BankName          *string
+	BankInfo          shared.BankInfo
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwnerName     *string
@@ -129,7 +129,7 @@ func (q *Queries) InsertFundProvider(ctx context.Context, arg InsertFundProvider
 		arg.AvailableBalance,
 		arg.Currency,
 		arg.FundProviderType,
-		arg.BankName,
+		arg.BankInfo,
 		arg.BankAccountNumber,
 		arg.BankAccountOwner,
 		arg.CashOwnerName,

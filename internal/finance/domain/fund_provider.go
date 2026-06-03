@@ -27,96 +27,13 @@ type FundProviderType struct {
 type FundProviderTypeStr string
 
 func (ts FundProviderTypeStr) Values() []string {
-	return []string{"bank", "cash"}
+	return []string{"BANK_ACCOUNT", "CASH"}
 }
 
 var (
-	FundProviderTypeBank = common.MustEnum[FundProviderType]("bank")
-	FundProviderTypeCash = common.MustEnum[FundProviderType]("cash")
+	FundProviderTypeBank = common.MustEnum[FundProviderType]("BANK_ACCOUNT")
+	FundProviderTypeCash = common.MustEnum[FundProviderType]("CASH")
 )
-
-type FundProviderMetadata interface {
-	MatchesType(accountType FundProviderType) bool
-	IsZero() bool
-}
-
-type FundProviderBankMetadata struct {
-	accountNumber string
-	bankName      string
-	accountOwner  string
-}
-
-func NewBankFundProviderMetadata(
-	accountNumber string,
-	bankName string,
-	accountOwner string,
-) (FundProviderBankMetadata, error) {
-	cleansedAccountNumber := strings.TrimSpace(accountNumber)
-	cleansedBankName := strings.TrimSpace(bankName)
-	cleansedAccountOwner := strings.TrimSpace(accountOwner)
-	if cleansedAccountNumber == "" {
-		return FundProviderBankMetadata{}, errors.New("account number can't be empty")
-	}
-
-	if cleansedBankName == "" {
-		return FundProviderBankMetadata{}, errors.New("bank name can't be empty")
-	}
-
-	if cleansedAccountOwner == "" {
-		return FundProviderBankMetadata{}, errors.New("bank owner name can't be emtpy")
-	}
-
-	return FundProviderBankMetadata{
-		accountNumber: cleansedAccountNumber,
-		bankName:      cleansedBankName,
-		accountOwner:  accountOwner,
-	}, nil
-}
-
-func (bm FundProviderBankMetadata) AccountNumber() string {
-	return bm.accountNumber
-}
-
-func (bm FundProviderBankMetadata) BankName() string {
-	return bm.bankName
-}
-
-func (bm FundProviderBankMetadata) AccountOwner() string {
-	return bm.accountOwner
-}
-
-func (bm FundProviderBankMetadata) MatchesType(fpType FundProviderType) bool {
-	return fpType == FundProviderTypeBank
-}
-
-func (bm FundProviderBankMetadata) IsZero() bool {
-	return bm == FundProviderBankMetadata{}
-}
-
-type FundProviderCashMetadata struct {
-	ownerName string
-}
-
-func NewCashFundProviderMetadata(ownerName string) (FundProviderCashMetadata, error) {
-	cleansedOwnerName := strings.TrimSpace(ownerName)
-	if cleansedOwnerName == "" {
-		return FundProviderCashMetadata{}, errors.New("owner name can't be empty")
-	}
-
-	return FundProviderCashMetadata{ownerName: cleansedOwnerName}, nil
-}
-
-func (cm FundProviderCashMetadata) OwnerName() string {
-	return cm.ownerName
-}
-
-func (cm FundProviderCashMetadata) MatchesType(fpType FundProviderType) bool {
-	return fpType == FundProviderTypeCash
-}
-
-func (cm FundProviderCashMetadata) IsZero() bool {
-	return cm == FundProviderCashMetadata{}
-}
 
 type FundProvider struct {
 	uuid       FundProviderUUID

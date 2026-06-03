@@ -17,7 +17,7 @@ import (
 const fundProvidersWithAllocations = `-- name: FundProvidersWithAllocations :many
 SELECT 
     fpa.wallet_uuid, fpa.fund_provider_uuid, fpa.allocation_amount,
-    fp.fund_provider_uuid, fp.name, fp.balance, fp.available_balance, fp.currency, fp.fund_provider_type, fp.bank_name, fp.bank_account_number, fp.bank_account_owner, fp.cash_owner_name, fp.office_uuid
+    fp.fund_provider_uuid, fp.name, fp.balance, fp.available_balance, fp.currency, fp.fund_provider_type, fp.office_uuid, fp.bank_info, fp.bank_account_number, fp.bank_account_owner, fp.cash_owner_name
 FROM finances.fund_provider_allocations fpa
     INNER JOIN finances.fund_providers fp ON fpa.fund_provider_uuid = fp.fund_provider_uuid
 WHERE fpa.wallet_uuid = $1
@@ -47,11 +47,11 @@ func (q *Queries) FundProvidersWithAllocations(ctx context.Context, walletUuid d
 			&i.FinancesFundProvider.AvailableBalance,
 			&i.FinancesFundProvider.Currency,
 			&i.FinancesFundProvider.FundProviderType,
-			&i.FinancesFundProvider.BankName,
+			&i.FinancesFundProvider.OfficeUuid,
+			&i.FinancesFundProvider.BankInfo,
 			&i.FinancesFundProvider.BankAccountNumber,
 			&i.FinancesFundProvider.BankAccountOwner,
 			&i.FinancesFundProvider.CashOwnerName,
-			&i.FinancesFundProvider.OfficeUuid,
 		); err != nil {
 			return nil, err
 		}

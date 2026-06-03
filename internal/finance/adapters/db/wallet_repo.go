@@ -107,7 +107,7 @@ func (r *WalletRepo) SaveWallet(
 
 			err = queries.UpdateFundProviderBalance(ctx, dbmodels.UpdateFundProviderBalanceParams{
 				FundProviderUuid: allocation.FundProvider().UUID(),
-				AvailableBalance: common.Ptr(allocation.FundProvider().AvailableBalance().Amount()),
+				AvailableBalance: common.ToPtr(allocation.FundProvider().AvailableBalance().Amount()),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to update fund provider available balance: %w", err)

@@ -8,7 +8,7 @@ CREATE TABLE finances.offices (
     PRIMARY KEY (office_uuid)
 );
 
-CREATE TYPE finances.fund_provider_type AS ENUM ('bank', 'cash');
+CREATE TYPE finances.fund_provider_type AS ENUM ('BANK_ACCOUNT', 'CASH');
 
 CREATE TABLE finances.fund_providers 
 (
@@ -19,17 +19,18 @@ CREATE TABLE finances.fund_providers
     currency VARCHAR NOT NULL,
     fund_provider_type finances.fund_provider_type NOT NULL,
 
-    -- Bank Metadata
-    bank_name varchar,
-    bank_account_number varchar,
-    bank_account_owner varchar,
-
-    -- Bank Metadata
-    cash_owner_name varchar,
     office_uuid uuid NOT NULL,
 
+    -- Bank Metadata
+    bank_info json,
+    bank_account_number varchar(50),
+    bank_account_owner varchar(255),
+
+    -- Bank Metadata
+    cash_owner_name varchar(255),
+
     PRIMARY KEY (fund_provider_uuid),
-    UNIQUE (bank_name, bank_account_number),
+    UNIQUE (bank_account_owner, bank_account_number),
     FOREIGN KEY (office_uuid) REFERENCES finances.offices (office_uuid),
 
     CONSTRAINT chk_fund_providers_available_lte_balance  CHECK (available_balance <= balance),
@@ -42,7 +43,7 @@ CREATE TABLE finances.wallets (
     name varchar NOT NULL UNIQUE,
     description varchar NOT NULL,
     balance DECIMAL(19, 4) NOT NULL,
-    currency VARCHAR NOT NULL,
+    currency VARCHAR(13) NOT NULL,
     office_uuid uuid NOT NULL,
 
     PRIMARY KEY (wallet_uuid),
@@ -55,6 +56,7 @@ CREATE TABLE finances.fund_provider_allocations (
     wallet_uuid uuid NOT NULL,
     fund_provider_uuid uuid NOT NULL,
     allocation_amount DECIMAL(19, 4) NOT NULL,
+
     PRIMARY KEY (wallet_uuid, fund_provider_uuid),
     FOREIGN KEY (wallet_uuid) REFERENCES finances.wallets(wallet_uuid),
     FOREIGN KEY (fund_provider_uuid) REFERENCES finances.fund_providers(fund_provider_uuid)

@@ -21,7 +21,7 @@ type WalletRepository interface {
 		fundProvidersUUIDs []FundProviderUUID,
 		createFn func(
 			fundProviders map[FundProviderUUID]*FundProvider,
-		) (*Wallet, *Ledger, error),
+		) (*Wallet, error),
 	) error
 
 	UpdateFundProviderAllocations(
@@ -279,7 +279,7 @@ func newFundProviderRegistry(currency shared.Currency, officeUUID models.OfficeU
 			return nil, errors.New("fund provider can't be empty")
 		}
 
-		if !fp.officeUUID.UUID.Equals(officeUUID.UUID) {
+		if !fp.officeUUID.Equals(officeUUID.UUID) {
 			return nil, fmt.Errorf("fund provider office (%s) does not match wallet office (%s)",
 				fp.OfficeUUID().String(), officeUUID.String())
 		}
@@ -330,7 +330,7 @@ func (m *fundProviderRegistry) register(fp *FundProvider, amount shared.Money) e
 		return errors.New("fund provider can't be empty")
 	}
 
-	if !m.officeUUID.UUID.Equals(fp.officeUUID.UUID) {
+	if !m.officeUUID.Equals(fp.officeUUID.UUID) {
 		return errors.New("wallet and fund provider must belong to the same office")
 	}
 

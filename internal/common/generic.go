@@ -8,7 +8,7 @@ func Must[T any](val T, err any, messageArgs ...any) T {
 	}
 }
 
-func Ptr[T any](val T) *T {
+func ToPtr[T any](val T) *T {
 	return &val
 }
 
