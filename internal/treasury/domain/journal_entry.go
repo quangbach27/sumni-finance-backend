@@ -22,13 +22,14 @@ type JournalEntryStatus struct {
 type JournalEntryStatusValues string
 
 func (s JournalEntryStatusValues) Values() []string {
-	return []string{"RECORDED", "POSTED", "VOIDED"}
+	return []string{"RECORDED", "POSTED", "VOIDED", "REVERSE"}
 }
 
 var (
 	JournalEntryStatusRecorded = common.MustEnum[JournalEntryStatus]("RECORDED")
 	JournalEntryStatusPosted   = common.MustEnum[JournalEntryStatus]("POSTED")
 	JournalEntryStatusVoided   = common.MustEnum[JournalEntryStatus]("VOIDED")
+	JournalEntryStatusReverse  = common.MustEnum[JournalEntryStatus]("REVERSE")
 )
 
 type JournalEntry struct {
@@ -189,25 +190,26 @@ func (j *JournalEntry) Void(
 		return nil, common.NewInvalidInputError("invalid-void-info", "void info is invalid").WithDetails(errDetails)
 	}
 
-	reverse := j.generateReverseEntry(voidedBy)
+	reverseEntry := j.generateReverseJournalEntry(voidedBy)
 
 	j.status = JournalEntryStatusVoided
 	j.voidedAt = &voidedAt
 	j.voidedBy = &voidedBy
 	j.voidedReason = &voidedReason
 	j.SetAuditUpdate(voidedBy)
-	j.reverseEntryUUID = &reverse.uuid
+	j.reverseEntryUUID = &reverseEntry.uuid
 
-	return reverse, nil
+	return reverseEntry, nil
 }
 
-func (j *JournalEntry) generateReverseEntry(actorID string) *JournalEntry {
+func (j *JournalEntry) generateReverseJournalEntry(actorID string) *JournalEntry {
 	return &JournalEntry{
-		uuid:            j.UUID(),
+		uuid:            JournalEntryUUID{UUID: common.NewUUIDv7()},
 		amount:          j.Amount(),
-		entryType:       j.EntryType(),
+		entryType:       j.EntryType().Reverse(),
 		transactionDate: time.Now(),
 		fundSourceUUID:  j.fundSourceUUID,
+		status:          JournalEntryStatusReverse,
 		Audit:           shared.NewAudit(actorID),
 	}
 }

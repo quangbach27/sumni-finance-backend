@@ -58,6 +58,13 @@ type Client struct {
 }
 
 func NewClient(httpClient *http.Client, baseURL string) *Client {
+	if httpClient == nil {
+		panic("http client can't be empty")
+	}
+
+	if baseURL == "" {
+		panic("baseUrl can't be empty")
+	}
 	return &Client{
 		httpClient: httpClient,
 		baseURL:    baseURL,

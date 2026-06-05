@@ -26,50 +26,6 @@ func NewFundSourceRepository(db *pgxpool.Pool) *FundSourceRepo {
 	return &FundSourceRepo{db: db}
 }
 
-func (r *FundSourceRepo) getFundSourceByUUID(
-	ctx context.Context,
-	queries *dbmodels.Queries,
-	fundSourceUUID domain.FundSourceUUID,
-) (*domain.FundSource, error) {
-	fsModel, err := queries.GetFundSourceByUUID(ctx, fundSourceUUID)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving fund source: %w", err)
-	}
-
-	return unmarshalFundSourceFromDb(fsModel), nil
-}
-
-func unmarshalFundSourceFromDb(fsModel dbmodels.TreasuryFundSource) *domain.FundSource {
-	balance := shared.UnmarshalMoney(fsModel.Balance, fsModel.Currency)
-	availableBalance := shared.UnmarshalMoney(fsModel.AvailableBalance, fsModel.Currency)
-	audit := shared.UnmarshalAudit(fsModel.CreatedAt, fsModel.CreatedBy, fsModel.UpdatedAt, fsModel.UpdatedBy)
-
-	var metadata domain.FundSourceMetadata
-	switch fsModel.SourceType {
-	case domain.FundSourceTypeBank:
-		metadata = domain.UnmarshalFundSourceBankMetadata(
-			fsModel.BankInfo,
-			common.SafeDeref(fsModel.BankAccountNumber, ""),
-			common.SafeDeref(fsModel.BankAccountOwner, ""),
-		)
-	case domain.FundSourceTypeCash:
-		metadata = domain.UnmarshalFundSourceCashMetadata(
-			common.SafeDeref(fsModel.CashOwner, ""),
-		)
-	}
-
-	return domain.UnmarshalFundSource(
-		fsModel.FundSourceUuid,
-		fsModel.Name,
-		fsModel.SourceType,
-		balance,
-		availableBalance,
-		fsModel.Currency,
-		metadata,
-		audit,
-	)
-}
-
 func (r *FundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.FundSource) error {
 	if fundSource == nil {
 		return errors.New("fund source can't be empty")
@@ -99,19 +55,6 @@ func (r *FundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.
 	})
 }
 
-func addFundSourceMetadataToParams(fs *domain.FundSource, params *dbmodels.InsertFundSourceParams) {
-	if bankMetadata, ok := fs.BankMetadata(); ok {
-		params.BankInfo = bankMetadata.BankInfo()
-		params.BankCode = common.ToPtr(bankMetadata.BankInfo().BankCode())
-		params.BankAccountNumber = common.ToPtr(bankMetadata.AccountNumber())
-		params.BankAccountOwner = common.ToPtr(bankMetadata.AccountOwner())
-	}
-
-	if cashMetadata, ok := fs.CashMetadata(); ok {
-		params.CashOwner = common.ToPtr(cashMetadata.OwnerName())
-	}
-}
-
 func (r *FundSourceRepo) RecordJournalEntries(
 	ctx context.Context,
 	fundSourceUUID domain.FundSourceUUID,
@@ -136,6 +79,65 @@ func (r *FundSourceRepo) RecordJournalEntries(
 
 		return r.insertJournalEntries(ctx, queries, journalEntries)
 	})
+}
+
+func (r *FundSourceRepo) VoidJournalEntry(
+	ctx context.Context,
+	fundSourceUUID domain.FundSourceUUID,
+	journalEntryUUIDToVoid domain.JournalEntryUUID,
+	voidFn func(
+		fundSource *domain.FundSource,
+		journalEntryToVoid *domain.JournalEntry,
+	) (*domain.JournalEntry, error),
+) (*domain.JournalEntry, error) {
+	var reverseJournalEntry *domain.JournalEntry
+
+	err := common.UpdateInTx(ctx, r.db, func(ctx context.Context, tx pgx.Tx) error {
+		queries := dbmodels.New(tx)
+
+		fundSource, err := r.getFundSourceByUUID(ctx, queries, fundSourceUUID)
+		if err != nil {
+			return err
+		}
+
+		journalEntryToVoid, err := r.getJournalEntryByUUID(ctx, queries, journalEntryUUIDToVoid)
+		if err != nil {
+			return err
+		}
+
+		reverseJournalEntry, err = voidFn(fundSource, journalEntryToVoid)
+		if err != nil {
+			return fmt.Errorf("fail to void fn: %w", err)
+		}
+
+		if err = r.insertJournalEntries(ctx, queries, []*domain.JournalEntry{reverseJournalEntry}); err != nil {
+			return err
+		}
+
+		if err = r.updateJournalEntry(ctx, queries, journalEntryToVoid); err != nil {
+			return err
+		}
+
+		return r.updateFundSource(ctx, queries, fundSource)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return reverseJournalEntry, nil
+}
+
+func addFundSourceMetadataToParams(fs *domain.FundSource, params *dbmodels.InsertFundSourceParams) {
+	if bankMetadata, ok := fs.BankMetadata(); ok {
+		params.BankInfo = bankMetadata.BankInfo()
+		params.BankCode = common.ToPtr(bankMetadata.BankInfo().BankCode())
+		params.BankAccountNumber = common.ToPtr(bankMetadata.AccountNumber())
+		params.BankAccountOwner = common.ToPtr(bankMetadata.AccountOwner())
+	}
+
+	if cashMetadata, ok := fs.CashMetadata(); ok {
+		params.CashOwner = common.ToPtr(cashMetadata.OwnerName())
+	}
 }
 
 func (r *FundSourceRepo) updateFundSource(
@@ -186,6 +188,7 @@ func (r *FundSourceRepo) insertJournalEntries(
 	if err != nil {
 		return err
 	}
+
 	if _, err = queries.BatchInsertJournalEntries(ctx, params); err != nil {
 		return fmt.Errorf("error inserting journal entries: %w", err)
 	}
@@ -219,54 +222,6 @@ func buildBatchInsertJournalEntriesParams(entries []*domain.JournalEntry) ([]dbm
 	return params, nil
 }
 
-func (r *FundSourceRepo) VoidJournalEntry(
-	ctx context.Context,
-	fundSourceUUID domain.FundSourceUUID,
-	journalEntryUUIDToVoid domain.JournalEntryUUID,
-	voidFn func(
-		fundSource *domain.FundSource,
-		journalEntryToVoid *domain.JournalEntry,
-	) (*domain.JournalEntry, error),
-) (domain.JournalEntryUUID, error) {
-	var reverseJournalEntryUUID domain.JournalEntryUUID
-
-	err := common.UpdateInTx(ctx, r.db, func(ctx context.Context, tx pgx.Tx) error {
-		queries := dbmodels.New(tx)
-
-		fundSource, err := r.getFundSourceByUUID(ctx, queries, fundSourceUUID)
-		if err != nil {
-			return err
-		}
-
-		journalEntryToVoid, err := r.getJournalEntryByUUID(ctx, queries, journalEntryUUIDToVoid)
-		if err != nil {
-			return err
-		}
-
-		reverseEntry, err := voidFn(fundSource, journalEntryToVoid)
-		if err != nil {
-			return fmt.Errorf("fail to void fn: %w", err)
-		}
-
-		reverseJournalEntryUUID = reverseEntry.UUID()
-
-		if err = r.updateFundSource(ctx, queries, fundSource); err != nil {
-			return err
-		}
-
-		if err = r.updateJournalEntry(ctx, queries, journalEntryToVoid); err != nil {
-			return err
-		}
-
-		return r.insertJournalEntries(ctx, queries, []*domain.JournalEntry{reverseEntry})
-	})
-	if err != nil {
-		return domain.JournalEntryUUID{}, err
-	}
-	
-	return reverseJournalEntryUUID, nil
-}
-
 func (r *FundSourceRepo) getJournalEntryByUUID(
 	ctx context.Context,
 	queries *dbmodels.Queries,
@@ -298,6 +253,50 @@ func unmarshalJournalEntryFromDb(model dbmodels.TreasuryJournalEntry) *domain.Jo
 		model.VoidedAt,
 		model.VoidedReason,
 		model.ReverseEntryUuid,
+		audit,
+	)
+}
+
+func (r *FundSourceRepo) getFundSourceByUUID(
+	ctx context.Context,
+	queries *dbmodels.Queries,
+	fundSourceUUID domain.FundSourceUUID,
+) (*domain.FundSource, error) {
+	fsModel, err := queries.GetFundSourceByUUID(ctx, fundSourceUUID)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving fund source: %w", err)
+	}
+
+	return unmarshalFundSourceFromDb(fsModel), nil
+}
+
+func unmarshalFundSourceFromDb(fsModel dbmodels.TreasuryFundSource) *domain.FundSource {
+	balance := shared.UnmarshalMoney(fsModel.Balance, fsModel.Currency)
+	availableBalance := shared.UnmarshalMoney(fsModel.AvailableBalance, fsModel.Currency)
+	audit := shared.UnmarshalAudit(fsModel.CreatedAt, fsModel.CreatedBy, fsModel.UpdatedAt, fsModel.UpdatedBy)
+
+	var metadata domain.FundSourceMetadata
+	switch fsModel.SourceType {
+	case domain.FundSourceTypeBank:
+		metadata = domain.UnmarshalFundSourceBankMetadata(
+			fsModel.BankInfo,
+			common.SafeDeref(fsModel.BankAccountNumber, ""),
+			common.SafeDeref(fsModel.BankAccountOwner, ""),
+		)
+	case domain.FundSourceTypeCash:
+		metadata = domain.UnmarshalFundSourceCashMetadata(
+			common.SafeDeref(fsModel.CashOwner, ""),
+		)
+	}
+
+	return domain.UnmarshalFundSource(
+		fsModel.FundSourceUuid,
+		fsModel.Name,
+		fsModel.SourceType,
+		balance,
+		availableBalance,
+		fsModel.Currency,
+		metadata,
 		audit,
 	)
 }

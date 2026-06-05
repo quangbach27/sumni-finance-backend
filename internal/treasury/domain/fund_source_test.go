@@ -17,7 +17,7 @@ func newFundSource(t *testing.T, balance shared.Money) *domain.FundSource {
 	t.Helper()
 	factory := newFactory(t)
 	metadata := newValidCashFundMetadata(t, factory)
-	fs, err := factory.NewFundSource("Wallet", domain.FundSourceTypeCash, balance, vnd, metadata, "user-1")
+	fs, err := factory.NewFundSource("Wallet", domain.FundSourceTypeCash, balance, vnd, metadata)
 	require.NoError(t, err)
 	return fs
 }

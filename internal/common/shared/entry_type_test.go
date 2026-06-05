@@ -54,6 +54,8 @@ func TestEntryType_Reverse(t *testing.T) {
 }
 
 func TestEntryType_InSharedTypes(t *testing.T) {
+	t.Parallel()
+
 	found := false
 	for _, st := range shared.SharedTypes {
 		if _, ok := st.(shared.EntryType); ok {

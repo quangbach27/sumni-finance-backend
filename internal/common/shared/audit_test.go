@@ -11,6 +11,8 @@ import (
 )
 
 func TestAudit_InSharedTypes(t *testing.T) {
+	t.Parallel()
+
 	found := false
 	for _, st := range shared.SharedTypes {
 		if _, ok := st.(shared.Audit); ok {

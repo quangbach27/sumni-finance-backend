@@ -2,23 +2,65 @@ package treasury
 
 import (
 	"context"
+	"embed"
 
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
+
+	"sumni-finance-backend/internal/treasury/adapters/db"
+	"sumni-finance-backend/internal/treasury/api/http"
+	"sumni-finance-backend/internal/treasury/app/command"
+	"sumni-finance-backend/internal/treasury/domain"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Module struct{}
+type Module struct {
+	pgxDb *pgxpool.Pool
 
-func NewModule() *Module {
-	return &Module{}
+	commandHandler     *command.Handler
+	bankLookupProvider domain.BankLookupProvider
+}
+
+func NewModule(pgxDb *pgxpool.Pool, bankLookupProvider domain.BankLookupProvider) *Module {
+	if pgxDb == nil {
+		panic("db can't be nil")
+	}
+
+	if bankLookupProvider == nil {
+		panic("bank lookup provider can't be empty")
+	}
+
+	return &Module{
+		pgxDb:              pgxDb,
+		bankLookupProvider: bankLookupProvider,
+	}
 }
 
 func (m *Module) Name() module.Name {
 	return "treasury"
 }
 
+//go:embed adapters/db/migrations/*.sql
+var embedMigrations embed.FS
+
 func (m *Module) Init(ctx context.Context) error {
+	if err := common.MigrateDatabaseUp(
+		ctx,
+		string(m.Name()),
+		m.pgxDb,
+		embedMigrations,
+		"adapters/db/migrations",
+	); err != nil {
+		return err
+	}
+
+	fundSourceRepo := db.NewFundSourceRepository(m.pgxDb)
+
+	fundSouceFactory := domain.NewFundSourceFactory(m.bankLookupProvider)
+
+	m.commandHandler = command.NewHandler(fundSourceRepo, fundSouceFactory)
 	return nil
 }
 
@@ -27,5 +69,5 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 }
 
 func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
-	return nil
+	return http.Register(e, m.commandHandler)
 }

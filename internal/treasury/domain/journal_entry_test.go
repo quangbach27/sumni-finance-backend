@@ -301,7 +301,7 @@ func TestJournalEntry_Void_Success(t *testing.T) {
 	assert.NotNil(t, je.ReverseEntryUUID())
 
 	assert.Equal(t, "50000", reverse.Amount().String())
-	assert.Equal(t, shared.EntryTypeDebit, reverse.EntryType())
+	assert.Equal(t, shared.EntryTypeCredit, reverse.EntryType())
 	assert.Equal(t, je.FundSourceUUID(), reverse.FundSourceUUID())
 }
 

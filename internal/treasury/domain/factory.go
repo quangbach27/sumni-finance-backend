@@ -8,25 +8,24 @@ import (
 	"sumni-finance-backend/internal/common/shared"
 )
 
-type BankProvider interface {
+type BankLookupProvider interface {
 	FindByBankCode(ctx context.Context, bankCode string) (BankInfo, error)
 }
 
 type FundSourceFactory struct {
-	bankProvider BankProvider
+	bankLookupProvider BankLookupProvider
 }
 
-func NewFundSourceFactory(bankProvider BankProvider) *FundSourceFactory {
-	return &FundSourceFactory{bankProvider: bankProvider}
+func NewFundSourceFactory(bankProvider BankLookupProvider) *FundSourceFactory {
+	return &FundSourceFactory{bankLookupProvider: bankProvider}
 }
 
 func (f *FundSourceFactory) NewFundSource(
 	name string,
 	sourceType FundSourceType,
-	balance shared.Money,
+	initBalance shared.Money,
 	currency shared.Currency,
 	metadata FundSourceMetadata,
-	createdBy string,
 ) (*FundSource, error) {
 	errDetails := []common.ErrorDetails{}
 
@@ -51,7 +50,7 @@ func (f *FundSourceFactory) NewFundSource(
 			Message:    "currency can't be empty",
 		})
 	}
-	if balance.Amount().IsNegative() {
+	if initBalance.Amount().IsNegative() {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "FundSource",
 			ErrorSlug:  "negative-balance",
@@ -79,11 +78,11 @@ func (f *FundSourceFactory) NewFundSource(
 		uuid:             FundSourceUUID{UUID: common.NewUUIDv7()},
 		name:             name,
 		sourceType:       sourceType,
-		balance:          balance,
-		availableBalance: balance,
+		balance:          initBalance,
+		availableBalance: initBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            shared.NewAudit(createdBy),
+		Audit:            shared.NewAudit(""),
 	}, nil
 }
 
@@ -93,7 +92,7 @@ func (f *FundSourceFactory) NewBankMetadata(
 	accountNumber string,
 	accountOwner string,
 ) (FundSourceBankMetadata, error) {
-	bankInfo, err := f.bankProvider.FindByBankCode(ctx, bankCode)
+	bankInfo, err := f.bankLookupProvider.FindByBankCode(ctx, bankCode)
 	if err != nil {
 		return FundSourceBankMetadata{}, fmt.Errorf("error retrieving bank information: %w", err)
 	}

@@ -11,11 +11,6 @@ import (
 
 type FundSourceRepository interface {
 	SaveFundSource(ctx context.Context, fundSource *FundSource) error
-	UpdateFundSource(
-		ctx context.Context,
-		fundSourceUUID FundSourceUUID,
-		updateFn func(fs *FundSource) error,
-	)
 	RecordJournalEntries(
 		ctx context.Context,
 		fundSourceUUID FundSourceUUID,
@@ -24,9 +19,12 @@ type FundSourceRepository interface {
 	VoidJournalEntry(
 		ctx context.Context,
 		fundSourceUUID FundSourceUUID,
-		journalEntryUUID JournalEntryUUID,
-		updateFn func(foundSource *FundSource, journalEntryForVoided *JournalEntry) (*JournalEntry, error),
-	) (JournalEntryUUID, error)
+		journalEntryUUIDToVoid JournalEntryUUID,
+		voidFn func(
+			fundSource *FundSource,
+			journalEntryToVoid *JournalEntry,
+		) (*JournalEntry, error),
+	) (*JournalEntry, error)
 }
 
 type FundSourceUUID struct {

@@ -1,14 +1,15 @@
 version: '3'
 
-vars:
-  SERVICE: sumni-finance-backend
 
 tasks:
   up:
+    vars:
+      SERVICE: sumni-finance-backend
     cmds:
-      - docker compose up {{.CLI_ARGS}}
+      - docker compose up {{.SERVICE}} {{.CLI_ARGS}}
     env:
       COMPOSE_MENU: "false"
+      DEBUG: '{{.DEBUG | default "false"}}'
   
   up-clean:
     cmds:

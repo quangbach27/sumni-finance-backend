@@ -62,6 +62,7 @@ const (
 	TreasuryJournalEntryStatusRECORDED TreasuryJournalEntryStatus = "RECORDED"
 	TreasuryJournalEntryStatusPOSTED   TreasuryJournalEntryStatus = "POSTED"
 	TreasuryJournalEntryStatusVOIDED   TreasuryJournalEntryStatus = "VOIDED"
+	TreasuryJournalEntryStatusREVERSE  TreasuryJournalEntryStatus = "REVERSE"
 )
 
 func (e *TreasuryJournalEntryStatus) Scan(src interface{}) error {

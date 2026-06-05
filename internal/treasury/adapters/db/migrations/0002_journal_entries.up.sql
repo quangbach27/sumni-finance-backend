@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TYPE treasury.journal_entry_type AS ENUM ('DEBIT', 'CREDIT');
-CREATE TYPE treasury.journal_entry_status AS ENUM ('RECORDED', 'POSTED', 'VOIDED');
+CREATE TYPE treasury.journal_entry_status AS ENUM ('RECORDED', 'POSTED', 'VOIDED', 'REVERSE');
 
 CREATE TABLE treasury.journal_entries (
     journal_entry_uuid      uuid                            NOT NULL,

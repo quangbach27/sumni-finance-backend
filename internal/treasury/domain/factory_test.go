@@ -22,7 +22,7 @@ func TestNewFundSource_BankSuccess(t *testing.T) {
 	balance := newZeroBalance(t)
 	metadata := newValidBankFundMetadata(t, factory)
 
-	fs, err := factory.NewFundSource("My Bank Account", domain.FundSourceTypeBank, balance, vnd, metadata, "user-1")
+	fs, err := factory.NewFundSource("My Bank Account", domain.FundSourceTypeBank, balance, vnd, metadata)
 	require.NoError(t, err)
 
 	assert.Equal(t, "My Bank Account", fs.Name())
@@ -40,7 +40,7 @@ func TestNewFundSource_CashSuccess(t *testing.T) {
 	balance := newZeroBalance(t)
 	metadata := newValidCashFundMetadata(t, factory)
 
-	fs, err := factory.NewFundSource("My Cash Wallet", domain.FundSourceTypeCash, balance, vnd, metadata, "user-1")
+	fs, err := factory.NewFundSource("My Cash Wallet", domain.FundSourceTypeCash, balance, vnd, metadata)
 	require.NoError(t, err)
 
 	assert.Equal(t, "My Cash Wallet", fs.Name())
@@ -126,7 +126,7 @@ func TestNewFundSource_ValidationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := factory.NewFundSource(tt.fsName, tt.sourceType, tt.balance, tt.currency, tt.metadata, "user-1")
+			_, err := factory.NewFundSource(tt.fsName, tt.sourceType, tt.balance, tt.currency, tt.metadata)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErrSlug)
 		})

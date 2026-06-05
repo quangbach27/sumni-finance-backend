@@ -16,6 +16,7 @@ func TestMustNewCurrency(t *testing.T) {
 
 	for _, code := range validCurrencies {
 		t.Run(code, func(t *testing.T) {
+			t.Parallel()
 			currency := shared.MustNewCurrency(code)
 			assert.Equal(t, code, currency.Code())
 			assert.False(t, currency.IsZero())
@@ -44,6 +45,8 @@ func TestCurrency_ZeroValue(t *testing.T) {
 }
 
 func TestCurrency_InSharedTypes(t *testing.T) {
+	t.Parallel()
+
 	found := false
 	for _, st := range shared.SharedTypes {
 		if _, ok := st.(shared.Currency); ok {
