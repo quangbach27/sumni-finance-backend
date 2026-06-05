@@ -136,8 +136,19 @@ func (j *JournalEntry) SetBalanceBefore(balance decimal.Decimal) {
 	j.balanceBefore = balance
 }
 
-func (j *JournalEntry) SetBalanceAfter(balance decimal.Decimal) {
+func (j *JournalEntry) SetBalanceAfter(balance decimal.Decimal) error {
+	var expected decimal.Decimal
+	if j.entryType == shared.EntryTypeDebit {
+		expected = j.balanceBefore.Sub(j.amount)
+	} else {
+		expected = j.balanceBefore.Add(j.amount)
+	}
+	if !balance.Equal(expected) {
+		return fmt.Errorf("balanceAfter %s does not match expected %s (balanceBefore %s %s amount %s)",
+			balance, expected, j.balanceBefore, j.entryType.String(), j.amount)
+	}
 	j.balanceAfter = balance
+	return nil
 }
 
 func (j *JournalEntry) MarkAsPosted(updatedBy string) error {

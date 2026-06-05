@@ -234,8 +234,10 @@ func TestJournalEntry_SetBalanceAfter(t *testing.T) {
 	t.Parallel()
 
 	je := newJournalEntry(t, decimal.NewFromInt(1000), shared.EntryTypeDebit)
-	je.SetBalanceAfter(decimal.NewFromInt(201_000))
+	je.SetBalanceBefore(decimal.NewFromInt(202_000))
+	err := je.SetBalanceAfter(decimal.NewFromInt(201_000))
 
+	require.NoError(t, err)
 	assert.Equal(t, "201000", je.BalanceAfter().String())
 }
 

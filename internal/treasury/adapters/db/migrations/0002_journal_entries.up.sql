@@ -34,8 +34,8 @@ CREATE TABLE treasury.journal_entries (
         REFERENCES treasury.journal_entries(journal_entry_uuid),
 
     CONSTRAINT chk_balance_after CHECK (
-        (entry_type = 'DEBIT'  AND balance_after = balance_before + amount) OR
-        (entry_type = 'CREDIT' AND balance_after = balance_before - amount)
+        (entry_type = 'DEBIT'  AND balance_after = balance_before - amount) OR
+        (entry_type = 'CREDIT' AND balance_after = balance_before + amount)
     ),
 
     CONSTRAINT chk_void_fields CHECK (

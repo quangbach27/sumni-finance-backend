@@ -3,6 +3,7 @@ package lookup
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 
 	"sumni-finance-backend/internal/treasury/domain"
 )
+
+var ErrBankCodeNotFound = errors.New("bank not found")
 
 type Bank struct {
 	Name              string
@@ -91,7 +94,7 @@ func (c *Client) FindByBankCode(ctx context.Context, bankCode string) (domain.Ba
 		}
 	}
 
-	return domain.BankInfo{}, fmt.Errorf("bank with code %q not found", bankCode)
+	return domain.BankInfo{}, ErrBankCodeNotFound
 }
 
 func (c *Client) loadCache(ctx context.Context) ([]Bank, error) {
@@ -129,7 +132,11 @@ func (c *Client) fetch(ctx context.Context) ([]Bank, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch banks: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			err = fmt.Errorf("failed to close response body: %w", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d from bank list API", resp.StatusCode)

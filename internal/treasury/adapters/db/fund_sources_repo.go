@@ -11,8 +11,11 @@ import (
 	"sumni-finance-backend/internal/treasury/domain"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+const pgErrUniqueViolation = "23505"
 
 type FundSourceRepo struct {
 	db *pgxpool.Pool
@@ -48,6 +51,15 @@ func (r *FundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.
 
 		err := queries.InsertFundSource(ctx, params)
 		if err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == pgErrUniqueViolation {
+				return common.NewConflictError(
+					"duplicate-fund-source",
+					"bank account %s is already registered",
+					common.SafeDeref(params.BankAccountNumber, ""),
+				)
+			}
+
 			return fmt.Errorf("error saving fund source: %w", err)
 		}
 

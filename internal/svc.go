@@ -93,10 +93,10 @@ func (s Svc) Run(ctx context.Context, port string) error {
 		}
 	}()
 
-	// s.echoRouter.Server.WriteTimeout = 15 * time.Second
-	// s.echoRouter.Server.ReadHeaderTimeout = 5 * time.Second
-	// s.echoRouter.Server.ReadTimeout = 15 * time.Second
-	// s.echoRouter.Server.IdleTimeout = 60 * time.Second
+	s.echoRouter.Server.WriteTimeout = 30 * time.Second
+	s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
+	s.echoRouter.Server.ReadTimeout = 30 * time.Second
+	s.echoRouter.Server.IdleTimeout = 60 * time.Second
 
 	err := s.echoRouter.Start(port)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

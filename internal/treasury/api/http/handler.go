@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 
+	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/domain"
 )
@@ -55,7 +56,14 @@ func (h Handler) RegisterFundSource(
 		return nil, err
 	}
 
-	return RegisterFundSource201JSONResponse{FundSourceUuid: fundSourceUUID}, nil
+	return RegisterFundSource201JSONResponse{
+		Body: RegisterFundSourceResponse{
+			FundSourceUuid: fundSourceUUID,
+		},
+		Headers: RegisterFundSource201ResponseHeaders{
+			XCorrelationID: log.CorrelationIDFromContext(ctx),
+		},
+	}, nil
 }
 
 // Add New Journal Entries
@@ -85,7 +93,12 @@ func (h Handler) RecordJournalEntries(
 		return nil, err
 	}
 
-	return nil, nil
+	return RecordJournalEntries201JSONResponse{
+		Body: nil,
+		Headers: RecordJournalEntries201ResponseHeaders{
+			XCorrelationID: log.CorrelationIDFromContext(ctx),
+		},
+	}, nil
 }
 
 // Void a journal entry by creating a reverse journal entry
@@ -102,7 +115,12 @@ func (h Handler) VoidJournalEntry(ctx context.Context, request VoidJournalEntryR
 	}
 
 	return VoidJournalEntry200JSONResponse{
-		ReverseJournalEntry: domainJournalEntryToResponse(reverseJournalEntry),
+		Body: VoidJournalEntryResponse{
+			ReverseJournalEntry: domainJournalEntryToResponse(reverseJournalEntry),
+		},
+		Headers: VoidJournalEntry200ResponseHeaders{
+			XCorrelationID: log.CorrelationIDFromContext(ctx),
+		},
 	}, nil
 }
 

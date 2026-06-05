@@ -273,11 +273,32 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 }
 
-type BadRequestJSONResponse ErrorResponse
+type BadRequestResponseHeaders struct {
+	XCorrelationID string
+}
+type BadRequestJSONResponse struct {
+	Body ErrorResponse
 
-type InternalServerErrorJSONResponse ErrorResponse
+	Headers BadRequestResponseHeaders
+}
 
-type NotFoundJSONResponse ErrorResponse
+type InternalServerErrorResponseHeaders struct {
+	XCorrelationID string
+}
+type InternalServerErrorJSONResponse struct {
+	Body ErrorResponse
+
+	Headers InternalServerErrorResponseHeaders
+}
+
+type NotFoundResponseHeaders struct {
+	XCorrelationID string
+}
+type NotFoundJSONResponse struct {
+	Body ErrorResponse
+
+	Headers NotFoundResponseHeaders
+}
 
 type RegisterFundSourceRequestObject struct {
 	Body *RegisterFundSourceJSONRequestBody
@@ -287,31 +308,48 @@ type RegisterFundSourceResponseObject interface {
 	VisitRegisterFundSourceResponse(w http.ResponseWriter) error
 }
 
-type RegisterFundSource201JSONResponse RegisterFundSourceResponse
+type RegisterFundSource201ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type RegisterFundSource201JSONResponse struct {
+	Body    RegisterFundSourceResponse
+	Headers RegisterFundSource201ResponseHeaders
+}
 
 func (response RegisterFundSource201JSONResponse) VisitRegisterFundSourceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(201)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RegisterFundSource400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response RegisterFundSource400JSONResponse) VisitRegisterFundSourceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type RegisterFundSource409JSONResponse ErrorResponse
+type RegisterFundSource409ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type RegisterFundSource409JSONResponse struct {
+	Body    ErrorResponse
+	Headers RegisterFundSource409ResponseHeaders
+}
 
 func (response RegisterFundSource409JSONResponse) VisitRegisterFundSourceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(409)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RegisterFundSource500JSONResponse struct {
@@ -320,9 +358,10 @@ type RegisterFundSource500JSONResponse struct {
 
 func (response RegisterFundSource500JSONResponse) VisitRegisterFundSourceResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(500)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RecordJournalEntriesRequestObject struct {
@@ -334,40 +373,58 @@ type RecordJournalEntriesResponseObject interface {
 	VisitRecordJournalEntriesResponse(w http.ResponseWriter) error
 }
 
-type RecordJournalEntries201JSONResponse RecordJournalEntriesResponse
+type RecordJournalEntries201ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type RecordJournalEntries201JSONResponse struct {
+	Body    RecordJournalEntriesResponse
+	Headers RecordJournalEntries201ResponseHeaders
+}
 
 func (response RecordJournalEntries201JSONResponse) VisitRecordJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(201)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RecordJournalEntries400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response RecordJournalEntries400JSONResponse) VisitRecordJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RecordJournalEntries404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response RecordJournalEntries404JSONResponse) VisitRecordJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(404)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
-type RecordJournalEntries409JSONResponse ErrorResponse
+type RecordJournalEntries409ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type RecordJournalEntries409JSONResponse struct {
+	Body    ErrorResponse
+	Headers RecordJournalEntries409ResponseHeaders
+}
 
 func (response RecordJournalEntries409JSONResponse) VisitRecordJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(409)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RecordJournalEntries500JSONResponse struct {
@@ -376,9 +433,10 @@ type RecordJournalEntries500JSONResponse struct {
 
 func (response RecordJournalEntries500JSONResponse) VisitRecordJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(500)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type VoidJournalEntryRequestObject struct {
@@ -391,31 +449,41 @@ type VoidJournalEntryResponseObject interface {
 	VisitVoidJournalEntryResponse(w http.ResponseWriter) error
 }
 
-type VoidJournalEntry200JSONResponse VoidJournalEntryResponse
+type VoidJournalEntry200ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type VoidJournalEntry200JSONResponse struct {
+	Body    VoidJournalEntryResponse
+	Headers VoidJournalEntry200ResponseHeaders
+}
 
 func (response VoidJournalEntry200JSONResponse) VisitVoidJournalEntryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(200)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type VoidJournalEntry400JSONResponse struct{ BadRequestJSONResponse }
 
 func (response VoidJournalEntry400JSONResponse) VisitVoidJournalEntryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(400)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type VoidJournalEntry404JSONResponse struct{ NotFoundJSONResponse }
 
 func (response VoidJournalEntry404JSONResponse) VisitVoidJournalEntryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(404)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type VoidJournalEntry500JSONResponse struct {
@@ -424,9 +492,10 @@ type VoidJournalEntry500JSONResponse struct {
 
 func (response VoidJournalEntry500JSONResponse) VisitVoidJournalEntryResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(500)
 
-	return json.NewEncoder(w).Encode(response)
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 // StrictServerInterface represents all server handlers.

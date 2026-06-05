@@ -4,13 +4,10 @@ import (
 	"context"
 	"io/fs"
 	"os"
-	"testing"
-	"time"
 
 	"sumni-finance-backend/internal/common"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/require"
 )
 
 func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
@@ -32,24 +29,21 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	}
 }
 
-func NewDB(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-
+func NewDB() *pgxpool.Pool {
 	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
 		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
 	}
 
 	config, err := pgxpool.ParseConfig(dsn)
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
-	config.MaxConns = 30 // enough for concurrent tests
-	config.MinConns = 5  // pre-warm connections
-	config.MaxConnIdleTime = 30 * time.Second
-	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		panic(err)
+	}
 
-	dbPgx, err := pgxpool.NewWithConfig(t.Context(), config)
-	require.NoError(t, err)
-
-	return dbPgx
+	return pool
 }

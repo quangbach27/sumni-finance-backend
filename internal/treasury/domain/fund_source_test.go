@@ -65,12 +65,12 @@ func TestFundSource_TopUp_ValidationErrors(t *testing.T) {
 		{
 			name:    "reject-zero-amount",
 			amount:  money(t, 0, vnd),
-			wantErr: "money for top up can't be empty",
+			wantErr: "top up amount must be positive",
 		},
 		{
 			name:    "reject-negative-amount",
 			amount:  money(t, -1, vnd),
-			wantErr: "money for top up can't be negative",
+			wantErr: "top up amount must be positive",
 		},
 		{
 			name:    "reject-currency-mismatch",
@@ -114,17 +114,17 @@ func TestFundSource_Withdraw_ValidationErrors(t *testing.T) {
 		{
 			name:    "reject-zero-amount",
 			amount:  money(t, 0, vnd),
-			wantErr: "money for withdraw can't be empty",
+			wantErr: "withdraw amount must be positive",
 		},
 		{
 			name:    "reject-negative-amount",
 			amount:  money(t, -1, vnd),
-			wantErr: "money for withdraw can't be negative",
+			wantErr: "withdraw amount must be positive",
 		},
 		{
 			name:    "reject-exceeds-balance",
 			amount:  money(t, 600_000, vnd),
-			wantErr: "withdraw amount can't exceed current balance",
+			wantErr: "insufficient balance to complete withdrawal",
 		},
 		{
 			name:    "reject-currency-mismatch",
@@ -179,17 +179,17 @@ func TestFundSource_Reserve_ValidationErrors(t *testing.T) {
 		{
 			name:    "reject-currency-mismatch",
 			amount:  money(t, 100, krw),
-			wantErr: "allocation money currency must match fund provider currency",
+			wantErr: "does not match fund source currency",
 		},
 		{
 			name:    "reject-negative-amount",
 			amount:  money(t, -1, vnd),
-			wantErr: "allocation money can't be negative",
+			wantErr: "reservation amount must be greater or equal than zero",
 		},
 		{
 			name:    "reject-exceeds-available-balance",
 			amount:  money(t, 600_000, vnd),
-			wantErr: "allocation money can't exceed fund source available balance",
+			wantErr: "insufficient available balance to complete reservation",
 		},
 	}
 

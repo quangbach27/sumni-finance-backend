@@ -272,7 +272,7 @@ func TestNewFundSourceBankMetadata_ValidationErrors(t *testing.T) {
 			bankCode:      "UNKNOWN",
 			accountNumber: "1234567890",
 			accountOwner:  "John Doe",
-			wantErr:       "error retrieving bank information",
+			wantErr:       "bank code UNKNOWN not found",
 		},
 	}
 

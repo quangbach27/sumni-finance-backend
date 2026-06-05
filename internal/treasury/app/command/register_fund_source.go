@@ -2,8 +2,8 @@ package command
 
 import (
 	"context"
-	"fmt"
 
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
 
@@ -37,7 +37,11 @@ func (h *Handler) RegisterFundSource(ctx context.Context, cmd RegisterFundSource
 
 	initBalance, err := shared.NewMoney(cmd.InitBalance, cmd.Currency)
 	if err != nil {
-		return domain.FundSourceUUID{}, err
+		return domain.FundSourceUUID{}, common.NewInvalidInputError(
+			"invalid-init-balance",
+			"%s",
+			err.Error(),
+		)
 	}
 
 	fundSource, err := h.fundSourceFactory.NewFundSource(
@@ -76,7 +80,8 @@ func (h *Handler) buildFundSourceMetadata(
 			cmd.CashMetadataCmd.OwnerName,
 		)
 	default:
-		return nil, fmt.Errorf(
+		return nil, common.NewInvalidInputError(
+			"fund-source-type-unsupported",
 			"unsupported fund source type: %s",
 			cmd.SourceType.String(),
 		)

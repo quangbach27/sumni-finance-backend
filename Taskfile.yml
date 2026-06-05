@@ -29,11 +29,9 @@ tasks:
   test:
     desc: Run all tests (unit, integration, component)
     cmds:
-      - task: test-unit
-      - task: test-integration
+      - task: test-integration # intergration test also cover test-unit
       - task: test-component
     
-
   test-unit:
     desc: Run unit tests
     cmd: go test ./internal/... {{.CLI_ARGS}}
@@ -45,7 +43,7 @@ tasks:
 
   test-component:
     desc: Run component tests
-    cmd: go test -tags=component -v -count=1 ./internal/tests/... {{.CLI_ARGS}}
+    cmd: go test ./tests/... -count=1 {{.CLI_ARGS}}
 
   domain-coverage:
     desc: Check domain test coverage

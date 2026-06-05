@@ -23,6 +23,9 @@ paths:
       responses:
         '201':
           description: Treasury registered succefully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -31,6 +34,9 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           description: Treasury already exists
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -58,7 +64,10 @@ paths:
               $ref: '#/components/schemas/RecordJournalEntriesRequest'
       responses:
         '201':
-          description: Journal Entries adding succefully
+          description: Journal Entries adding successfully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -69,6 +78,9 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           description: Treasury already exists
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -102,6 +114,9 @@ paths:
       responses:
         '200':
           description: Journal entry voided successfully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -113,8 +128,6 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-
-            
 components:
   schemas:
     RegisterFundSourceRequest:
@@ -366,9 +379,18 @@ components:
         message:
           type: string
 
+  headers:
+    CorrelationID:
+      description: Correlation ID for tracing the request
+      schema:
+        type: string
+
   responses:
     BadRequest:
       description: Invalid request
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -376,6 +398,9 @@ components:
 
     Unauthorized:
       description: Authentication required
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -383,6 +408,9 @@ components:
 
     Forbidden:
       description: Insufficient permissions
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -390,6 +418,9 @@ components:
 
     NotFound:
       description: Resource not found
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -397,6 +428,9 @@ components:
 
     InternalServerError:
       description: Server error
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:

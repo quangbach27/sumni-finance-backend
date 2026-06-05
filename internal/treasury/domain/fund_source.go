@@ -76,12 +76,8 @@ func (fp *FundSource) CashMetadata() (FundSourceCashMetadata, bool) {
 }
 
 func (fp *FundSource) TopUp(m shared.Money) error {
-	if m.Amount().IsZero() {
-		return errors.New("money for top up can't be empty")
-	}
-
-	if m.Amount().IsNegative() {
-		return errors.New("money for top up can't be negative")
+	if !m.Amount().IsPositive() {
+		return errors.New("top up amount must be positive")
 	}
 
 	newBalance, err := fp.balance.Add(m)
@@ -95,16 +91,12 @@ func (fp *FundSource) TopUp(m shared.Money) error {
 }
 
 func (fp *FundSource) Withdraw(m shared.Money) error {
-	if m.Amount().IsZero() {
-		return errors.New("money for withdraw can't be empty")
-	}
-
-	if m.Amount().IsNegative() {
-		return errors.New("money for withdraw can't be negative")
+	if !m.Amount().IsPositive() {
+		return errors.New("withdraw amount must be positive")
 	}
 
 	if fp.balance.Amount().LessThan(m.Amount()) {
-		return errors.New("withdraw amount can't exceed current balance")
+		return errors.New("insufficient balance to complete withdrawal")
 	}
 
 	newBalance, err := fp.balance.Sub(m)
@@ -119,15 +111,15 @@ func (fp *FundSource) Withdraw(m shared.Money) error {
 
 func (fp *FundSource) Reserve(m shared.Money) error {
 	if !fp.currency.Equal(m.Currency()) {
-		return errors.New("allocation money currency must match fund provider currency")
+		return fmt.Errorf("reservation currency %s does not match fund source currency %s", m.Currency(), fp.currency)
 	}
 
 	if m.Amount().IsNegative() {
-		return errors.New("allocation money can't be negative")
+		return errors.New("reservation amount must be greater or equal than zero")
 	}
 
 	if fp.availableBalance.Amount().LessThan(m.Amount()) {
-		return errors.New("allocation money can't exceed fund source available balance")
+		return errors.New("insufficient available balance to complete reservation")
 	}
 
 	newAvailableBalance, err := fp.availableBalance.Sub(m)

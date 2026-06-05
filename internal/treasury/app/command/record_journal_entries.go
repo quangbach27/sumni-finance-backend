@@ -38,12 +38,16 @@ func (h *Handler) RecordJournalEntries(ctx context.Context, cmd RecordedJournalE
 		func(fundSource *domain.FundSource) ([]*domain.JournalEntry, error) {
 			journalEntries := make([]*domain.JournalEntry, 0, len(cmd.JournalEntryItems))
 			for _, item := range cmd.JournalEntryItems {
-				snapshot, err := recordJournalEntryToFundSource(fundSource, item.Amount, item.EntryType)
+				snapshot, err := recordJournalEntryToFundSource(
+					fundSource,
+					item.Amount,
+					item.EntryType,
+				)
 				if err != nil {
-					return nil, err
+					return nil, common.NewInvalidInputError("invalid-balance-operation", "%s", err.Error())
 				}
 
-				entry, err := domain.NewJournalEntry(
+				journalEntry, err := domain.NewJournalEntry(
 					item.Amount,
 					item.EntryType,
 					item.TransactionDate,
@@ -55,9 +59,13 @@ func (h *Handler) RecordJournalEntries(ctx context.Context, cmd RecordedJournalE
 				if err != nil {
 					return nil, err
 				}
-				entry.SetBalanceAfter(snapshot.after)
 
-				journalEntries = append(journalEntries, entry)
+				err = journalEntry.SetBalanceAfter(snapshot.after)
+				if err != nil {
+					return nil, err
+				}
+
+				journalEntries = append(journalEntries, journalEntry)
 			}
 
 			return journalEntries, nil
@@ -86,13 +94,12 @@ func recordJournalEntryToFundSource(
 
 	switch entryType {
 	case shared.EntryTypeDebit:
-		err = fs.TopUp(money)
-	case shared.EntryTypeCredit:
 		err = fs.Withdraw(money)
+	case shared.EntryTypeCredit:
+		err = fs.TopUp(money)
 	default:
-		return balanceSnapshot{}, fmt.Errorf("unknown entry type: %s", entryType)
+		return balanceSnapshot{}, fmt.Errorf("unsupported entry type: %s", entryType)
 	}
-
 	if err != nil {
 		return balanceSnapshot{}, err
 	}

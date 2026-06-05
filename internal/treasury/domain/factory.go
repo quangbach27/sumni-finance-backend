@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
@@ -92,17 +93,12 @@ func (f *FundSourceFactory) NewBankMetadata(
 	accountNumber string,
 	accountOwner string,
 ) (FundSourceBankMetadata, error) {
-	bankInfo, err := f.bankLookupProvider.FindByBankCode(ctx, bankCode)
-	if err != nil {
-		return FundSourceBankMetadata{}, fmt.Errorf("error retrieving bank information: %w", err)
-	}
-
 	errDetails := []common.ErrorDetails{}
-	if bankInfo.IsZero() {
+	if bankCode == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "FundSourceBankMetadata",
-			ErrorSlug:  "empty-bank-info",
-			Message:    "bank info can't be empty",
+			ErrorSlug:  "empty-bank-code",
+			Message:    "bank code can't be empty",
 		})
 	}
 	if accountNumber == "" {
@@ -122,6 +118,25 @@ func (f *FundSourceFactory) NewBankMetadata(
 
 	if len(errDetails) != 0 {
 		return FundSourceBankMetadata{}, common.NewInvalidInputError("invalid-bank-metadata", "bank metadata is not valid").WithDetails(errDetails)
+	}
+
+	bankInfo, err := f.bankLookupProvider.FindByBankCode(ctx, bankCode)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return FundSourceBankMetadata{}, common.NewNotFoundError(
+				"bank-code-not-found",
+				"bank code %s not found",
+				bankCode,
+			)
+		}
+		return FundSourceBankMetadata{}, fmt.Errorf("error retrieving bank information: %w", err)
+	}
+	if bankInfo.IsZero() {
+		return FundSourceBankMetadata{}, common.NewNotFoundError(
+			"bank-code-not-found",
+			"bank code %s not found",
+			bankCode,
+		)
 	}
 
 	return FundSourceBankMetadata{

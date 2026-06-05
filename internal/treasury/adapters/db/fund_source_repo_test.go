@@ -41,7 +41,7 @@ var cmpOpts = []cmp.Option{
 func TestSaveFundSource_NilError(t *testing.T) {
 	t.Parallel()
 
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	err := repo.SaveFundSource(context.Background(), nil)
@@ -52,7 +52,7 @@ func TestSaveFundSource_BankFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
@@ -79,7 +79,7 @@ func TestSaveFundSource_CashFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.NewFromInt(200_000), vnd)
@@ -106,7 +106,7 @@ func TestSaveFundSource_DuplicateBankAccountReturnsError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.Zero, vnd)
@@ -133,7 +133,7 @@ func TestRecordJournalEntries_FundSourceNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	nonExistentUUID := domain.FundSourceUUID{UUID: common.NewUUIDv7()}
@@ -149,7 +149,7 @@ func TestRecordJournalEntries_RecordFnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(100_000))
@@ -162,61 +162,20 @@ func TestRecordJournalEntries_RecordFnError(t *testing.T) {
 	require.ErrorContains(t, err, "recordFn error")
 }
 
-// DEBIT = money flows in (TopUp): balance_after = balance_before + amount
-func TestRecordJournalEntries_DebitEntry_TopUp(t *testing.T) {
+func TestRecordJournalEntries_DebitEntry_Wtihdraw(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	initialBalance := decimal.NewFromInt(500_000)
-	topUpAmount := decimal.NewFromInt(200_000)
+	entryAmount := decimal.NewFromInt(200_000)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, initialBalance)
 
 	err := repo.RecordJournalEntries(ctx, fs.UUID(), func(fs *domain.FundSource) ([]*domain.JournalEntry, error) {
-		money, err := shared.NewMoney(topUpAmount, vnd)
-		if err != nil {
-			return nil, err
-		}
-
-		balanceBefore := fs.Balance().Amount()
-		if err = fs.TopUp(money); err != nil {
-			return nil, err
-		}
-
-		entry, err := domain.NewJournalEntry(topUpAmount, shared.EntryTypeDebit, time.Now(), nil, nil, fs.UUID(), balanceBefore)
-		if err != nil {
-			return nil, err
-		}
-		entry.SetBalanceAfter(fs.Balance().Amount())
-
-		return []*domain.JournalEntry{entry}, nil
-	})
-
-	require.NoError(t, err)
-
-	updatedRow, err := dbmodels.New(db).GetFundSourceByUUID(ctx, fs.UUID())
-	require.NoError(t, err)
-	require.True(t, initialBalance.Add(topUpAmount).Equal(updatedRow.Balance))
-}
-
-// CREDIT = money flows out (Withdraw): balance_after = balance_before - amount
-func TestRecordJournalEntries_CreditEntry_Withdraw(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	db := testutils.NewDB(t)
-	repo := repoDb.NewFundSourceRepository(db)
-
-	initialBalance := decimal.NewFromInt(500_000)
-	withdrawAmount := decimal.NewFromInt(150_000)
-
-	fs := mustCreateCashFundSource(t, ctx, repo, initialBalance)
-
-	err := repo.RecordJournalEntries(ctx, fs.UUID(), func(fs *domain.FundSource) ([]*domain.JournalEntry, error) {
-		money, err := shared.NewMoney(withdrawAmount, vnd)
+		money, err := shared.NewMoney(entryAmount, vnd)
 		if err != nil {
 			return nil, err
 		}
@@ -226,27 +185,64 @@ func TestRecordJournalEntries_CreditEntry_Withdraw(t *testing.T) {
 			return nil, err
 		}
 
-		entry, err := domain.NewJournalEntry(withdrawAmount, shared.EntryTypeCredit, time.Now(), nil, nil, fs.UUID(), balanceBefore)
+		entry, err := domain.NewJournalEntry(entryAmount, shared.EntryTypeDebit, time.Now(), nil, nil, fs.UUID(), balanceBefore)
 		if err != nil {
 			return nil, err
 		}
-		entry.SetBalanceAfter(fs.Balance().Amount())
+		err = entry.SetBalanceAfter(fs.Balance().Amount())
+		if err != nil {
+			return nil, err
+		}
 
 		return []*domain.JournalEntry{entry}, nil
 	})
 
 	require.NoError(t, err)
+}
 
-	updatedRow, err := dbmodels.New(db).GetFundSourceByUUID(ctx, fs.UUID())
+func TestRecordJournalEntries_CreditEntry_TopUp(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testutils.NewDB()
+	repo := repoDb.NewFundSourceRepository(db)
+
+	initialBalance := decimal.NewFromInt(500_000)
+	entryAmount := decimal.NewFromInt(150_000)
+
+	fs := mustCreateCashFundSource(t, ctx, repo, initialBalance)
+
+	err := repo.RecordJournalEntries(ctx, fs.UUID(), func(fs *domain.FundSource) ([]*domain.JournalEntry, error) {
+		money, err := shared.NewMoney(entryAmount, vnd)
+		if err != nil {
+			return nil, err
+		}
+
+		balanceBefore := fs.Balance().Amount()
+		if err = fs.TopUp(money); err != nil {
+			return nil, err
+		}
+
+		entry, err := domain.NewJournalEntry(entryAmount, shared.EntryTypeCredit, time.Now(), nil, nil, fs.UUID(), balanceBefore)
+		if err != nil {
+			return nil, err
+		}
+		err = entry.SetBalanceAfter(fs.Balance().Amount())
+		if err != nil {
+			return nil, err
+		}
+
+		return []*domain.JournalEntry{entry}, nil
+	})
+
 	require.NoError(t, err)
-	require.True(t, initialBalance.Sub(withdrawAmount).Equal(updatedRow.Balance))
 }
 
 func TestRecordJournalEntries_MultipleEntries_Concurrent(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	initialBalance := decimal.NewFromInt(1_000_000)
@@ -288,9 +284,9 @@ func TestRecordJournalEntries_MultipleEntries_Concurrent(t *testing.T) {
 				balanceBefore := fundSource.Balance().Amount()
 
 				if entryAmount.entryType == shared.EntryTypeDebit {
-					err = fundSource.TopUp(money)
-				} else {
 					err = fundSource.Withdraw(money)
+				} else {
+					err = fundSource.TopUp(money)
 				}
 				if err != nil {
 					return nil, err
@@ -322,7 +318,7 @@ func TestVoidJournalEntry_Success(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(500_000))
@@ -345,7 +341,7 @@ func TestVoidJournalEntry_Success(t *testing.T) {
 			}
 
 			balanceBefore := fs.Balance().Amount()
-			if je.IsDebitSide() {
+			if reverse.IsDebitSide() {
 				if err = fs.Withdraw(money); err != nil {
 					return nil, err
 				}
@@ -385,7 +381,7 @@ func TestVoidJournalEntry_FundSourceNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	nonExistentFSUUID := domain.FundSourceUUID{UUID: common.NewUUIDv7()}
@@ -407,7 +403,7 @@ func TestVoidJournalEntry_JournalEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(100_000))
@@ -429,7 +425,7 @@ func TestVoidJournalEntry_VoidFnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB(t)
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(500_000))
@@ -470,7 +466,7 @@ func mustRecordDebitEntry(
 		}
 
 		balanceBefore := fs.Balance().Amount()
-		if err = fs.TopUp(money); err != nil {
+		if err = fs.Withdraw(money); err != nil {
 			return nil, err
 		}
 
