@@ -8,11 +8,11 @@ func Must[T any](val T, err any, messageArgs ...any) T {
 	}
 }
 
-func Ptr[T any](val T) *T {
+func ToPtr[T any](val T) *T {
 	return &val
 }
 
-func Deref[T any](ptr *T, fallback T) T {
+func SafeDeref[T any](ptr *T, fallback T) T {
 	if ptr == nil {
 		return fallback
 	}

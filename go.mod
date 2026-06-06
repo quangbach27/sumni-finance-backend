@@ -4,6 +4,7 @@ go 1.26.1
 
 require (
 	github.com/ThreeDotsLabs/humanslog v0.1.0
+	github.com/brianvoe/gofakeit/v7 v7.15.0
 	github.com/cenkalti/backoff/v5 v5.0.3
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/go-cmp v0.7.0
@@ -12,6 +13,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.2
 	github.com/labstack/gommon v0.5.0
 	github.com/lithammer/shortuuid/v3 v3.0.7
+	github.com/oapi-codegen/runtime v1.4.1
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -20,6 +22,7 @@ require (
 	cel.dev/expr v0.25.1 // indirect
 	filippo.io/edwards25519 v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/cubicdaiya/gonp v1.0.4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

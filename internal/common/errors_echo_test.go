@@ -25,7 +25,7 @@ func TestEchoErrorHandler(t *testing.T) {
 			Name:  "generic_error_returns_500",
 			Error: errors.New("something went wrong"),
 			ExpectedResponse: common.HttpErrorResponse{
-				Message: "Internal Server Error",
+				Message: "something went wrong, please try again later",
 				Slug:    "internal_server_error",
 			},
 			ExpectedStatusCode: http.StatusInternalServerError,

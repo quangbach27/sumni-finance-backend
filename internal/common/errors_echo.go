@@ -15,12 +15,14 @@ func EchoErrorHandler(err error, c echo.Context) {
 		return
 	}
 
-	logger := log.FromContext(c.Request().Context())
+	ctx := c.Request().Context()
+	logger := log.FromContext(ctx)
 
 	httpErrorResponse, httpStatus := httpErrorResponseFromErr(err)
 
 	logger.Error("Handling HTTP error", "error", err)
 
+	c.Response().Header().Set("X-Correlation-ID", log.CorrelationIDFromContext(ctx))
 	if err := c.JSON(httpStatus, httpErrorResponse); err != nil {
 		logger.Error("Failed to send error response", "error", err)
 	}
@@ -40,7 +42,7 @@ type HttpErrorDetail struct {
 }
 
 func httpErrorResponseFromErr(err error) (HttpErrorResponse, int) {
-	publicError := "Internal Server Error"
+	publicError := "something went wrong, please try again later"
 	statusCode := http.StatusInternalServerError
 	errorSlug := "internal_server_error"
 

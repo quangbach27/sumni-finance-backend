@@ -11,10 +11,16 @@ import (
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
+	"sumni-finance-backend/internal/treasury"
+	"sumni-finance-backend/internal/treasury/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 )
+
+type ExternalService struct {
+	BankLookupProvider domain.BankLookupProvider
+}
 
 type Svc struct {
 	echoRouter *echo.Echo
@@ -27,12 +33,15 @@ type Svc struct {
 func New(
 	ctx context.Context,
 	dbPgx *pgxpool.Pool,
+	externalService ExternalService,
 ) (Svc, error) {
 	e := commonHTTP.NewEcho()
 
 	moduleContracts := &contracts.Contracts{}
 
-	modules := []module.Module{}
+	modules := []module.Module{
+		treasury.NewModule(dbPgx, externalService.BankLookupProvider),
+	}
 
 	for _, module := range modules {
 		start := time.Now()
@@ -84,10 +93,10 @@ func (s Svc) Run(ctx context.Context, port string) error {
 		}
 	}()
 
-	// s.echoRouter.Server.WriteTimeout = 15 * time.Second
-	// s.echoRouter.Server.ReadHeaderTimeout = 5 * time.Second
-	// s.echoRouter.Server.ReadTimeout = 15 * time.Second
-	// s.echoRouter.Server.IdleTimeout = 60 * time.Second
+	s.echoRouter.Server.WriteTimeout = 30 * time.Second
+	s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
+	s.echoRouter.Server.ReadTimeout = 30 * time.Second
+	s.echoRouter.Server.IdleTimeout = 60 * time.Second
 
 	err := s.echoRouter.Start(port)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

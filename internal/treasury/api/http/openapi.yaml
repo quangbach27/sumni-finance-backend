@@ -1,0 +1,619 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Treasury
+servers:
+  - url: https://{hostname}/treasury
+    variables:
+      hostname:
+        default: localhost
+paths:
+  /v1/treasury/fund-sources:
+    get:
+      summary: List all fund sources
+      operationId: listFundSources
+      tags:
+        - fund-sources
+      responses:
+        '200':
+          description: List of fund sources
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListFundSourcesResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Register a new fund source
+      operationId: registerFundSource
+      tags:
+        - fund-sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterFundSourceRequest'
+      responses:
+        '201':
+          description: Treasury registered succefully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterFundSourceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Treasury already exists
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries:
+    get:
+      summary: List journal entries for a fund source
+      operationId: listJournalEntries
+      tags:
+        - journal-entries
+      parameters:
+        - name: fund_source_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/FundSourceUUID'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: date_from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+        - name: date_to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+      responses:
+        '200':
+          description: List of journal entries
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListJournalEntriesResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Record Journal Entries (the fund source's balance will be affected)
+      operationId: recordJournalEntries
+      tags:
+        - journal-entries
+      parameters:
+        - name: fund_source_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/FundSourceUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordJournalEntriesRequest'
+      responses:
+        '201':
+          description: Journal Entries adding successfully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordJournalEntriesResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Treasury already exists
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries/{journal_entry_uuid}/void:
+    post:
+      summary: Void a journal entry by creating a reverse journal entry
+      operationId: voidJournalEntry
+      tags:
+        - journal-entries
+      parameters:
+        - name: fund_source_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/FundSourceUUID'
+        - name: journal_entry_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/JournalEntryUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidJournalEntryRequest'
+      responses:
+        '200':
+          description: Journal entry voided successfully
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoidJournalEntryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ListJournalEntriesResponse:
+      type: object
+      required:
+        - items
+        - total_items
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntryResponse'
+        total_items:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ListFundSourcesResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FundSourceResponse'
+
+    FundSourceResponse:
+      type: object
+      required:
+        - fund_source_uuid
+        - name
+        - source_type
+        - balance
+        - available_balance
+        - currency
+        - created_at
+        - created_by
+      properties:
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+        name:
+          type: string
+        source_type:
+          $ref: '#/components/schemas/FundSourceType'
+        balance:
+          $ref: '#/components/schemas/Decimal'
+        available_balance:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        bank_metadata:
+          $ref: '#/components/schemas/FundSourceBankMetadataResponse'
+          nullable: true
+        cash_metadata:
+          $ref: '#/components/schemas/FundSourceCashMetadataResponse'
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+
+    FundSourceBankMetadataResponse:
+      type: object
+      required:
+        - bank_name
+        - bank_code
+        - bank_short_name
+        - bank_bin
+        - bank_logo_url
+        - bank_icon_url
+        - account_number
+        - account_owner
+      properties:
+        bank_name:
+          type: string
+        bank_code:
+          type: string
+        bank_short_name:
+          type: string
+        bank_bin:
+          type: integer
+        bank_logo_url:
+          type: string
+        bank_icon_url:
+          type: string
+        account_number:
+          type: string
+        account_owner:
+          type: string
+
+    FundSourceCashMetadataResponse:
+      type: object
+      required:
+        - owner_name
+      properties:
+        owner_name:
+          type: string
+
+    RegisterFundSourceRequest:
+      type: object
+      required:
+        - name
+        - source_type
+        - init_balance
+        - currency
+        - metadata
+      properties:
+        name:
+          type: string
+        source_type:
+          $ref: '#/components/schemas/FundSourceType'
+        init_balance:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        metadata:
+          $ref: '#/components/schemas/FundSourceMetadata'
+
+    RegisterFundSourceResponse:
+      type: object
+      required:
+        - fund_source_uuid
+      properties:
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+
+    RecordJournalEntriesRequest:
+      type: array
+      items:
+        $ref: '#/components/schemas/JournalEntryItem'
+
+    JournalEntryItem:
+      type: object
+      required:
+        - amount
+        - entry_type
+        - transaction_date
+      properties:
+        amount:
+          $ref: '#/components/schemas/Decimal'
+        entry_type:
+          $ref: '#/components/schemas/EntryType'
+        transaction_date:
+          type: string
+          format: date-time
+        transaction_no:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    RecordJournalEntriesResponse:
+      type: object
+
+    VoidJournalEntryRequest:
+      type: object
+      required:
+        - void_reason
+      properties:
+        void_reason:
+          type: string
+
+    VoidJournalEntryResponse:
+      type: object
+      required:
+        - reverse_journal_entry
+      properties:
+        reverse_journal_entry:
+          $ref: '#/components/schemas/JournalEntryResponse'
+
+    JournalEntryResponse:
+      type: object
+      required:
+        - journal_entry_uuid
+        - fund_source_uuid
+        - amount
+        - entry_type
+        - transaction_date
+        - status
+        - balance_before
+        - balance_after
+        - created_at
+        - created_by
+      properties:
+        journal_entry_uuid:
+          $ref: '#/components/schemas/JournalEntryUUID'
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+        amount:
+          $ref: '#/components/schemas/Decimal'
+        entry_type:
+          $ref: '#/components/schemas/EntryType'
+        transaction_date:
+          type: string
+          format: date-time
+        transaction_no:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/JournalEntryStatus'
+        balance_before:
+          $ref: '#/components/schemas/Decimal'
+        balance_after:
+          $ref: '#/components/schemas/Decimal'
+        reverse_entry_uuid:
+          $ref: '#/components/schemas/JournalEntryUUID'
+          nullable: true
+        voided_by:
+          type: string
+          nullable: true
+        voided_at:
+          type: string
+          format: date-time
+          nullable: true
+        voided_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+
+    JournalEntryStatus:
+      type: string
+      description: Journal entry status (RECORDED || POSTED || VOIDED)
+      x-go-type: domain.JournalEntryStatus
+      x-go-type-import:
+        path: sumni-finance-backend/internal/treasury/domain
+
+    Decimal:
+      type: string
+      x-go-type: decimal.Decimal
+      x-go-type-import:
+        path: github.com/shopspring/decimal
+
+    Currency:
+      type: string
+      x-go-type: shared.Currency
+      x-go-type-import:
+        path: sumni-finance-backend/internal/common/shared
+
+    FundSourceUUID:
+      type: string
+      format: uuid
+      description: UUID of a fund source
+      x-go-type: domain.FundSourceUUID
+      x-go-type-import:
+        path: sumni-finance-backend/internal/treasury/domain
+
+    FundSourceType:
+      type: string
+      description: Fund source type (CASH || BANK)
+      x-go-type: domain.FundSourceType
+      x-go-type-import:
+        path: sumni-finance-backend/internal/treasury/domain
+
+    EntryType:
+      type: string
+      description: Journal entry type (DEBIT || CREDIT)
+      x-go-type: shared.EntryType
+      x-go-type-import:
+        path: sumni-finance-backend/internal/common/shared
+
+    JournalEntryUUID:
+      type: string
+      format: uuid
+      description: UUID of a journal entry
+      x-go-type: domain.JournalEntryUUID
+      x-go-type-import:
+        path: sumni-finance-backend/internal/treasury/domain
+
+    FundSourceMetadata:
+      type: object
+      properties:
+        bank_metadata:
+          $ref: "#/components/schemas/FundSourceBankMetadata"
+        cash_metadata:
+          $ref: '#/components/schemas/FundSourceCashMetadata'
+
+    FundSourceBankMetadata:
+      type: object
+      required:
+        - bank_code
+        - account_number
+        - account_owner
+      properties:
+        bank_code:
+          type: string
+        account_number:
+          type: string
+        account_owner:
+          type: string
+
+    FundSourceCashMetadata:
+      type: object
+      required:
+        - owner_name
+      properties:
+        owner_name:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - slug
+        - message
+        - details
+      properties:
+        slug:
+          type: string
+          description: Error slug
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: array
+          description: Detailed error information
+          items:
+            $ref: '#/components/schemas/ErrorDetails'
+
+    ErrorDetails:
+      type: object
+      required:
+        - error_slug
+        - message
+      properties:
+        entity_type:
+          type: string
+        entity_id:
+          type: string
+        error_slug:
+          type: string
+        message:
+          type: string
+
+  headers:
+    CorrelationID:
+      description: Correlation ID for tracing the request
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Authentication required
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Insufficient permissions
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Server error
+      headers:
+        X-Correlation-ID:
+          $ref: '#/components/headers/CorrelationID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

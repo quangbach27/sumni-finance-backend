@@ -4,12 +4,10 @@ import (
 	"context"
 	"io/fs"
 	"os"
-	"testing"
 
 	"sumni-finance-backend/internal/common"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/stretchr/testify/require"
 )
 
 func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
@@ -17,7 +15,7 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 
 	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
+		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
 	}
 
 	pool, err := pgxpool.New(ctx, dsn)
@@ -31,14 +29,21 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	}
 }
 
-func NewDB(t *testing.T) *pgxpool.Pool {
+func NewDB() *pgxpool.Pool {
 	dsn := os.Getenv("POSTGRES_URL")
 	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
+		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
 	}
 
-	dbPgx, err := pgxpool.New(t.Context(), dsn)
-	require.NoError(t, err)
+	config, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		panic(err)
+	}
 
-	return dbPgx
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		panic(err)
+	}
+
+	return pool
 }

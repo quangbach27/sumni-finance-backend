@@ -1,0 +1,97 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    queries: "queries"
+    schema: "migrations"
+    gen:
+      go:
+        package: "dbmodels"
+        out: "dbmodels"
+        sql_package: "pgx/v5"
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+
+          - db_type: "timestamptz"
+            go_type:
+              import: "time"
+              type: "Time"
+
+          - db_type: "pg_catalog.numeric"
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+
+          - db_type: "pg_catalog.numeric"
+            nullable: true
+            go_type:
+              import: "github.com/shopspring/decimal"
+              type: "Decimal"
+              pointer: true
+
+          - db_type: "uuid"
+            nullable: false
+            go_type:
+              import: "sumni-finance-backend/internal/common"
+              type: "UUID"
+
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              import: "sumni-finance-backend/internal/common"
+              type: "UUID"
+              pointer: true
+
+          # treasury.fund_sources
+          - db_type: "treasury.fund_source_type"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "FundSourceType"
+
+          - column: "treasury.fund_sources.fund_source_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "FundSourceUUID"
+
+          - column: "treasury.fund_sources.currency"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "Currency"
+
+          - column: "treasury.fund_sources.bank_info"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "BankInfo"
+
+          # treasury.journal_entries
+          - db_type: "treasury.journal_entry_type"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "EntryType"
+
+          - db_type: "treasury.journal_entry_status"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "JournalEntryStatus"
+
+          - column: "treasury.journal_entries.journal_entry_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "JournalEntryUUID"
+
+          - column: "treasury.journal_entries.fund_source_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "FundSourceUUID"
+
+          - column: "treasury.journal_entries.reverse_entry_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "JournalEntryUUID"
+              pointer: true

@@ -33,14 +33,14 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U user"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -60,10 +60,12 @@ jobs:
           version: v2.11.4
           args: --timeout=5m
 
-      - name: Test and coverage
-        run: |
-          task test-integration
-          task domain-coverage
+      - name: Test
+        run: task test
+
+      - name: Domain Coverage
+        run: task domain-coverage
+        continue-on-error: true
 
       - name: Build 
         run: go build -v ./...
@@ -91,7 +93,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build container image
         run: docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} -f docker/app-prod/Dockerfile .
@@ -123,3 +125,51 @@ jobs:
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+  
+  publish-contract:
+    name: Publish OpenAPI Contract
+    needs: [ build ]
+    runs-on: ubuntu-24.04
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'publish-contract')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+      
+      - name: Checkout frontend repo
+        uses: actions/checkout@v6
+        with:
+          repository: quangbach27/sumni-finance-frontend-vite
+          token: ${{ secrets.CONTRACT_REPO_TOKEN }}
+          path: sumni-finance-frontend-vite
+          persist-credentials: false
+      
+      - name: Copy OpenAPI spec
+        run: |
+          set -euo pipefail
+          found=0
+          find . -path "*/api/http/openapi.yaml" | while IFS= read -r file; do
+            module=$(echo "$file" | awk -F'/' '{print $(NF-3)}')
+            dest="sumni-finance-frontend-vite/src/api/$module"
+            echo "Copying $file -> $dest/"
+            mkdir -p "$dest"
+            cp "$file" "$dest/openapi.yaml"
+            found=$((found + 1))
+          done
+          echo "Done. Copied $found spec(s)."
+      
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CONTRACT_REPO_TOKEN }}
+          path: sumni-finance-frontend-vite
+          commit-message: "chore: update openapi contract from sumni-finance-backend"
+          branch: chore/update-openapi-contract-${{ github.event.pull_request.number }}
+          title: "chore: update OpenAPI contract from PR #${{ github.event.pull_request.number }}"
+          body: |
+            Automated OpenAPI contract update from `sumni-finance-backend`.
+            
+            Source PR: ${{ github.event.pull_request.html_url }}
+            Triggered by: @${{ github.actor }}

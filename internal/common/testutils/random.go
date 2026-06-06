@@ -1,6 +1,8 @@
 package testutils
 
-import "math/rand/v2"
+import (
+	"math/rand/v2"
+)
 
 func RandomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
