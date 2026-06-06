@@ -29,7 +29,7 @@ type CashMetadataCmd struct {
 	OwnerName string
 }
 
-func (h *Handler) RegisterFundSource(ctx context.Context, cmd RegisterFundSourceCmd) (domain.FundSourceUUID, error) {
+func (h *Handlers) RegisterFundSource(ctx context.Context, cmd RegisterFundSourceCmd) (domain.FundSourceUUID, error) {
 	metadata, err := h.buildFundSourceMetadata(ctx, cmd)
 	if err != nil {
 		return domain.FundSourceUUID{}, err
@@ -63,7 +63,7 @@ func (h *Handler) RegisterFundSource(ctx context.Context, cmd RegisterFundSource
 	return fundSource.UUID(), nil
 }
 
-func (h *Handler) buildFundSourceMetadata(
+func (h *Handlers) buildFundSourceMetadata(
 	ctx context.Context,
 	cmd RegisterFundSourceCmd,
 ) (domain.FundSourceMetadata, error) {

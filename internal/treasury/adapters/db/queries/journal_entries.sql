@@ -43,3 +43,28 @@ WHERE journal_entry_uuid = sqlc.arg(journal_entry_uuid);
 SELECT *
 FROM treasury.journal_entries
 WHERE journal_entry_uuid = $1;
+
+-- name: ListJournalEntries :many
+SELECT *
+FROM treasury.journal_entries
+WHERE 
+    fund_source_uuid = sqlc.arg(fund_source_uuid) 
+    AND (sqlc.narg(date_from)::timestamptz IS NULL 
+        OR transaction_date >= sqlc.narg(date_from)::timestamptz)
+    AND (sqlc.narg(date_to)::timestamptz IS NULL 
+        OR transaction_date <= sqlc.narg(date_to)::timestamptz)
+ORDER BY 
+    transaction_date DESC, 
+    journal_entry_uuid DESC
+LIMIT sqlc.arg(page_limit)
+OFFSET sqlc.arg(page_offset);
+
+-- name: CountJournalEntries :one
+SELECT COUNT(*)
+FROM treasury.journal_entries
+WHERE 
+    fund_source_uuid = sqlc.arg(fund_source_uuid)
+    AND (sqlc.narg(date_from)::timestamptz IS NULL 
+        OR transaction_date >= sqlc.narg(date_from)::timestamptz)
+    AND (sqlc.narg(date_to)::timestamptz IS NULL 
+        OR transaction_date <= sqlc.narg(date_to)::timestamptz);

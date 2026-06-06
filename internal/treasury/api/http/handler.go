@@ -5,22 +5,30 @@ import (
 
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/treasury/app/command"
+	"sumni-finance-backend/internal/treasury/app/query"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
 type Handler struct {
-	commandHandler *command.Handler
+	commandHandlers *command.Handlers
+	queryHandlers   *query.Handlers
 }
 
 func NewHandler(
-	commandHandler *command.Handler,
+	commandHandlers *command.Handlers,
+	queryHandlers *query.Handlers,
 ) Handler {
-	if commandHandler == nil {
+	if commandHandlers == nil {
 		panic("command handler can't be nil")
 	}
 
+	if queryHandlers == nil {
+		panic("query handler can't be nil")
+	}
+
 	return Handler{
-		commandHandler: commandHandler,
+		commandHandlers: commandHandlers,
+		queryHandlers:   queryHandlers,
 	}
 }
 
@@ -44,7 +52,7 @@ func (h Handler) RegisterFundSource(
 		cashMetadataCmd.OwnerName = metadata.CashMetadata.OwnerName
 	}
 
-	fundSourceUUID, err := h.commandHandler.RegisterFundSource(ctx, command.RegisterFundSourceCmd{
+	fundSourceUUID, err := h.commandHandlers.RegisterFundSource(ctx, command.RegisterFundSourceCmd{
 		Name:            request.Body.Name,
 		SourceType:      request.Body.SourceType,
 		InitBalance:     request.Body.InitBalance,
@@ -85,7 +93,7 @@ func (h Handler) RecordJournalEntries(
 		})
 	}
 
-	err := h.commandHandler.RecordJournalEntries(ctx, command.RecordedJournalEntriesCmd{
+	err := h.commandHandlers.RecordJournalEntries(ctx, command.RecordedJournalEntriesCmd{
 		FundSourceUUID:    request.FundSourceUuid,
 		JournalEntryItems: journalEntryItems,
 	})
@@ -104,7 +112,7 @@ func (h Handler) RecordJournalEntries(
 // Void a journal entry by creating a reverse journal entry
 // (POST /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries/{journal_entry_uuid}/void)
 func (h Handler) VoidJournalEntry(ctx context.Context, request VoidJournalEntryRequestObject) (VoidJournalEntryResponseObject, error) {
-	reverseJournalEntry, err := h.commandHandler.VoidJournalEntry(ctx, command.VoidJournalEntryCmd{
+	reverseJournalEntry, err := h.commandHandlers.VoidJournalEntry(ctx, command.VoidJournalEntryCmd{
 		FundSourceUUID:         request.FundSourceUuid,
 		JournalEntryUUIDToVoid: request.JournalEntryUuid,
 		VoidedReason:           request.Body.VoidReason,
@@ -147,8 +155,136 @@ func domainJournalEntryToResponse(je *domain.JournalEntry) JournalEntryResponse 
 	}
 }
 
-func Register(e EchoRouter, commandHandlers *command.Handler) error {
-	handler := NewHandler(commandHandlers)
+// List all fund sources
+// (GET /v1/treasury/fund-sources)
+func (h Handler) ListFundSources(ctx context.Context, request ListFundSourcesRequestObject) (ListFundSourcesResponseObject, error) {
+	views, err := h.queryHandlers.ListFundSources(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]FundSourceResponse, len(views))
+	for i, v := range views {
+		items[i] = fundSourceViewToResponse(v)
+	}
+
+	return ListFundSources200JSONResponse{
+		Body: ListFundSourcesResponse{
+			Items: items,
+		},
+		Headers: ListFundSources200ResponseHeaders{
+			XCorrelationID: log.CorrelationIDFromContext(ctx),
+		},
+	}, nil
+}
+
+func fundSourceViewToResponse(v query.FundSourceView) FundSourceResponse {
+	r := FundSourceResponse{
+		FundSourceUuid:   v.UUID,
+		Name:             v.Name,
+		SourceType:       v.SourceType,
+		Balance:          v.Balance,
+		AvailableBalance: v.AvailableBalance,
+		Currency:         v.Currency,
+		CreatedAt:        v.CreatedAt,
+		CreatedBy:        v.CreatedBy,
+		UpdatedAt:        v.UpdatedAt,
+		UpdatedBy:        v.UpdatedBy,
+	}
+
+	if v.BankMetadata != nil {
+		r.BankMetadata = &FundSourceBankMetadataResponse{
+			BankName:      v.BankMetadata.BankName,
+			BankCode:      v.BankMetadata.BankCode,
+			BankShortName: v.BankMetadata.BankShortName,
+			BankBin:       v.BankMetadata.BankBin,
+			BankLogoUrl:   v.BankMetadata.BankLogoUrl,
+			BankIconUrl:   v.BankMetadata.BankIconUrl,
+			AccountNumber: v.BankMetadata.AccountNumber,
+			AccountOwner:  v.BankMetadata.AccountOwner,
+		}
+	}
+
+	if v.CashMetadata != nil {
+		r.CashMetadata = &FundSourceCashMetadataResponse{
+			OwnerName: v.CashMetadata.OwnerName,
+		}
+	}
+
+	return r
+}
+
+const (
+	defaultPage     = 1
+	defaultPageSize = 20
+)
+
+// List journal entries for a fund source
+// (GET /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries)
+func (h Handler) ListJournalEntries(ctx context.Context, request ListJournalEntriesRequestObject) (ListJournalEntriesResponseObject, error) {
+	page := defaultPage
+	if request.Params.Page != nil {
+		page = *request.Params.Page
+	}
+	pageSize := defaultPageSize
+	if request.Params.PageSize != nil {
+		pageSize = *request.Params.PageSize
+	}
+
+	result, err := h.queryHandlers.ListJournalEntries(ctx, query.ListJournalEntriesQuery{
+		FundSourceUUID: request.FundSourceUuid,
+		Page:           page,
+		PageSize:       pageSize,
+		DateFrom:       request.Params.DateFrom,
+		DateTo:         request.Params.DateTo,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]JournalEntryResponse, len(result.Items))
+	for i, v := range result.Items {
+		items[i] = journalEntryViewToResponse(v)
+	}
+
+	return ListJournalEntries200JSONResponse{
+		Body: ListJournalEntriesResponse{
+			Items:      items,
+			TotalItems: result.TotalItems,
+			Page:       result.Page,
+			PageSize:   result.PageSize,
+		},
+		Headers: ListJournalEntries200ResponseHeaders{
+			XCorrelationID: log.CorrelationIDFromContext(ctx),
+		},
+	}, nil
+}
+
+func journalEntryViewToResponse(v query.JournalEntryView) JournalEntryResponse {
+	return JournalEntryResponse{
+		JournalEntryUuid: v.UUID,
+		FundSourceUuid:   v.FundSourceUUID,
+		Amount:           v.Amount,
+		EntryType:        v.EntryType,
+		TransactionDate:  v.TransactionDate,
+		TransactionNo:    v.TransactionNo,
+		Description:      v.Description,
+		Status:           v.Status,
+		BalanceBefore:    v.BalanceBefore,
+		BalanceAfter:     v.BalanceAfter,
+		ReverseEntryUuid: v.ReverseEntryUUID,
+		VoidedBy:         v.VoidedBy,
+		VoidedAt:         v.VoidedAt,
+		VoidedReason:     v.VoidedReason,
+		CreatedAt:        v.CreatedAt,
+		CreatedBy:        v.CreatedBy,
+		UpdatedAt:        v.UpdatedAt,
+		UpdatedBy:        v.UpdatedBy,
+	}
+}
+
+func Register(e EchoRouter, commandHandlers *command.Handlers, queryHandlers *query.Handlers) error {
+	handler := NewHandler(commandHandlers, queryHandlers)
 
 	RegisterHandlers(e, NewStrictHandler(handler, nil))
 

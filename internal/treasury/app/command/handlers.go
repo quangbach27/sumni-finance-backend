@@ -4,15 +4,15 @@ import (
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
-type Handler struct {
+type Handlers struct {
 	fundSourceRepository domain.FundSourceRepository
 	fundSourceFactory    *domain.FundSourceFactory
 }
 
-func NewHandler(
+func NewHandlers(
 	fundSourceRepository domain.FundSourceRepository,
 	fundSourceFactory *domain.FundSourceFactory,
-) *Handler {
+) *Handlers {
 	if fundSourceRepository == nil {
 		panic("fund source repository can't be nil")
 	}
@@ -21,7 +21,7 @@ func NewHandler(
 		panic("fund source factory can't be nil")
 	}
 
-	return &Handler{
+	return &Handlers{
 		fundSourceRepository: fundSourceRepository,
 		fundSourceFactory:    fundSourceFactory,
 	}

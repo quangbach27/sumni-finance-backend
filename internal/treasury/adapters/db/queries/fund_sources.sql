@@ -42,3 +42,7 @@ WHERE fund_source_uuid = sqlc.arg(fund_source_uuid);
 SELECT *
 FROM treasury.fund_sources
 WHERE fund_source_uuid = sqlc.arg(fund_source_uuid);
+
+-- name: ListFundSources :many
+SELECT *
+FROM treasury.fund_sources;

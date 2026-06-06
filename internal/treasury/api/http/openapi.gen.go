@@ -55,8 +55,25 @@ type FundSourceBankMetadata struct {
 	BankCode      string `json:"bank_code"`
 }
 
+// FundSourceBankMetadataResponse defines model for FundSourceBankMetadataResponse.
+type FundSourceBankMetadataResponse struct {
+	AccountNumber string `json:"account_number"`
+	AccountOwner  string `json:"account_owner"`
+	BankBin       int    `json:"bank_bin"`
+	BankCode      string `json:"bank_code"`
+	BankIconUrl   string `json:"bank_icon_url"`
+	BankLogoUrl   string `json:"bank_logo_url"`
+	BankName      string `json:"bank_name"`
+	BankShortName string `json:"bank_short_name"`
+}
+
 // FundSourceCashMetadata defines model for FundSourceCashMetadata.
 type FundSourceCashMetadata struct {
+	OwnerName string `json:"owner_name"`
+}
+
+// FundSourceCashMetadataResponse defines model for FundSourceCashMetadataResponse.
+type FundSourceCashMetadataResponse struct {
 	OwnerName string `json:"owner_name"`
 }
 
@@ -64,6 +81,26 @@ type FundSourceCashMetadata struct {
 type FundSourceMetadata struct {
 	BankMetadata *FundSourceBankMetadata `json:"bank_metadata,omitempty"`
 	CashMetadata *FundSourceCashMetadata `json:"cash_metadata,omitempty"`
+}
+
+// FundSourceResponse defines model for FundSourceResponse.
+type FundSourceResponse struct {
+	AvailableBalance Decimal                         `json:"available_balance"`
+	Balance          Decimal                         `json:"balance"`
+	BankMetadata     *FundSourceBankMetadataResponse `json:"bank_metadata,omitempty"`
+	CashMetadata     *FundSourceCashMetadataResponse `json:"cash_metadata,omitempty"`
+	CreatedAt        time.Time                       `json:"created_at"`
+	CreatedBy        string                          `json:"created_by"`
+	Currency         Currency                        `json:"currency"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+	Name           string         `json:"name"`
+
+	// SourceType Fund source type (CASH || BANK)
+	SourceType FundSourceType `json:"source_type"`
+	UpdatedAt  *time.Time     `json:"updated_at,omitempty"`
+	UpdatedBy  *string        `json:"updated_by,omitempty"`
 }
 
 // FundSourceType Fund source type (CASH || BANK)
@@ -121,6 +158,19 @@ type JournalEntryStatus = domain.JournalEntryStatus
 // JournalEntryUUID UUID of a journal entry
 type JournalEntryUUID = domain.JournalEntryUUID
 
+// ListFundSourcesResponse defines model for ListFundSourcesResponse.
+type ListFundSourcesResponse struct {
+	Items []FundSourceResponse `json:"items"`
+}
+
+// ListJournalEntriesResponse defines model for ListJournalEntriesResponse.
+type ListJournalEntriesResponse struct {
+	Items      []JournalEntryResponse `json:"items"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"page_size"`
+	TotalItems int                    `json:"total_items"`
+}
+
 // RecordJournalEntriesRequest defines model for RecordJournalEntriesRequest.
 type RecordJournalEntriesRequest = []JournalEntryItem
 
@@ -163,6 +213,14 @@ type InternalServerError = ErrorResponse
 // NotFound defines model for NotFound.
 type NotFound = ErrorResponse
 
+// ListJournalEntriesParams defines parameters for ListJournalEntries.
+type ListJournalEntriesParams struct {
+	Page     *int       `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int       `form:"page_size,omitempty" json:"page_size,omitempty"`
+	DateFrom *time.Time `form:"date_from,omitempty" json:"date_from,omitempty"`
+	DateTo   *time.Time `form:"date_to,omitempty" json:"date_to,omitempty"`
+}
+
 // RegisterFundSourceJSONRequestBody defines body for RegisterFundSource for application/json ContentType.
 type RegisterFundSourceJSONRequestBody = RegisterFundSourceRequest
 
@@ -174,9 +232,15 @@ type VoidJournalEntryJSONRequestBody = VoidJournalEntryRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// List all fund sources
+	// (GET /v1/treasury/fund-sources)
+	ListFundSources(ctx echo.Context) error
 	// Register a new fund source
 	// (POST /v1/treasury/fund-sources)
 	RegisterFundSource(ctx echo.Context) error
+	// List journal entries for a fund source
+	// (GET /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries)
+	ListJournalEntries(ctx echo.Context, fundSourceUuid FundSourceUUID, params ListJournalEntriesParams) error
 	// Record Journal Entries (the fund source's balance will be affected)
 	// (POST /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries)
 	RecordJournalEntries(ctx echo.Context, fundSourceUuid FundSourceUUID) error
@@ -190,12 +254,67 @@ type ServerInterfaceWrapper struct {
 	Handler ServerInterface
 }
 
+// ListFundSources converts echo context to params.
+func (w *ServerInterfaceWrapper) ListFundSources(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListFundSources(ctx)
+	return err
+}
+
 // RegisterFundSource converts echo context to params.
 func (w *ServerInterfaceWrapper) RegisterFundSource(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.RegisterFundSource(ctx)
+	return err
+}
+
+// ListJournalEntries converts echo context to params.
+func (w *ServerInterfaceWrapper) ListJournalEntries(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "fund_source_uuid" -------------
+	var fundSourceUuid FundSourceUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "fund_source_uuid", ctx.Param("fund_source_uuid"), &fundSourceUuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter fund_source_uuid: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListJournalEntriesParams
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", ctx.QueryParams(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter page: %s", err))
+	}
+
+	// ------------- Optional query parameter "page_size" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page_size", ctx.QueryParams(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter page_size: %s", err))
+	}
+
+	// ------------- Optional query parameter "date_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "date_from", ctx.QueryParams(), &params.DateFrom, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter date_from: %s", err))
+	}
+
+	// ------------- Optional query parameter "date_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "date_to", ctx.QueryParams(), &params.DateTo, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter date_to: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListJournalEntries(ctx, fundSourceUuid, params)
 	return err
 }
 
@@ -267,7 +386,9 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/v1/treasury/fund-sources", wrapper.ListFundSources)
 	router.POST(baseURL+"/v1/treasury/fund-sources", wrapper.RegisterFundSource)
+	router.GET(baseURL+"/v1/treasury/fund-sources/:fund_source_uuid/journal-entries", wrapper.ListJournalEntries)
 	router.POST(baseURL+"/v1/treasury/fund-sources/:fund_source_uuid/journal-entries", wrapper.RecordJournalEntries)
 	router.POST(baseURL+"/v1/treasury/fund-sources/:fund_source_uuid/journal-entries/:journal_entry_uuid/void", wrapper.VoidJournalEntry)
 
@@ -298,6 +419,42 @@ type NotFoundJSONResponse struct {
 	Body ErrorResponse
 
 	Headers NotFoundResponseHeaders
+}
+
+type ListFundSourcesRequestObject struct {
+}
+
+type ListFundSourcesResponseObject interface {
+	VisitListFundSourcesResponse(w http.ResponseWriter) error
+}
+
+type ListFundSources200ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type ListFundSources200JSONResponse struct {
+	Body    ListFundSourcesResponse
+	Headers ListFundSources200ResponseHeaders
+}
+
+func (response ListFundSources200JSONResponse) VisitListFundSourcesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListFundSources500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response ListFundSources500JSONResponse) VisitListFundSourcesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response.Body)
 }
 
 type RegisterFundSourceRequestObject struct {
@@ -357,6 +514,54 @@ type RegisterFundSource500JSONResponse struct {
 }
 
 func (response RegisterFundSource500JSONResponse) VisitRegisterFundSourceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListJournalEntriesRequestObject struct {
+	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+	Params         ListJournalEntriesParams
+}
+
+type ListJournalEntriesResponseObject interface {
+	VisitListJournalEntriesResponse(w http.ResponseWriter) error
+}
+
+type ListJournalEntries200ResponseHeaders struct {
+	XCorrelationID string
+}
+
+type ListJournalEntries200JSONResponse struct {
+	Body    ListJournalEntriesResponse
+	Headers ListJournalEntries200ResponseHeaders
+}
+
+func (response ListJournalEntries200JSONResponse) VisitListJournalEntriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListJournalEntries404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListJournalEntries404JSONResponse) VisitListJournalEntriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListJournalEntries500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response ListJournalEntries500JSONResponse) VisitListJournalEntriesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Correlation-ID", fmt.Sprint(response.Headers.XCorrelationID))
 	w.WriteHeader(500)
@@ -500,9 +705,15 @@ func (response VoidJournalEntry500JSONResponse) VisitVoidJournalEntryResponse(w 
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// List all fund sources
+	// (GET /v1/treasury/fund-sources)
+	ListFundSources(ctx context.Context, request ListFundSourcesRequestObject) (ListFundSourcesResponseObject, error)
 	// Register a new fund source
 	// (POST /v1/treasury/fund-sources)
 	RegisterFundSource(ctx context.Context, request RegisterFundSourceRequestObject) (RegisterFundSourceResponseObject, error)
+	// List journal entries for a fund source
+	// (GET /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries)
+	ListJournalEntries(ctx context.Context, request ListJournalEntriesRequestObject) (ListJournalEntriesResponseObject, error)
 	// Record Journal Entries (the fund source's balance will be affected)
 	// (POST /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries)
 	RecordJournalEntries(ctx context.Context, request RecordJournalEntriesRequestObject) (RecordJournalEntriesResponseObject, error)
@@ -521,6 +732,29 @@ func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareF
 type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
+}
+
+// ListFundSources operation middleware
+func (sh *strictHandler) ListFundSources(ctx echo.Context) error {
+	var request ListFundSourcesRequestObject
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListFundSources(ctx.Request().Context(), request.(ListFundSourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListFundSources")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListFundSourcesResponseObject); ok {
+		return validResponse.VisitListFundSourcesResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
 }
 
 // RegisterFundSource operation middleware
@@ -546,6 +780,32 @@ func (sh *strictHandler) RegisterFundSource(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(RegisterFundSourceResponseObject); ok {
 		return validResponse.VisitRegisterFundSourceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ListJournalEntries operation middleware
+func (sh *strictHandler) ListJournalEntries(ctx echo.Context, fundSourceUuid FundSourceUUID, params ListJournalEntriesParams) error {
+	var request ListJournalEntriesRequestObject
+
+	request.FundSourceUuid = fundSourceUuid
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ListJournalEntries(ctx.Request().Context(), request.(ListJournalEntriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListJournalEntries")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ListJournalEntriesResponseObject); ok {
+		return validResponse.VisitListJournalEntriesResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

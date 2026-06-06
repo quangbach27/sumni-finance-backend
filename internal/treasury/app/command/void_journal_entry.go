@@ -15,7 +15,7 @@ type VoidJournalEntryCmd struct {
 	VoidedReason           string
 }
 
-func (h *Handler) VoidJournalEntry(
+func (h *Handlers) VoidJournalEntry(
 	ctx context.Context,
 	cmd VoidJournalEntryCmd,
 ) (*domain.JournalEntry, error) {

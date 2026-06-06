@@ -29,6 +29,30 @@ type BatchInsertJournalEntriesParams struct {
 	CreatedBy        string
 }
 
+const countJournalEntries = `-- name: CountJournalEntries :one
+SELECT COUNT(*)
+FROM treasury.journal_entries
+WHERE 
+    fund_source_uuid = $1
+    AND ($2::timestamptz IS NULL 
+        OR transaction_date >= $2::timestamptz)
+    AND ($3::timestamptz IS NULL 
+        OR transaction_date <= $3::timestamptz)
+`
+
+type CountJournalEntriesParams struct {
+	FundSourceUuid domain.FundSourceUUID
+	DateFrom       *time.Time
+	DateTo         *time.Time
+}
+
+func (q *Queries) CountJournalEntries(ctx context.Context, arg CountJournalEntriesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countJournalEntries, arg.FundSourceUuid, arg.DateFrom, arg.DateTo)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getJournalEntryByUID = `-- name: GetJournalEntryByUID :one
 SELECT journal_entry_uuid, fund_source_uuid, amount, entry_type, balance_before, balance_after, status, transaction_date, transaction_no, description, reverse_entry_uuid, voided_by, voided_at, voided_reason, created_at, created_by, updated_at, updated_by
 FROM treasury.journal_entries
@@ -59,6 +83,75 @@ func (q *Queries) GetJournalEntryByUID(ctx context.Context, journalEntryUuid dom
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const listJournalEntries = `-- name: ListJournalEntries :many
+SELECT journal_entry_uuid, fund_source_uuid, amount, entry_type, balance_before, balance_after, status, transaction_date, transaction_no, description, reverse_entry_uuid, voided_by, voided_at, voided_reason, created_at, created_by, updated_at, updated_by
+FROM treasury.journal_entries
+WHERE 
+    fund_source_uuid = $1 
+    AND ($2::timestamptz IS NULL 
+        OR transaction_date >= $2::timestamptz)
+    AND ($3::timestamptz IS NULL 
+        OR transaction_date <= $3::timestamptz)
+ORDER BY 
+    transaction_date DESC, 
+    journal_entry_uuid DESC
+LIMIT $5
+OFFSET $4
+`
+
+type ListJournalEntriesParams struct {
+	FundSourceUuid domain.FundSourceUUID
+	DateFrom       *time.Time
+	DateTo         *time.Time
+	PageOffset     int32
+	PageLimit      int32
+}
+
+func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]TreasuryJournalEntry, error) {
+	rows, err := q.db.Query(ctx, listJournalEntries,
+		arg.FundSourceUuid,
+		arg.DateFrom,
+		arg.DateTo,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TreasuryJournalEntry{}
+	for rows.Next() {
+		var i TreasuryJournalEntry
+		if err := rows.Scan(
+			&i.JournalEntryUuid,
+			&i.FundSourceUuid,
+			&i.Amount,
+			&i.EntryType,
+			&i.BalanceBefore,
+			&i.BalanceAfter,
+			&i.Status,
+			&i.TransactionDate,
+			&i.TransactionNo,
+			&i.Description,
+			&i.ReverseEntryUuid,
+			&i.VoidedBy,
+			&i.VoidedAt,
+			&i.VoidedReason,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateJournalEntry = `-- name: UpdateJournalEntry :exec

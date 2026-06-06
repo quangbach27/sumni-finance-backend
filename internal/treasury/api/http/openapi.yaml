@@ -9,6 +9,24 @@ servers:
         default: localhost
 paths:
   /v1/treasury/fund-sources:
+    get:
+      summary: List all fund sources
+      operationId: listFundSources
+      tags:
+        - fund-sources
+      responses:
+        '200':
+          description: List of fund sources
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListFundSourcesResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     post:
       summary: Register a new fund source
       operationId: registerFundSource
@@ -45,6 +63,61 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 
   /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries:
+    get:
+      summary: List journal entries for a fund source
+      operationId: listJournalEntries
+      tags:
+        - journal-entries
+      parameters:
+        - name: fund_source_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/FundSourceUUID'
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: date_from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+        - name: date_to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+            nullable: true
+      responses:
+        '200':
+          description: List of journal entries
+          headers:
+            X-Correlation-ID:
+              $ref: '#/components/headers/CorrelationID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListJournalEntriesResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
     post:
       summary: Record Journal Entries (the fund source's balance will be affected)
       operationId: recordJournalEntries
@@ -87,7 +160,7 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
-  
+
   /v1/treasury/fund-sources/{fund_source_uuid}/journal-entries/{journal_entry_uuid}/void:
     post:
       summary: Void a journal entry by creating a reverse journal entry
@@ -130,6 +203,115 @@ paths:
 
 components:
   schemas:
+    ListJournalEntriesResponse:
+      type: object
+      required:
+        - items
+        - total_items
+        - page
+        - page_size
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalEntryResponse'
+        total_items:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
+    ListFundSourcesResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FundSourceResponse'
+
+    FundSourceResponse:
+      type: object
+      required:
+        - fund_source_uuid
+        - name
+        - source_type
+        - balance
+        - available_balance
+        - currency
+        - created_at
+        - created_by
+      properties:
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+        name:
+          type: string
+        source_type:
+          $ref: '#/components/schemas/FundSourceType'
+        balance:
+          $ref: '#/components/schemas/Decimal'
+        available_balance:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        bank_metadata:
+          $ref: '#/components/schemas/FundSourceBankMetadataResponse'
+          nullable: true
+        cash_metadata:
+          $ref: '#/components/schemas/FundSourceCashMetadataResponse'
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+
+    FundSourceBankMetadataResponse:
+      type: object
+      required:
+        - bank_name
+        - bank_code
+        - bank_short_name
+        - bank_bin
+        - bank_logo_url
+        - bank_icon_url
+        - account_number
+        - account_owner
+      properties:
+        bank_name:
+          type: string
+        bank_code:
+          type: string
+        bank_short_name:
+          type: string
+        bank_bin:
+          type: integer
+        bank_logo_url:
+          type: string
+        bank_icon_url:
+          type: string
+        account_number:
+          type: string
+        account_owner:
+          type: string
+
+    FundSourceCashMetadataResponse:
+      type: object
+      required:
+        - owner_name
+      properties:
+        owner_name:
+          type: string
+
     RegisterFundSourceRequest:
       type: object
       required:
@@ -292,7 +474,7 @@ components:
       x-go-type: domain.FundSourceUUID
       x-go-type-import:
         path: sumni-finance-backend/internal/treasury/domain
-    
+
     FundSourceType:
       type: string
       description: Fund source type (CASH || BANK)
@@ -314,7 +496,7 @@ components:
       x-go-type: domain.JournalEntryUUID
       x-go-type-import:
         path: sumni-finance-backend/internal/treasury/domain
-    
+
     FundSourceMetadata:
       type: object
       properties:
@@ -322,7 +504,7 @@ components:
           $ref: "#/components/schemas/FundSourceBankMetadata"
         cash_metadata:
           $ref: '#/components/schemas/FundSourceCashMetadata'
-    
+
     FundSourceBankMetadata:
       type: object
       required:
@@ -330,19 +512,19 @@ components:
         - account_number
         - account_owner
       properties:
-        bank_code: 
+        bank_code:
           type: string
         account_number:
           type: string
         account_owner:
           type: string
-        
+
     FundSourceCashMetadata:
       type: object
       required:
         - owner_name
       properties:
-        owner_name: 
+        owner_name:
           type: string
 
     ErrorResponse:

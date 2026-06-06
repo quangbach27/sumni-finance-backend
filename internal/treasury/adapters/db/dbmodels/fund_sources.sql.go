@@ -110,6 +110,47 @@ func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourcePara
 	return err
 }
 
+const listFundSources = `-- name: ListFundSources :many
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner, created_at, created_by, updated_at, updated_by
+FROM treasury.fund_sources
+`
+
+func (q *Queries) ListFundSources(ctx context.Context) ([]TreasuryFundSource, error) {
+	rows, err := q.db.Query(ctx, listFundSources)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TreasuryFundSource{}
+	for rows.Next() {
+		var i TreasuryFundSource
+		if err := rows.Scan(
+			&i.FundSourceUuid,
+			&i.Name,
+			&i.SourceType,
+			&i.Currency,
+			&i.Balance,
+			&i.AvailableBalance,
+			&i.BankInfo,
+			&i.BankCode,
+			&i.BankAccountNumber,
+			&i.BankAccountOwner,
+			&i.CashOwner,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateFundSource = `-- name: UpdateFundSource :exec
 UPDATE treasury.fund_sources
 SET

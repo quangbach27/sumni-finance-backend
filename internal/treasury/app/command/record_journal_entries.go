@@ -27,7 +27,7 @@ type JournalEntryItem struct {
 	TransactionNo   *string
 }
 
-func (h *Handler) RecordJournalEntries(ctx context.Context, cmd RecordedJournalEntriesCmd) error {
+func (h *Handlers) RecordJournalEntries(ctx context.Context, cmd RecordedJournalEntriesCmd) error {
 	if len(cmd.JournalEntryItems) == 0 {
 		return common.NewInvalidInputError("empty-journal-items", "journal items can't be empty")
 	}

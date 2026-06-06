@@ -57,8 +57,25 @@ type FundSourceBankMetadata struct {
 	BankCode      string `json:"bank_code"`
 }
 
+// FundSourceBankMetadataResponse defines model for FundSourceBankMetadataResponse.
+type FundSourceBankMetadataResponse struct {
+	AccountNumber string `json:"account_number"`
+	AccountOwner  string `json:"account_owner"`
+	BankBin       int    `json:"bank_bin"`
+	BankCode      string `json:"bank_code"`
+	BankIconUrl   string `json:"bank_icon_url"`
+	BankLogoUrl   string `json:"bank_logo_url"`
+	BankName      string `json:"bank_name"`
+	BankShortName string `json:"bank_short_name"`
+}
+
 // FundSourceCashMetadata defines model for FundSourceCashMetadata.
 type FundSourceCashMetadata struct {
+	OwnerName string `json:"owner_name"`
+}
+
+// FundSourceCashMetadataResponse defines model for FundSourceCashMetadataResponse.
+type FundSourceCashMetadataResponse struct {
 	OwnerName string `json:"owner_name"`
 }
 
@@ -66,6 +83,26 @@ type FundSourceCashMetadata struct {
 type FundSourceMetadata struct {
 	BankMetadata *FundSourceBankMetadata `json:"bank_metadata,omitempty"`
 	CashMetadata *FundSourceCashMetadata `json:"cash_metadata,omitempty"`
+}
+
+// FundSourceResponse defines model for FundSourceResponse.
+type FundSourceResponse struct {
+	AvailableBalance Decimal                         `json:"available_balance"`
+	Balance          Decimal                         `json:"balance"`
+	BankMetadata     *FundSourceBankMetadataResponse `json:"bank_metadata,omitempty"`
+	CashMetadata     *FundSourceCashMetadataResponse `json:"cash_metadata,omitempty"`
+	CreatedAt        time.Time                       `json:"created_at"`
+	CreatedBy        string                          `json:"created_by"`
+	Currency         Currency                        `json:"currency"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+	Name           string         `json:"name"`
+
+	// SourceType Fund source type (CASH || BANK)
+	SourceType FundSourceType `json:"source_type"`
+	UpdatedAt  *time.Time     `json:"updated_at,omitempty"`
+	UpdatedBy  *string        `json:"updated_by,omitempty"`
 }
 
 // FundSourceType Fund source type (CASH || BANK)
@@ -123,6 +160,19 @@ type JournalEntryStatus = domain.JournalEntryStatus
 // JournalEntryUUID UUID of a journal entry
 type JournalEntryUUID = domain.JournalEntryUUID
 
+// ListFundSourcesResponse defines model for ListFundSourcesResponse.
+type ListFundSourcesResponse struct {
+	Items []FundSourceResponse `json:"items"`
+}
+
+// ListJournalEntriesResponse defines model for ListJournalEntriesResponse.
+type ListJournalEntriesResponse struct {
+	Items      []JournalEntryResponse `json:"items"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"page_size"`
+	TotalItems int                    `json:"total_items"`
+}
+
 // RecordJournalEntriesRequest defines model for RecordJournalEntriesRequest.
 type RecordJournalEntriesRequest = []JournalEntryItem
 
@@ -164,6 +214,14 @@ type InternalServerError = ErrorResponse
 
 // NotFound defines model for NotFound.
 type NotFound = ErrorResponse
+
+// ListJournalEntriesParams defines parameters for ListJournalEntries.
+type ListJournalEntriesParams struct {
+	Page     *int       `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int       `form:"page_size,omitempty" json:"page_size,omitempty"`
+	DateFrom *time.Time `form:"date_from,omitempty" json:"date_from,omitempty"`
+	DateTo   *time.Time `form:"date_to,omitempty" json:"date_to,omitempty"`
+}
 
 // RegisterFundSourceJSONRequestBody defines body for RegisterFundSource for application/json ContentType.
 type RegisterFundSourceJSONRequestBody = RegisterFundSourceRequest
@@ -247,10 +305,16 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListFundSources request
+	ListFundSources(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RegisterFundSourceWithBody request with any body
 	RegisterFundSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	RegisterFundSource(ctx context.Context, body RegisterFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListJournalEntries request
+	ListJournalEntries(ctx context.Context, fundSourceUuid FundSourceUUID, params *ListJournalEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RecordJournalEntriesWithBody request with any body
 	RecordJournalEntriesWithBody(ctx context.Context, fundSourceUuid FundSourceUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -261,6 +325,18 @@ type ClientInterface interface {
 	VoidJournalEntryWithBody(ctx context.Context, fundSourceUuid FundSourceUUID, journalEntryUuid JournalEntryUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	VoidJournalEntry(ctx context.Context, fundSourceUuid FundSourceUUID, journalEntryUuid JournalEntryUUID, body VoidJournalEntryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListFundSources(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFundSourcesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) RegisterFundSourceWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -277,6 +353,18 @@ func (c *Client) RegisterFundSourceWithBody(ctx context.Context, contentType str
 
 func (c *Client) RegisterFundSource(ctx context.Context, body RegisterFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRegisterFundSourceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListJournalEntries(ctx context.Context, fundSourceUuid FundSourceUUID, params *ListJournalEntriesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListJournalEntriesRequest(c.Server, fundSourceUuid, params)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +423,33 @@ func (c *Client) VoidJournalEntry(ctx context.Context, fundSourceUuid FundSource
 	return c.Client.Do(req)
 }
 
+// NewListFundSourcesRequest generates requests for ListFundSources
+func NewListFundSourcesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/treasury/fund-sources")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRegisterFundSourceRequest calls the generic RegisterFundSource builder with application/json body
 func NewRegisterFundSourceRequest(server string, body RegisterFundSourceJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -371,6 +486,110 @@ func NewRegisterFundSourceRequestWithBody(server string, contentType string, bod
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListJournalEntriesRequest generates requests for ListJournalEntries
+func NewListJournalEntriesRequest(server string, fundSourceUuid FundSourceUUID, params *ListJournalEntriesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "fund_source_uuid", fundSourceUuid, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/treasury/fund-sources/%s/journal-entries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Page != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PageSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page_size", *params.PageSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.DateFrom != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "date_from", *params.DateFrom, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.DateTo != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "date_to", *params.DateTo, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -519,10 +738,16 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListFundSourcesWithResponse request
+	ListFundSourcesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFundSourcesClientResponse, error)
+
 	// RegisterFundSourceWithBodyWithResponse request with any body
 	RegisterFundSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterFundSourceClientResponse, error)
 
 	RegisterFundSourceWithResponse(ctx context.Context, body RegisterFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterFundSourceClientResponse, error)
+
+	// ListJournalEntriesWithResponse request
+	ListJournalEntriesWithResponse(ctx context.Context, fundSourceUuid FundSourceUUID, params *ListJournalEntriesParams, reqEditors ...RequestEditorFn) (*ListJournalEntriesClientResponse, error)
 
 	// RecordJournalEntriesWithBodyWithResponse request with any body
 	RecordJournalEntriesWithBodyWithResponse(ctx context.Context, fundSourceUuid FundSourceUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecordJournalEntriesClientResponse, error)
@@ -533,6 +758,29 @@ type ClientWithResponsesInterface interface {
 	VoidJournalEntryWithBodyWithResponse(ctx context.Context, fundSourceUuid FundSourceUUID, journalEntryUuid JournalEntryUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VoidJournalEntryClientResponse, error)
 
 	VoidJournalEntryWithResponse(ctx context.Context, fundSourceUuid FundSourceUUID, journalEntryUuid JournalEntryUUID, body VoidJournalEntryJSONRequestBody, reqEditors ...RequestEditorFn) (*VoidJournalEntryClientResponse, error)
+}
+
+type ListFundSourcesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListFundSourcesResponse
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListFundSourcesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListFundSourcesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type RegisterFundSourceClientResponse struct {
@@ -554,6 +802,30 @@ func (r RegisterFundSourceClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RegisterFundSourceClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListJournalEntriesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListJournalEntriesResponse
+	JSON404      *NotFound
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r ListJournalEntriesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListJournalEntriesClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -611,6 +883,15 @@ func (r VoidJournalEntryClientResponse) StatusCode() int {
 	return 0
 }
 
+// ListFundSourcesWithResponse request returning *ListFundSourcesClientResponse
+func (c *ClientWithResponses) ListFundSourcesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListFundSourcesClientResponse, error) {
+	rsp, err := c.ListFundSources(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListFundSourcesClientResponse(rsp)
+}
+
 // RegisterFundSourceWithBodyWithResponse request with arbitrary body returning *RegisterFundSourceClientResponse
 func (c *ClientWithResponses) RegisterFundSourceWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterFundSourceClientResponse, error) {
 	rsp, err := c.RegisterFundSourceWithBody(ctx, contentType, body, reqEditors...)
@@ -626,6 +907,15 @@ func (c *ClientWithResponses) RegisterFundSourceWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseRegisterFundSourceClientResponse(rsp)
+}
+
+// ListJournalEntriesWithResponse request returning *ListJournalEntriesClientResponse
+func (c *ClientWithResponses) ListJournalEntriesWithResponse(ctx context.Context, fundSourceUuid FundSourceUUID, params *ListJournalEntriesParams, reqEditors ...RequestEditorFn) (*ListJournalEntriesClientResponse, error) {
+	rsp, err := c.ListJournalEntries(ctx, fundSourceUuid, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListJournalEntriesClientResponse(rsp)
 }
 
 // RecordJournalEntriesWithBodyWithResponse request with arbitrary body returning *RecordJournalEntriesClientResponse
@@ -662,6 +952,39 @@ func (c *ClientWithResponses) VoidJournalEntryWithResponse(ctx context.Context, 
 	return ParseVoidJournalEntryClientResponse(rsp)
 }
 
+// ParseListFundSourcesClientResponse parses an HTTP response from a ListFundSourcesWithResponse call
+func ParseListFundSourcesClientResponse(rsp *http.Response) (*ListFundSourcesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListFundSourcesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListFundSourcesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseRegisterFundSourceClientResponse parses an HTTP response from a RegisterFundSourceWithResponse call
 func ParseRegisterFundSourceClientResponse(rsp *http.Response) (*RegisterFundSourceClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -696,6 +1019,46 @@ func ParseRegisterFundSourceClientResponse(rsp *http.Response) (*RegisterFundSou
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListJournalEntriesClientResponse parses an HTTP response from a ListJournalEntriesWithResponse call
+func ParseListJournalEntriesClientResponse(rsp *http.Response) (*ListJournalEntriesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListJournalEntriesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListJournalEntriesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest NotFound
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError
