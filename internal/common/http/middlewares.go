@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -18,6 +20,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/lithammer/shortuuid/v3"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -25,9 +28,54 @@ const (
 	CorrelationIDHttpHeader = "Correlation-ID"
 )
 
+func rateLimiterMiddleware() echo.MiddlewareFunc {
+	rps := 20.0
+	if val := os.Getenv("RATE_LIMIT_RPS"); val != "" {
+		if parsed, err := strconv.ParseFloat(val, 64); err == nil && parsed > 0 {
+			rps = parsed
+		} else {
+			slog.Warn("invalid RATE_LIMIT_RPS value, using default", "value", val, "default", rps)
+		}
+	}
+
+	store := middleware.NewRateLimiterMemoryStoreWithConfig(
+		middleware.RateLimiterMemoryStoreConfig{
+			Rate:      rate.Limit(rps),
+			Burst:     int(rps) * 3,
+			ExpiresIn: 3 * time.Minute,
+		},
+	)
+
+	rpsHeader := fmt.Sprintf("%.0f", rps)
+
+	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Request().URL.Path == "/health"
+		},
+		Store: store,
+		IdentifierExtractor: func(c echo.Context) (string, error) {
+			ip := c.RealIP()
+			if ip == "" {
+				ip = "unknown"
+			}
+			return ip, nil
+		},
+		ErrorHandler: func(c echo.Context, err error) error {
+			slog.Warn("rate limiter error", "ip", c.RealIP(), "error", err)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		},
+		DenyHandler: func(c echo.Context, identifier string, err error) error {
+			c.Response().Header().Set("Retry-After", "60")
+			c.Response().Header().Set("X-RateLimit-Limit", rpsHeader)
+			return echo.NewHTTPError(http.StatusTooManyRequests)
+		},
+	})
+}
+
 func useMiddlewares(e *echo.Echo) {
 	e.Use(
 		corsMiddleware,
+		rateLimiterMiddleware(),
 		middleware.ContextTimeout(10*time.Second),
 		middleware.Recover(),
 		// Correlation-ID runs first: available in context for the request log middleware.

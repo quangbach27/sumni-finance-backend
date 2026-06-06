@@ -1,5 +1,8 @@
 name: Commit Stage
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -19,7 +22,6 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-24.04
-    if: github.event.pull_request.draft == false
     permissions:
       contents: read
       security-events: write
@@ -86,7 +88,7 @@ jobs:
     name: Package and Publish
     needs: [ build ]
     runs-on: ubuntu-24.04
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
