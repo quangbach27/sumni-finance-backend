@@ -3,6 +3,15 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
 env: 
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -11,6 +20,7 @@ env:
 jobs:
   build:
     name: Build and Test
+    if: github.event_name == 'push' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -76,6 +86,7 @@ jobs:
 
   package:
     name: Package and Publish
+    if: github.event_name == 'push'
     needs: [ build ]
     runs-on: ubuntu-24.04
     permissions:
@@ -108,10 +119,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Publish contianer image
+      - name: Publish image
         run: docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
       
-      - name: Publish container image (latest)
+      - name: Publish image (latest)
         run: |
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.VERSION }} \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -123,6 +134,8 @@ jobs:
     name: Trigger Acceptance Stage
     needs: [package]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Dispatch to acceptance stage
         uses: peter-evans/repository-dispatch@v4
