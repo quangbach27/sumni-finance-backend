@@ -1,21 +1,23 @@
 name: Acceptance Stage
-on:
-  workflow_run:
-    workflows: ['Commit Stage']
-    types: [completed]
 
+on:
+  repository_dispatch:
+    types: [deploy-backend-staging]
+
+env:
+  IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
 concurrency:
   group: acceptance-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
-env: 
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  VERSION: ${{ github.sha }}
-
 jobs:
-  functional:
-    name: Funtional Tests
+  deploy-staging:
+    name: Deploy to Staging
     runs-on: ubuntu-24.04
     steps:
-      - run: echo "Running Functional tests"
+      - name: Dispatch deploy to staging
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          repository: https://github.com/quangbach27/sumni-finance-deployment
+          event-type: deploy-backend          
+          client-payload: '{"image_tag": "${{ github.event.client_payload.image_tag }}", "env": "staging"}'

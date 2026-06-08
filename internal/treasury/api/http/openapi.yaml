@@ -17,9 +17,6 @@ paths:
       responses:
         '200':
           description: List of fund sources
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -41,9 +38,6 @@ paths:
       responses:
         '201':
           description: Treasury registered succefully
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -52,9 +46,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           description: Treasury already exists
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -106,9 +97,6 @@ paths:
       responses:
         '200':
           description: List of journal entries
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -138,9 +126,6 @@ paths:
       responses:
         '201':
           description: Journal Entries adding successfully
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -151,9 +136,6 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           description: Treasury already exists
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -187,9 +169,6 @@ paths:
       responses:
         '200':
           description: Journal entry voided successfully
-          headers:
-            X-Correlation-ID:
-              $ref: '#/components/headers/CorrelationID'
           content:
             application/json:
               schema:
@@ -561,18 +540,9 @@ components:
         message:
           type: string
 
-  headers:
-    CorrelationID:
-      description: Correlation ID for tracing the request
-      schema:
-        type: string
-
   responses:
     BadRequest:
       description: Invalid request
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -580,9 +550,6 @@ components:
 
     Unauthorized:
       description: Authentication required
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -590,9 +557,6 @@ components:
 
     Forbidden:
       description: Insufficient permissions
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -600,9 +564,6 @@ components:
 
     NotFound:
       description: Resource not found
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:
@@ -610,9 +571,6 @@ components:
 
     InternalServerError:
       description: Server error
-      headers:
-        X-Correlation-ID:
-          $ref: '#/components/headers/CorrelationID'
       content:
         application/json:
           schema:

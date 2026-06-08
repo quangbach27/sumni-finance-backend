@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,7 +63,7 @@ func TestListJournalEntries_FieldMapping(t *testing.T) {
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(500_000))
 
-	txNo := "TXN-001"
+	txNo := uuid.NewString()
 	desc := "salary deposit"
 	transactionDate := time.Now().UTC().Truncate(time.Millisecond)
 

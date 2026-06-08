@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 
-	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/app/query"
 	"sumni-finance-backend/internal/treasury/domain"
@@ -65,12 +64,7 @@ func (h Handler) RegisterFundSource(
 	}
 
 	return RegisterFundSource201JSONResponse{
-		Body: RegisterFundSourceResponse{
-			FundSourceUuid: fundSourceUUID,
-		},
-		Headers: RegisterFundSource201ResponseHeaders{
-			XCorrelationID: log.CorrelationIDFromContext(ctx),
-		},
+		FundSourceUuid: fundSourceUUID,
 	}, nil
 }
 
@@ -101,12 +95,7 @@ func (h Handler) RecordJournalEntries(
 		return nil, err
 	}
 
-	return RecordJournalEntries201JSONResponse{
-		Body: nil,
-		Headers: RecordJournalEntries201ResponseHeaders{
-			XCorrelationID: log.CorrelationIDFromContext(ctx),
-		},
-	}, nil
+	return RecordJournalEntries201JSONResponse{}, nil
 }
 
 // Void a journal entry by creating a reverse journal entry
@@ -123,12 +112,7 @@ func (h Handler) VoidJournalEntry(ctx context.Context, request VoidJournalEntryR
 	}
 
 	return VoidJournalEntry200JSONResponse{
-		Body: VoidJournalEntryResponse{
-			ReverseJournalEntry: domainJournalEntryToResponse(reverseJournalEntry),
-		},
-		Headers: VoidJournalEntry200ResponseHeaders{
-			XCorrelationID: log.CorrelationIDFromContext(ctx),
-		},
+		ReverseJournalEntry: domainJournalEntryToResponse(reverseJournalEntry),
 	}, nil
 }
 
@@ -169,12 +153,7 @@ func (h Handler) ListFundSources(ctx context.Context, request ListFundSourcesReq
 	}
 
 	return ListFundSources200JSONResponse{
-		Body: ListFundSourcesResponse{
-			Items: items,
-		},
-		Headers: ListFundSources200ResponseHeaders{
-			XCorrelationID: log.CorrelationIDFromContext(ctx),
-		},
+		Items: items,
 	}, nil
 }
 
@@ -248,15 +227,10 @@ func (h Handler) ListJournalEntries(ctx context.Context, request ListJournalEntr
 	}
 
 	return ListJournalEntries200JSONResponse{
-		Body: ListJournalEntriesResponse{
-			Items:      items,
-			TotalItems: result.TotalItems,
-			Page:       result.Page,
-			PageSize:   result.PageSize,
-		},
-		Headers: ListJournalEntries200ResponseHeaders{
-			XCorrelationID: log.CorrelationIDFromContext(ctx),
-		},
+		Items:      items,
+		TotalItems: result.TotalItems,
+		Page:       result.Page,
+		PageSize:   result.PageSize,
 	}, nil
 }
 

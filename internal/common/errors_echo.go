@@ -22,7 +22,6 @@ func EchoErrorHandler(err error, c echo.Context) {
 
 	logger.Error("Handling HTTP error", "error", err)
 
-	c.Response().Header().Set("X-Correlation-ID", log.CorrelationIDFromContext(ctx))
 	if err := c.JSON(httpStatus, httpErrorResponse); err != nil {
 		logger.Error("Failed to send error response", "error", err)
 	}

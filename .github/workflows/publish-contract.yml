@@ -1,0 +1,58 @@
+name: Publish Contract
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
+
+jobs:
+  publish-contract:
+    name: Publish OpenAPI Contract
+    runs-on: ubuntu-24.04
+    if: >-
+      github.event.pull_request.draft == false &&
+      contains(github.event.pull_request.labels.*.name, 'publish-contract')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v6
+
+      - name: Checkout frontend repo
+        uses: actions/checkout@v6
+        with:
+          repository: quangbach27/sumni-finance-frontend-vite
+          token: ${{ secrets.CONTRACT_REPO_TOKEN }}
+          path: sumni-finance-frontend-vite
+          persist-credentials: false
+
+      - name: Copy OpenAPI spec
+        run: |
+          set -euo pipefail
+          find . -path "*/api/http/openapi.yaml" | while IFS= read -r file; do
+            module=$(echo "$file" | awk -F'/' '{print $(NF-3)}')
+            dest="sumni-finance-frontend-vite/src/api/$module"
+            echo "Copying $file -> $dest/"
+            mkdir -p "$dest"
+            cp "$file" "$dest/openapi.yaml"
+          done
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CONTRACT_REPO_TOKEN }}
+          path: sumni-finance-frontend-vite
+          commit-message: "chore: update openapi contract from sumni-finance-backend"
+          branch: chore/update-openapi-contract-${{ github.event.pull_request.number }}
+          title: "chore: update OpenAPI contract from PR #${{ github.event.pull_request.number }}"
+          body: |
+            Automated OpenAPI contract update from `sumni-finance-backend`.
+
+            Source PR: ${{ github.event.pull_request.html_url }}
+            Triggered by: @${{ github.actor }}
