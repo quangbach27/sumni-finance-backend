@@ -33,5 +33,5 @@ func newTestClient(t *testing.T) testClient {
 func assertCorrelationID(t *testing.T, resp *http.Response) {
 	t.Helper()
 	require.NotNil(t, resp, "HTTP response must not be nil")
-	assert.NotEmpty(t, resp.Header.Get("X-Correlation-ID"), "response must include X-Correlation-ID header")
+	assert.NotEmpty(t, resp.Header.Get("Correlation-ID"), "response must include Correlation-ID header")
 }
