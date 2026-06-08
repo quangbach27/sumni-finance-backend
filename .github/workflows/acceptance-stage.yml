@@ -12,9 +12,11 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Dispatch deploy to staging
-        uses: peter-evans/repository-dispatch@v3
+        uses: peter-evans/repository-dispatch@v4
         with:
           repository: https://github.com/quangbach27/sumni-finance-deployment
           event-type: deploy-backend          
