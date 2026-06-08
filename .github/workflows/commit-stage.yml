@@ -175,3 +175,14 @@ jobs:
             
             Source PR: ${{ github.event.pull_request.html_url }}
             Triggered by: @${{ github.actor }}
+  
+  trigger-acceptance:
+    name: Trigger Acceptance Stage
+    needs: [package]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Dispatch to acceptance stage
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          event-type: acceptance-stage
+          client-payload: '{"image_tag": "${{ github.sha }}"}'
