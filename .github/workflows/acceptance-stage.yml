@@ -2,14 +2,12 @@ name: Acceptance Stage
 
 on:
   repository_dispatch:
-    types: [deploy-backend-staging]
-
+    types: [acceptance-stage]
 env:
   IMAGE_TAG: ${{ github.event.client_payload.image_tag }}
 concurrency:
-  group: acceptance-${{ github.event.workflow_run.head_branch }}
+  group: acceptance-finance-backend-stage
   cancel-in-progress: true
-
 jobs:
   deploy-staging:
     name: Deploy to Staging
