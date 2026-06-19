@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"sumni-finance-backend/internal"
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 
@@ -23,12 +24,9 @@ func main() {
 
 	log.Init(slog.LevelInfo)
 
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
-	}
+	config := common.NewConfig()
 
-	dbPgx, err := pgxpool.New(ctx, dsn)
+	dbPgx, err := pgxpool.New(ctx, config.DbURL())
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +44,7 @@ func main() {
 	}
 
 	externalSerivce := internal.ExternalService{
-		BankLookupProvider: lookup.NewClient(httpClient, os.Getenv("BANK_LOOKUP_BASE_URL")),
+		BankLookupProvider: lookup.NewClient(httpClient, config.BankLookupBaseUrl()),
 	}
 
 	svc, err := internal.New(
