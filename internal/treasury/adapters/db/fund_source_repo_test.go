@@ -522,10 +522,10 @@ func fundSourceToExpectedRow(fs *domain.FundSource) dbmodels.TreasuryFundSource 
 		Balance:          fs.Balance().Amount(),
 		AvailableBalance: fs.AvailableBalance().Amount(),
 		Currency:         fs.Currency(),
-		CreatedAt:        fs.CreatedAt(),
-		CreatedBy:        fs.CreatedBy(),
-		UpdatedAt:        fs.UpdatedAt(),
-		UpdatedBy:        fs.UpdatedBy(),
+		CreatedAt:        fs.Audit().CreatedAt(),
+		CreatedBy:        fs.Audit().CreatedBy(),
+		UpdatedAt:        fs.Audit().UpdatedAt(),
+		UpdatedBy:        fs.Audit().UpdatedBy(),
 	}
 
 	if bankMeta, ok := fs.BankMetadata(); ok {

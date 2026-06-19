@@ -132,10 +132,10 @@ func domainJournalEntryToResponse(je *domain.JournalEntry) JournalEntryResponse 
 		VoidedBy:         je.VoidedBy(),
 		VoidedAt:         je.VoidedAt(),
 		VoidedReason:     je.VoidedReason(),
-		CreatedAt:        je.CreatedAt(),
-		CreatedBy:        je.CreatedBy(),
-		UpdatedAt:        je.UpdatedAt(),
-		UpdatedBy:        je.UpdatedBy(),
+		CreatedAt:        je.Audit().CreatedAt(),
+		CreatedBy:        je.Audit().CreatedBy(),
+		UpdatedAt:        je.Audit().UpdatedAt(),
+		UpdatedBy:        je.Audit().UpdatedBy(),
 	}
 }
 

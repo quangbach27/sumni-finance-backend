@@ -18,8 +18,8 @@ func UnmarshalAudit(
 	createdBy string,
 	updatedAt *time.Time,
 	updatedBy *string,
-) Audit {
-	return Audit{
+) *Audit {
+	return &Audit{
 		createdAt: createdAt,
 		createdBy: createdBy,
 		updatedAt: updatedAt,

@@ -83,7 +83,7 @@ func (f *FundSourceFactory) NewFundSource(
 		availableBalance: initBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            shared.NewAudit(""),
+		audit:            shared.NewAudit(""),
 	}, nil
 }
 
