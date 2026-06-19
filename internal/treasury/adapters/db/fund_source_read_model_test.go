@@ -23,7 +23,8 @@ func TestListFundSources_IncludesBankFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 
@@ -46,7 +47,8 @@ func TestListFundSources_IncludesCashFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 
@@ -69,7 +71,8 @@ func TestListFundSources_ReturnsAllSavedFundSources(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 

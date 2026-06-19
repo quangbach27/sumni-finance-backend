@@ -34,7 +34,8 @@ func TestListJournalEntries_EmptyResult(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -57,7 +58,8 @@ func TestListJournalEntries_FieldMapping(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -89,7 +91,8 @@ func TestListJournalEntries_DoesNotIncludeOtherFundSources(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -117,7 +120,8 @@ func TestListJournalEntries_Pagination(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -160,7 +164,8 @@ func TestListJournalEntries_DateFromFilter(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -193,7 +198,8 @@ func TestListJournalEntries_DateToFilter(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db := testutils.NewDB()
+	db, cleanup := testutils.NewDB(ctx)
+	defer cleanup()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 

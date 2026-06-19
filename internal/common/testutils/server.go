@@ -54,9 +54,10 @@ func NewTestClients(t *testing.T) TestClients {
 func StartServer(ctx context.Context) {
 	log.Init(slog.LevelInfo)
 
+	db, _ := NewDB(ctx)
 	svc, err := internal.New(
 		ctx,
-		NewDB(),
+		db,
 		internal.ExternalService{
 			BankLookupProvider: bankLookup.NewStubClient(),
 		},
