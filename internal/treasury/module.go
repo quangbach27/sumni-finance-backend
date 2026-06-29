@@ -73,6 +73,10 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 	return nil
 }
 
-func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
-	return http.Register(e, m.commandHandler, m.queryHandler)
+func (m *Module) RegisterHttp(
+	ctx context.Context,
+	publicRouter common.EchoRouter,
+	protectedRouter common.EchoRouter,
+) error {
+	return http.Register(protectedRouter, m.commandHandler, m.queryHandler)
 }

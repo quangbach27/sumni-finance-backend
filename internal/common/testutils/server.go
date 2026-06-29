@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"sumni-finance-backend/internal"
+	"sumni-finance-backend/internal/common"
 	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
 	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
@@ -53,10 +54,12 @@ func NewTestClients(t *testing.T) TestClients {
 
 func StartServer(ctx context.Context) {
 	log.Init(slog.LevelInfo)
+	config := common.NewConfig()
 
 	db, _ := NewDB(ctx)
 	svc, err := internal.New(
 		ctx,
+		config,
 		db,
 		internal.ExternalService{
 			BankLookupProvider: bankLookup.NewStubClient(),

@@ -13,7 +13,8 @@ import (
 	"sumni-finance-backend/internal"
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/log"
-	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
+	"sumni-finance-backend/internal/identity/adapters/keycloak"
+	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -26,7 +27,7 @@ func main() {
 
 	config := common.NewConfig()
 
-	dbPgx, err := pgxpool.New(ctx, config.DbURL())
+	dbPgx, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
@@ -43,12 +44,26 @@ func main() {
 		},
 	}
 
+	keycloakAuth, err := keycloak.NewAuthenticator(ctx, keycloak.AuthenticatorConfig{
+		BaseURL:      config.Keycloak.BaseURL,
+		Realm:        config.Keycloak.Realm,
+		ClientID:     config.Keycloak.ClientID,
+		ClientSecret: config.Keycloak.ClientSecret,
+		RedirectURL:  config.Auth.RedirectURL,
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	externalSerivce := internal.ExternalService{
-		BankLookupProvider: lookup.NewClient(httpClient, config.BankLookupBaseUrl()),
+		BankLookupProvider: bankLookup.NewClient(httpClient, config.App.BankLookupBaseUrl),
+		Authenticator:      keycloakAuth,
+		SessionManager:     keycloakAuth,
 	}
 
 	svc, err := internal.New(
 		ctx,
+		config,
 		dbPgx,
 		externalSerivce,
 	)
@@ -56,12 +71,7 @@ func main() {
 		panic(err)
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "4000"
-	}
-
-	if err := svc.Run(ctx, ":"+port); err != nil {
+	if err := svc.Run(ctx, ":"+config.App.Port); err != nil {
 		panic(err)
 	}
 }

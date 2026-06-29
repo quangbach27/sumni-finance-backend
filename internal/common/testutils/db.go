@@ -13,7 +13,7 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	ctx := context.Background()
 	config := common.NewConfig()
 
-	pool, err := pgxpool.New(ctx, config.DbURL())
+	pool, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
@@ -27,7 +27,7 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 func NewDB(ctx context.Context) (*pgxpool.Pool, func()) {
 	config := common.NewConfig()
 
-	pool, err := pgxpool.New(ctx, config.DbURL())
+	pool, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}

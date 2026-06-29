@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/app/query"
 	"sumni-finance-backend/internal/treasury/domain"
@@ -257,10 +258,14 @@ func journalEntryViewToResponse(v query.JournalEntryView) JournalEntryResponse {
 	}
 }
 
-func Register(e EchoRouter, commandHandlers *command.Handlers, queryHandlers *query.Handlers) error {
+func Register(
+	protectedRouter common.EchoRouter,
+	commandHandlers *command.Handlers,
+	queryHandlers *query.Handlers,
+) error {
 	handler := NewHandler(commandHandlers, queryHandlers)
 
-	RegisterHandlers(e, NewStrictHandler(handler, nil))
+	RegisterHandlers(protectedRouter, NewStrictHandler(handler, nil))
 
 	return nil
 }

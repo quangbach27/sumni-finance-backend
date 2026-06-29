@@ -21,6 +21,7 @@ type EchoRouter interface {
 	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	Group(prefix string, m ...echo.MiddlewareFunc) (g *echo.Group)
 }
 
 type EchoSlogAdapter struct {
