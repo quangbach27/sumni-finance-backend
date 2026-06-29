@@ -11,6 +11,7 @@ import (
 	"sumni-finance-backend/internal/common"
 	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
+	"sumni-finance-backend/internal/identity/adapters/keycloak/stubs"
 	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 	treasuryClient "sumni-finance-backend/internal/treasury/api/http/client"
 
@@ -55,6 +56,7 @@ func NewTestClients(t *testing.T) TestClients {
 func StartServer(ctx context.Context) {
 	log.Init(slog.LevelInfo)
 	config := common.NewConfig()
+	authenticatorSub := stubs.NewAuthenticatorStub()
 
 	db, _ := NewDB(ctx)
 	svc, err := internal.New(
@@ -63,6 +65,8 @@ func StartServer(ctx context.Context) {
 		db,
 		internal.ExternalService{
 			BankLookupProvider: bankLookup.NewStubClient(),
+			Authenticator:      authenticatorSub,
+			SessionManager:     authenticatorSub,
 		},
 	)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"sumni-finance-backend/internal/identity"
 	identityDb "sumni-finance-backend/internal/identity/adapters/db"
 	identityHTTP "sumni-finance-backend/internal/identity/api/http"
+	identityApp "sumni-finance-backend/internal/identity/app"
 	identityModel "sumni-finance-backend/internal/identity/app/models"
 	"sumni-finance-backend/internal/treasury"
 	treasuryDomain "sumni-finance-backend/internal/treasury/domain"
@@ -27,6 +28,7 @@ type ExternalService struct {
 	BankLookupProvider treasuryDomain.BankLookupProvider
 	Authenticator      identityHTTP.Authenticator
 	SessionManager     identityModel.SessionManager
+	PolicyEnforcer     identityApp.PolicyEnforcer
 }
 
 type Svc struct {
@@ -53,8 +55,8 @@ func New(
 	moduleContracts := &contracts.Contracts{}
 
 	modules := []module.Module{
-		identity.NewModule(config, dbPgx, externalService.Authenticator, sessionStore),
-		treasury.NewModule(dbPgx, externalService.BankLookupProvider),
+		identity.NewModule(config, dbPgx, externalService.Authenticator, sessionStore, externalService.PolicyEnforcer),
+		treasury.NewModule(dbPgx, externalService.BankLookupProvider, moduleContracts),
 	}
 
 	for _, module := range modules {
@@ -86,8 +88,8 @@ func New(
 	}
 
 	return Svc{
-		echoRouter: rootRouter,
 		config:     config,
+		echoRouter: rootRouter,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil

@@ -27,7 +27,7 @@ func AuthMiddleware(sessionStore models.SessionStore, manager models.SessionMana
 			if err != nil {
 				return common.NewUnauthorizedError(
 					"missing-session-id",
-					"session id is not exist in cookie").
+					"session id does not exist in cookie").
 					WithInternalError(err)
 			}
 
@@ -37,21 +37,16 @@ func AuthMiddleware(sessionStore models.SessionStore, manager models.SessionMana
 					return common.NewUnauthorizedError("session-not-found", "session not found").WithInternalError(err)
 				}
 
-				return common.NewInternalServerError("internal-error", "server is error").WithInternalError(err)
+				return common.NewInternalServerError("internal-error", "internal server error").WithInternalError(err)
 			}
 
 			verifyErr := manager.VerifySession(ctx, session)
-			if err == nil {
+			if verifyErr == nil {
 				ctx = context.WithValue(ctx, sessionKey, session)
 				c.SetRequest(req.WithContext(ctx))
-				logger.Info("session verified")
 
 				return next(c)
 			}
-
-			logger.Info("session expired. Rotating session",
-				"verify_session_error", verifyErr,
-			)
 
 			newSession, rotateErr := rotateSession(
 				ctx,
@@ -71,11 +66,11 @@ func AuthMiddleware(sessionStore models.SessionStore, manager models.SessionMana
 				Secure:   false,
 				SameSite: http.SameSiteLaxMode,
 			})
+
 			ctx = context.WithValue(ctx, sessionKey, newSession)
 			c.SetRequest(req.WithContext(ctx))
 
-			logger.Info("rotated successfully")
-
+			logger.Info("user session rotated successfully")
 			return next(c)
 		}
 	}
@@ -100,8 +95,8 @@ func rotateSession(
 			).WithInternalError(err)
 	}
 
-	err = store.UpsertSession(ctx, newSession)
-	if err != nil {
+	dbErr := store.UpsertSession(ctx, newSession)
+	if dbErr != nil {
 		return models.Session{}, common.NewInternalServerError("failed-to-store-sesison", "failed to store rotate session").WithInternalError(err)
 	}
 

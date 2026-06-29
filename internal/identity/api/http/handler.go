@@ -2,13 +2,13 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/identity/app/models"
 
 	"github.com/labstack/echo/v4"
@@ -122,8 +122,6 @@ func (h Handlers) Callback(c echo.Context) error {
 		).WithInternalError(err)
 	}
 
-	fmt.Println(session)
-
 	err = h.sessionStore.UpsertSession(ctx, session)
 	if err != nil {
 		return common.
@@ -143,6 +141,7 @@ func (h Handlers) Callback(c echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
+	log.FromContext(ctx).Info("user authenticated successfully")
 	return c.Redirect(http.StatusFound, h.config.Auth.PostLoginRedirect)
 }
 
@@ -171,6 +170,7 @@ func (h Handlers) Logout(c echo.Context) error {
 		return common.NewInternalServerError("failed-to-logout", "failed to logout").WithInternalError(err)
 	}
 
+	log.FromContext(ctx).Info("user logged out successfully")
 	return c.Redirect(http.StatusFound, logoutUrl)
 }
 
@@ -226,14 +226,10 @@ func Register(
 	config *common.Config,
 	publicRoute common.EchoRouter,
 	protectedRoute common.EchoRouter,
-	auth Authenticator,
-	sessionStore models.SessionStore,
+	handlers Handlers,
 ) error {
-	handlers := NewHandlers(config, auth, sessionStore)
-
 	publicRoute.GET("/auth/login", handlers.Login)
 	publicRoute.GET("/auth/callback", handlers.Callback)
 	protectedRoute.GET("/auth/logout", handlers.Logout)
-
 	return nil
 }

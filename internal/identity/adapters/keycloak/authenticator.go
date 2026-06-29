@@ -22,7 +22,7 @@ import (
 const (
 	// tokenRefreshBuffer provides a safety window to proactively refresh tokens
 	// before they physically expire, preventing mid-flight network request failures.
-	tokenRefreshBuffer = 15 * time.Second
+	tokenRefreshBuffer = 30 * time.Second
 )
 
 var defaultScope = []string{oidc.ScopeOpenID, "profile", "email", "roles", "organization"}

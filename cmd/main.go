@@ -16,6 +16,7 @@ import (
 	"sumni-finance-backend/internal/identity/adapters/keycloak"
 	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 
+	"github.com/Nerzal/gocloak/v14"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -55,10 +56,29 @@ func main() {
 		panic(err)
 	}
 
+	gocloakClient := gocloak.NewClient(config.Keycloak.BaseURL, func(gc *gocloak.GoCloak) {
+		rc := gc.RestyClient()
+		rc.SetTransport(httpClient.Transport)
+		rc.SetTimeout(httpClient.Timeout)
+	})
+
+	policyEnforcerPoint, err := keycloak.NewPolicyEnforcementPoint(
+		gocloakClient,
+		keycloak.PolicyEnforcerConfig{
+			BaseURL:  config.Keycloak.BaseURL,
+			Realm:    config.Keycloak.Realm,
+			ClientID: config.Keycloak.ClientID,
+		},
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	externalSerivce := internal.ExternalService{
 		BankLookupProvider: bankLookup.NewClient(httpClient, config.App.BankLookupBaseUrl),
 		Authenticator:      keycloakAuth,
 		SessionManager:     keycloakAuth,
+		PolicyEnforcer:     policyEnforcerPoint,
 	}
 
 	svc, err := internal.New(
