@@ -18,14 +18,18 @@ import (
 )
 
 type Module struct {
-	pgxDb *pgxpool.Pool
+	pgxDb    *pgxpool.Pool
+	handlers http.Handler
 
-	commandHandler     *command.Handlers
-	queryHandler       *query.Handlers
 	bankLookupProvider domain.BankLookupProvider
+	contracts          *contracts.Contracts
 }
 
-func NewModule(pgxDb *pgxpool.Pool, bankLookupProvider domain.BankLookupProvider) *Module {
+func NewModule(
+	pgxDb *pgxpool.Pool,
+	bankLookupProvider domain.BankLookupProvider,
+	contracts *contracts.Contracts,
+) *Module {
 	if pgxDb == nil {
 		panic("db can't be nil")
 	}
@@ -37,6 +41,7 @@ func NewModule(pgxDb *pgxpool.Pool, bankLookupProvider domain.BankLookupProvider
 	return &Module{
 		pgxDb:              pgxDb,
 		bankLookupProvider: bankLookupProvider,
+		contracts:          contracts,
 	}
 }
 
@@ -63,9 +68,10 @@ func (m *Module) Init(ctx context.Context) error {
 	fundSourceReadModel := db.NewFundSourceReadModel(m.pgxDb)
 	journalEntryReadModel := db.NewJournalEntryReadModel(m.pgxDb)
 
-	m.commandHandler = command.NewHandlers(fundSourceRepo, fundSouceFactory)
-	m.queryHandler = query.NewHandlers(fundSourceReadModel, journalEntryReadModel)
+	commandHandler := command.NewHandlers(fundSourceRepo, fundSouceFactory)
+	queryHandler := query.NewHandlers(fundSourceReadModel, journalEntryReadModel)
 
+	m.handlers = http.NewHandler(commandHandler, queryHandler, m.contracts)
 	return nil
 }
 
@@ -73,6 +79,10 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 	return nil
 }
 
-func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
-	return http.Register(e, m.commandHandler, m.queryHandler)
+func (m *Module) RegisterHttp(
+	ctx context.Context,
+	publicRouter common.EchoRouter,
+	protectedRouter common.EchoRouter,
+) error {
+	return http.Register(protectedRouter, m.handlers)
 }

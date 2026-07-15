@@ -3,19 +3,29 @@ package http
 import (
 	"context"
 
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/shared"
+	identityHttp "sumni-finance-backend/internal/identity/api/http"
+	identityModule "sumni-finance-backend/internal/identity/api/module/client"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/app/query"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
+type ModulesContract interface {
+	EnforcePolicy(ctx context.Context, req identityModule.EnforcePolicyRequest) (identityModule.EnforcePolicyResponse, error)
+}
+
 type Handler struct {
 	commandHandlers *command.Handlers
 	queryHandlers   *query.Handlers
+	modules         ModulesContract
 }
 
 func NewHandler(
 	commandHandlers *command.Handlers,
 	queryHandlers *query.Handlers,
+	modules ModulesContract,
 ) Handler {
 	if commandHandlers == nil {
 		panic("command handler can't be nil")
@@ -28,6 +38,7 @@ func NewHandler(
 	return Handler{
 		commandHandlers: commandHandlers,
 		queryHandlers:   queryHandlers,
+		modules:         modules,
 	}
 }
 
@@ -132,16 +143,32 @@ func domainJournalEntryToResponse(je *domain.JournalEntry) JournalEntryResponse 
 		VoidedBy:         je.VoidedBy(),
 		VoidedAt:         je.VoidedAt(),
 		VoidedReason:     je.VoidedReason(),
-		CreatedAt:        je.CreatedAt(),
-		CreatedBy:        je.CreatedBy(),
-		UpdatedAt:        je.UpdatedAt(),
-		UpdatedBy:        je.UpdatedBy(),
+		CreatedAt:        je.Audit().CreatedAt(),
+		CreatedBy:        je.Audit().CreatedBy(),
+		UpdatedAt:        je.Audit().UpdatedAt(),
+		UpdatedBy:        je.Audit().UpdatedBy(),
 	}
 }
 
 // List all fund sources
 // (GET /v1/treasury/fund-sources)
 func (h Handler) ListFundSources(ctx context.Context, request ListFundSourcesRequestObject) (ListFundSourcesResponseObject, error) {
+	session := identityHttp.SessionFromCtx(ctx)
+
+	enforcePolicyReq := identityModule.EnforcePolicyRequest{
+		AccessToken: session.AccessToken,
+		Resource:    shared.AuthzResourceFundSource,
+		Scope:       shared.AuthzScopeRead,
+	}
+	policyResp, err := h.modules.EnforcePolicy(ctx, enforcePolicyReq)
+	if err != nil {
+		return nil, common.NewInternalServerError("failed-to-enforce-policy", "failed to enforce policy").WithInternalError(err)
+	}
+
+	if !policyResp.Allowed {
+		return nil, common.NewForbiddenError("unthorized", "you don't have permission ")
+	}
+
 	views, err := h.queryHandlers.ListFundSources(ctx)
 	if err != nil {
 		return nil, err
@@ -257,10 +284,11 @@ func journalEntryViewToResponse(v query.JournalEntryView) JournalEntryResponse {
 	}
 }
 
-func Register(e EchoRouter, commandHandlers *command.Handlers, queryHandlers *query.Handlers) error {
-	handler := NewHandler(commandHandlers, queryHandlers)
-
-	RegisterHandlers(e, NewStrictHandler(handler, nil))
+func Register(
+	protectedRouter common.EchoRouter,
+	handler Handler,
+) error {
+	RegisterHandlers(protectedRouter, NewStrictHandler(handler, nil))
 
 	return nil
 }

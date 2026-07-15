@@ -41,7 +41,7 @@ type JournalEntry struct {
 	transactionNo   *string
 
 	status JournalEntryStatus
-	shared.Audit
+	audit  *shared.Audit
 
 	fundSourceUUID FundSourceUUID
 	balanceBefore  decimal.Decimal
@@ -109,7 +109,7 @@ func NewJournalEntry(
 		status:          JournalEntryStatusRecorded,
 		fundSourceUUID:  fundSourceUUID,
 		balanceBefore:   balanceBefore,
-		Audit:           shared.NewAudit(""),
+		audit:           shared.NewAudit(""),
 	}, nil
 }
 
@@ -127,6 +127,7 @@ func (j *JournalEntry) VoidedReason() *string               { return j.voidedRea
 func (j *JournalEntry) BalanceBefore() decimal.Decimal      { return j.balanceBefore }
 func (j *JournalEntry) BalanceAfter() decimal.Decimal       { return j.balanceAfter }
 func (j *JournalEntry) ReverseEntryUUID() *JournalEntryUUID { return j.reverseEntryUUID }
+func (j *JournalEntry) Audit() *shared.Audit                { return j.audit }
 
 func (j *JournalEntry) IsDebitSide() bool {
 	return j.entryType == shared.EntryTypeDebit
@@ -157,7 +158,7 @@ func (j *JournalEntry) MarkAsPosted(updatedBy string) error {
 	}
 
 	j.status = JournalEntryStatusPosted
-	j.SetAuditUpdate(updatedBy)
+	j.audit.CaptureUpdate(updatedBy)
 
 	return nil
 }
@@ -180,7 +181,7 @@ func (j *JournalEntry) Void(
 			Message:    "voided by can't be empty",
 		})
 	}
-	if voidedAt.Before(j.CreatedAt()) {
+	if voidedAt.Before(j.audit.CreatedAt()) {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "JournalEntry",
 			EntityID:   j.UUID().String(),
@@ -207,7 +208,7 @@ func (j *JournalEntry) Void(
 	j.voidedAt = &voidedAt
 	j.voidedBy = &voidedBy
 	j.voidedReason = &voidedReason
-	j.SetAuditUpdate(voidedBy)
+	j.audit.CaptureUpdate(voidedBy)
 	j.reverseEntryUUID = &reverseEntry.uuid
 
 	return reverseEntry, nil
@@ -221,6 +222,6 @@ func (j *JournalEntry) generateReverseJournalEntry(actorID string) *JournalEntry
 		transactionDate: time.Now(),
 		fundSourceUUID:  j.fundSourceUUID,
 		status:          JournalEntryStatusReverse,
-		Audit:           shared.NewAudit(actorID),
+		audit:           shared.NewAudit(actorID),
 	}
 }

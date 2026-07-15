@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"io/fs"
-	"os"
 
 	"sumni-finance-backend/internal/common"
 
@@ -12,13 +11,9 @@ import (
 
 func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	ctx := context.Background()
+	config := common.NewConfig()
 
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
-	}
-
-	pool, err := pgxpool.New(ctx, dsn)
+	pool, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
@@ -29,21 +24,13 @@ func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	}
 }
 
-func NewDB() *pgxpool.Pool {
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
-	}
+func NewDB(ctx context.Context) (*pgxpool.Pool, func()) {
+	config := common.NewConfig()
 
-	config, err := pgxpool.ParseConfig(dsn)
+	pool, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
-	if err != nil {
-		panic(err)
-	}
-
-	return pool
+	return pool, func() { pool.Close() }
 }

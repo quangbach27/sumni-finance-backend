@@ -16,7 +16,7 @@ func UnmarshalFundSource(
 	availableBalance shared.Money,
 	currency shared.Currency,
 	metadata FundSourceMetadata,
-	audit shared.Audit,
+	audit *shared.Audit,
 ) *FundSource {
 	return &FundSource{
 		uuid:             uuid,
@@ -26,7 +26,7 @@ func UnmarshalFundSource(
 		availableBalance: availableBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            audit,
+		audit:            audit,
 	}
 }
 
@@ -65,7 +65,7 @@ func UnmarshalJournalEntry(
 	voidedAt *time.Time,
 	voidedReason *string,
 	reverseEntryUUID *JournalEntryUUID,
-	audit shared.Audit,
+	audit *shared.Audit,
 ) *JournalEntry {
 	return &JournalEntry{
 		uuid:             uuid,
@@ -82,6 +82,6 @@ func UnmarshalJournalEntry(
 		voidedAt:         voidedAt,
 		voidedReason:     voidedReason,
 		reverseEntryUUID: reverseEntryUUID,
-		Audit:            audit,
+		audit:            audit,
 	}
 }

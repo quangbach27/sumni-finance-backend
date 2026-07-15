@@ -1,4 +1,4 @@
-name: "wild-workouts"
+name: "sumni-finance"
 
 services:
   sumni-finance-backend:
@@ -27,9 +27,12 @@ services:
     depends_on:
     - sumni-finance-db
     # - keycloak
+    networks:
+      - finance-app
 
   sumni-finance-db:
     image: postgres:17.6-alpine3.22
+    container_name: sumni-finance-db
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -42,32 +45,34 @@ services:
       interval: 1s
       retries: 120
       start_period: 2s
+    networks:
+      - finance-app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql
 
-  # swagger-ui:
-  #   image: swaggerapi/swagger-ui:latest
-  #   container_name: sumni-swagger-ui
-  #   ports:
-  #     - "127.0.0.1:8090:8080"
-  #   volumes:
-  #     - ./api/openapi/finance.yaml:/app/finance.yaml:ro
-  #   environment:
-  #     SWAGGER_JSON: /app/finance.yaml
-  #   restart: always
-
-  # keycloak:
-  #   image: quay.io/keycloak/keycloak:latest
-  #   container_name: keycloak_server
-  #   command: start-dev --import-realm
-  #   environment:
-  #     KEYCLOAK_ADMIN: admin
-  #     KEYCLOAK_ADMIN_PASSWORD: admin
-  #     KC_HTTP_ENABLED: "true"
-  #     KC_HOSTNAME_STRICT: "false"
-  #     KC_HOSTNAME_STRICT_HTTPS: "false"
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ./docker/keycloak:/opt/keycloak/data/import
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6
+    container_name: keycloak_server
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://sumni-finance-db:5432/sumni-finance
+      KC_DB_USERNAME: user
+      KC_DB_PASSWORD: password
+      KC_DB_SCHEMA: keycloak
+    ports:
+      - "8080:8080"
+    depends_on:
+      sumni-finance-db:
+        condition: service_healthy
+    networks:
+      - finance-app
 
 networks:
   finance-app:

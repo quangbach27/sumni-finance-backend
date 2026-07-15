@@ -7,23 +7,33 @@ import (
 	"net/http"
 	"time"
 
+	"sumni-finance-backend/internal/common"
 	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
+	"sumni-finance-backend/internal/identity"
+	identityDb "sumni-finance-backend/internal/identity/adapters/db"
+	identityHTTP "sumni-finance-backend/internal/identity/api/http"
+	identityApp "sumni-finance-backend/internal/identity/app"
+	identityModel "sumni-finance-backend/internal/identity/app/models"
 	"sumni-finance-backend/internal/treasury"
-	"sumni-finance-backend/internal/treasury/domain"
+	treasuryDomain "sumni-finance-backend/internal/treasury/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 )
 
 type ExternalService struct {
-	BankLookupProvider domain.BankLookupProvider
+	BankLookupProvider treasuryDomain.BankLookupProvider
+	Authenticator      identityHTTP.Authenticator
+	SessionManager     identityModel.SessionManager
+	PolicyEnforcer     identityApp.PolicyEnforcer
 }
 
 type Svc struct {
 	echoRouter *echo.Echo
+	config     *common.Config
 
 	modules []module.Module
 
@@ -32,15 +42,21 @@ type Svc struct {
 
 func New(
 	ctx context.Context,
+	config *common.Config,
 	dbPgx *pgxpool.Pool,
 	externalService ExternalService,
 ) (Svc, error) {
-	e := commonHTTP.NewEcho()
+	sessionStore := identityDb.NewSessionRepository(dbPgx)
+	authMiddleware := identityHTTP.AuthMiddleware(sessionStore, externalService.SessionManager)
+
+	rootRouter := commonHTTP.NewEcho(config)
+	protectedRouter := rootRouter.Group("", authMiddleware)
 
 	moduleContracts := &contracts.Contracts{}
 
 	modules := []module.Module{
-		treasury.NewModule(dbPgx, externalService.BankLookupProvider),
+		identity.NewModule(config, dbPgx, externalService.Authenticator, sessionStore, externalService.PolicyEnforcer),
+		treasury.NewModule(dbPgx, externalService.BankLookupProvider, moduleContracts),
 	}
 
 	for _, module := range modules {
@@ -65,14 +81,15 @@ func New(
 	}
 
 	for _, module := range modules {
-		err := module.RegisterHttp(ctx, e)
+		err := module.RegisterHttp(ctx, rootRouter, protectedRouter)
 		if err != nil {
 			return Svc{}, fmt.Errorf("registering http for module %s failed: %w", module.Name(), err)
 		}
 	}
 
 	return Svc{
-		echoRouter: e,
+		config:     config,
+		echoRouter: rootRouter,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil
@@ -93,10 +110,12 @@ func (s Svc) Run(ctx context.Context, port string) error {
 		}
 	}()
 
-	s.echoRouter.Server.WriteTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadTimeout = 30 * time.Second
-	s.echoRouter.Server.IdleTimeout = 60 * time.Second
+	if s.config.App.Env != "development" {
+		s.echoRouter.Server.WriteTimeout = 30 * time.Second
+		s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
+		s.echoRouter.Server.ReadTimeout = 30 * time.Second
+		s.echoRouter.Server.IdleTimeout = 60 * time.Second
+	}
 
 	err := s.echoRouter.Start(port)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

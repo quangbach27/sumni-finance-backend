@@ -44,8 +44,8 @@ func (r *FundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.
 			Balance:          fundSource.Balance().Amount(),
 			AvailableBalance: fundSource.AvailableBalance().Amount(),
 			Currency:         fundSource.Currency(),
-			CreatedAt:        fundSource.CreatedAt(),
-			CreatedBy:        fundSource.CreatedBy(),
+			CreatedAt:        fundSource.Audit().CreatedAt(),
+			CreatedBy:        fundSource.Audit().CreatedBy(),
 		}
 		addFundSourceMetadataToParams(fundSource, &params)
 
@@ -161,8 +161,8 @@ func (r *FundSourceRepo) updateFundSource(
 		FundSourceUuid:   fs.UUID(),
 		Balance:          fs.Balance().Amount(),
 		AvailableBalance: fs.AvailableBalance().Amount(),
-		UpdatedAt:        fs.UpdatedAt(),
-		UpdatedBy:        fs.UpdatedBy(),
+		UpdatedAt:        fs.Audit().UpdatedAt(),
+		UpdatedBy:        fs.Audit().UpdatedBy(),
 	}
 	if err := queries.UpdateFundSource(ctx, params); err != nil {
 		return fmt.Errorf("error updating fund source: %w", err)
@@ -182,8 +182,8 @@ func (r *FundSourceRepo) updateJournalEntry(
 		VoidedBy:         entry.VoidedBy(),
 		VoidedAt:         entry.VoidedAt(),
 		VoidedReason:     entry.VoidedReason(),
-		UpdatedAt:        entry.UpdatedAt(),
-		UpdatedBy:        entry.UpdatedBy(),
+		UpdatedAt:        entry.Audit().UpdatedAt(),
+		UpdatedBy:        entry.Audit().UpdatedBy(),
 	}
 	if err := queries.UpdateJournalEntry(ctx, params); err != nil {
 		return fmt.Errorf("error updating journal entry: %w", err)
@@ -227,8 +227,8 @@ func buildBatchInsertJournalEntriesParams(entries []*domain.JournalEntry) ([]dbm
 			TransactionDate:  e.TransactionDate(),
 			TransactionNo:    e.TransactionNo(),
 			Description:      e.Description(),
-			CreatedAt:        e.CreatedAt(),
-			CreatedBy:        e.CreatedBy(),
+			CreatedAt:        e.Audit().CreatedAt(),
+			CreatedBy:        e.Audit().CreatedBy(),
 		}
 	}
 	return params, nil
