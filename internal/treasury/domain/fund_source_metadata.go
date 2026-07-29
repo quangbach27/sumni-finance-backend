@@ -56,25 +56,19 @@ func (cm FundSourceCashMetadata) IsZero() bool {
 }
 
 type BankInfo struct {
-	name            string
-	bin             int
-	bankCode        string
-	shortName       string
-	logoUrl         string
-	iconUrl         string
-	lookupSupport   int
-	transferSupport int
+	name      string
+	bin       string
+	bankCode  string
+	shortName string
+	logoUrl   string
 }
 
 func NewBankInfo(
 	name string,
-	bin int,
+	bin string,
 	bankCode string,
 	shortName string,
 	logoUrl string,
-	iconUrl string,
-	lookupSupport int,
-	transferSupport int,
 ) (BankInfo, error) {
 	errDetails := []common.ErrorDetails{}
 
@@ -85,7 +79,7 @@ func NewBankInfo(
 			Message:    "name is required",
 		})
 	}
-	if bin == 0 {
+	if bin == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "BankInfo",
 			ErrorSlug:  "bin",
@@ -114,61 +108,41 @@ func NewBankInfo(
 		})
 	}
 
-	if iconUrl == "" {
-		errDetails = append(errDetails, common.ErrorDetails{
-			EntityType: "BankInfo",
-			ErrorSlug:  "iconUrl",
-			Message:    "icon url is required",
-		})
-	}
-
 	if len(errDetails) > 0 {
 		return BankInfo{}, common.NewInvalidInputError("invalid-bank-info", "bank info is not valid").WithDetails(errDetails)
 	}
 
 	return BankInfo{
-		name:            name,
-		bin:             bin,
-		bankCode:        bankCode,
-		shortName:       shortName,
-		logoUrl:         logoUrl,
-		iconUrl:         iconUrl,
-		lookupSupport:   lookupSupport,
-		transferSupport: transferSupport,
+		name:      name,
+		bin:       bin,
+		bankCode:  bankCode,
+		shortName: shortName,
+		logoUrl:   logoUrl,
 	}, nil
 }
 
-func (b BankInfo) Name() string         { return b.name }
-func (b BankInfo) Bin() int             { return b.bin }
-func (b BankInfo) BankCode() string     { return b.bankCode }
-func (b BankInfo) ShortName() string    { return b.shortName }
-func (b BankInfo) LogoUrl() string      { return b.logoUrl }
-func (b BankInfo) IconUrl() string      { return b.iconUrl }
-func (b BankInfo) LookupSupport() int   { return b.lookupSupport }
-func (b BankInfo) TransferSupport() int { return b.transferSupport }
-func (b BankInfo) IsZero() bool         { return b == BankInfo{} }
+func (b BankInfo) Name() string      { return b.name }
+func (b BankInfo) Bin() string       { return b.bin }
+func (b BankInfo) BankCode() string  { return b.bankCode }
+func (b BankInfo) ShortName() string { return b.shortName }
+func (b BankInfo) LogoUrl() string   { return b.logoUrl }
+func (b BankInfo) IsZero() bool      { return b == BankInfo{} }
 
 type bankInfoDto struct {
-	Name            string `json:"name"`
-	Bin             int    `json:"bin"`
-	BankCode        string `json:"bankCode"`
-	ShortName       string `json:"shortName"`
-	LogoUrl         string `json:"logoUrl"`
-	IconUrl         string `json:"iconUrl"`
-	LookupSupport   int    `json:"lookupSupport"`
-	TransferSupport int    `json:"transferSupport"`
+	Name      string `json:"name"`
+	Bin       string `json:"bin"`
+	BankCode  string `json:"bankCode"`
+	ShortName string `json:"shortName"`
+	LogoUrl   string `json:"logoUrl"`
 }
 
 func (b BankInfo) Value() (driver.Value, error) {
 	dto := bankInfoDto{
-		Name:            b.name,
-		Bin:             b.bin,
-		BankCode:        b.bankCode,
-		ShortName:       b.shortName,
-		LogoUrl:         b.logoUrl,
-		IconUrl:         b.iconUrl,
-		LookupSupport:   b.lookupSupport,
-		TransferSupport: b.transferSupport,
+		Name:      b.name,
+		Bin:       b.bin,
+		BankCode:  b.bankCode,
+		ShortName: b.shortName,
+		LogoUrl:   b.logoUrl,
 	}
 	data, err := json.Marshal(dto)
 	if err != nil {
@@ -198,8 +172,5 @@ func (b *BankInfo) Scan(src any) error {
 	b.bankCode = dto.BankCode
 	b.shortName = dto.ShortName
 	b.logoUrl = dto.LogoUrl
-	b.iconUrl = dto.IconUrl
-	b.lookupSupport = dto.LookupSupport
-	b.transferSupport = dto.TransferSupport
 	return nil
 }

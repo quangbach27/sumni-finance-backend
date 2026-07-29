@@ -7,7 +7,6 @@ package dbmodels
 
 import (
 	"context"
-	"time"
 
 	"github.com/shopspring/decimal"
 	"sumni-finance-backend/internal/common/shared"
@@ -15,7 +14,7 @@ import (
 )
 
 const getFundSourceByUUID = `-- name: GetFundSourceByUUID :one
-SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner, created_at, created_by, updated_at, updated_by
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner
 FROM treasury.fund_sources
 WHERE fund_source_uuid = $1
 `
@@ -35,10 +34,6 @@ func (q *Queries) GetFundSourceByUUID(ctx context.Context, fundSourceUuid domain
 		&i.BankAccountNumber,
 		&i.BankAccountOwner,
 		&i.CashOwner,
-		&i.CreatedAt,
-		&i.CreatedBy,
-		&i.UpdatedAt,
-		&i.UpdatedBy,
 	)
 	return i, err
 }
@@ -55,9 +50,7 @@ INSERT INTO treasury.fund_sources (
     bank_code,
     bank_account_number,
     bank_account_owner,
-    cash_owner,
-    created_at,
-    created_by
+    cash_owner
 ) VALUES (
     $1,
     $2,
@@ -69,9 +62,7 @@ INSERT INTO treasury.fund_sources (
     $8,
     $9,
     $10,
-    $11,
-    $12,
-    $13
+    $11
 )
 `
 
@@ -87,8 +78,6 @@ type InsertFundSourceParams struct {
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
-	CreatedAt         time.Time
-	CreatedBy         string
 }
 
 func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourceParams) error {
@@ -104,78 +93,6 @@ func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourcePara
 		arg.BankAccountNumber,
 		arg.BankAccountOwner,
 		arg.CashOwner,
-		arg.CreatedAt,
-		arg.CreatedBy,
-	)
-	return err
-}
-
-const listFundSources = `-- name: ListFundSources :many
-SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner, created_at, created_by, updated_at, updated_by
-FROM treasury.fund_sources
-`
-
-func (q *Queries) ListFundSources(ctx context.Context) ([]TreasuryFundSource, error) {
-	rows, err := q.db.Query(ctx, listFundSources)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []TreasuryFundSource{}
-	for rows.Next() {
-		var i TreasuryFundSource
-		if err := rows.Scan(
-			&i.FundSourceUuid,
-			&i.Name,
-			&i.SourceType,
-			&i.Currency,
-			&i.Balance,
-			&i.AvailableBalance,
-			&i.BankInfo,
-			&i.BankCode,
-			&i.BankAccountNumber,
-			&i.BankAccountOwner,
-			&i.CashOwner,
-			&i.CreatedAt,
-			&i.CreatedBy,
-			&i.UpdatedAt,
-			&i.UpdatedBy,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const updateFundSource = `-- name: UpdateFundSource :exec
-UPDATE treasury.fund_sources
-SET
-    balance           = $1,
-    available_balance = $2,
-    updated_at        = $3,
-    updated_by        = $4
-WHERE fund_source_uuid = $5
-`
-
-type UpdateFundSourceParams struct {
-	Balance          decimal.Decimal
-	AvailableBalance decimal.Decimal
-	UpdatedAt        *time.Time
-	UpdatedBy        *string
-	FundSourceUuid   domain.FundSourceUUID
-}
-
-func (q *Queries) UpdateFundSource(ctx context.Context, arg UpdateFundSourceParams) error {
-	_, err := q.db.Exec(ctx, updateFundSource,
-		arg.Balance,
-		arg.AvailableBalance,
-		arg.UpdatedAt,
-		arg.UpdatedBy,
-		arg.FundSourceUuid,
 	)
 	return err
 }

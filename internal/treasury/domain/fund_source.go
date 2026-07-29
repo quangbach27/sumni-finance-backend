@@ -11,20 +11,6 @@ import (
 
 type FundSourceRepository interface {
 	SaveFundSource(ctx context.Context, fundSource *FundSource) error
-	RecordJournalEntries(
-		ctx context.Context,
-		fundSourceUUID FundSourceUUID,
-		recordFn func(fundSource *FundSource) ([]*JournalEntry, error),
-	) error
-	VoidJournalEntry(
-		ctx context.Context,
-		fundSourceUUID FundSourceUUID,
-		journalEntryUUIDToVoid JournalEntryUUID,
-		voidFn func(
-			fundSource *FundSource,
-			journalEntryToVoid *JournalEntry,
-		) (*JournalEntry, error),
-	) (*JournalEntry, error)
 }
 
 type FundSourceUUID struct {
@@ -55,7 +41,6 @@ type FundSource struct {
 	currency         shared.Currency
 
 	metadata FundSourceMetadata
-	shared.Audit
 }
 
 func (f *FundSource) UUID() FundSourceUUID           { return f.uuid }

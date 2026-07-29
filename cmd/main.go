@@ -3,16 +3,12 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"sumni-finance-backend/internal"
 	"sumni-finance-backend/internal/common/log"
-	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,21 +29,7 @@ func main() {
 		panic(err)
 	}
 
-	httpClient := &http.Client{
-		Timeout: 60 * time.Second,
-		Transport: &http.Transport{
-			TLSHandshakeTimeout:   30 * time.Second,
-			DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
-			ResponseHeaderTimeout: 30 * time.Second,
-			MaxIdleConns:          50,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       90 * time.Second,
-		},
-	}
-
-	externalSerivce := internal.ExternalService{
-		BankLookupProvider: lookup.NewClient(httpClient, os.Getenv("BANK_LOOKUP_BASE_URL")),
-	}
+	externalSerivce := internal.ExternalService{}
 
 	svc, err := internal.New(
 		ctx,

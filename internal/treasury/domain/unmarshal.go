@@ -1,12 +1,6 @@
 package domain
 
-import (
-	"time"
-
-	"sumni-finance-backend/internal/common/shared"
-
-	"github.com/shopspring/decimal"
-)
+import "sumni-finance-backend/internal/common/shared"
 
 func UnmarshalFundSource(
 	uuid FundSourceUUID,
@@ -16,7 +10,6 @@ func UnmarshalFundSource(
 	availableBalance shared.Money,
 	currency shared.Currency,
 	metadata FundSourceMetadata,
-	audit shared.Audit,
 ) *FundSource {
 	return &FundSource{
 		uuid:             uuid,
@@ -26,7 +19,6 @@ func UnmarshalFundSource(
 		availableBalance: availableBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            audit,
 	}
 }
 
@@ -47,41 +39,5 @@ func UnmarshalFundSourceCashMetadata(
 ) FundSourceCashMetadata {
 	return FundSourceCashMetadata{
 		ownerName: ownerName,
-	}
-}
-
-func UnmarshalJournalEntry(
-	uuid JournalEntryUUID,
-	amount decimal.Decimal,
-	entryType shared.EntryType,
-	transactionDate time.Time,
-	transactionNo *string,
-	description *string,
-	status JournalEntryStatus,
-	fundSourceUUID FundSourceUUID,
-	balanceBefore decimal.Decimal,
-	balanceAfter decimal.Decimal,
-	voidedBy *string,
-	voidedAt *time.Time,
-	voidedReason *string,
-	reverseEntryUUID *JournalEntryUUID,
-	audit shared.Audit,
-) *JournalEntry {
-	return &JournalEntry{
-		uuid:             uuid,
-		amount:           amount,
-		entryType:        entryType,
-		transactionDate:  transactionDate,
-		transactionNo:    transactionNo,
-		description:      description,
-		status:           status,
-		fundSourceUUID:   fundSourceUUID,
-		balanceBefore:    balanceBefore,
-		balanceAfter:     balanceAfter,
-		voidedBy:         voidedBy,
-		voidedAt:         voidedAt,
-		voidedReason:     voidedReason,
-		reverseEntryUUID: reverseEntryUUID,
-		Audit:            audit,
 	}
 }

@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -75,31 +74,4 @@ func (m Money) Equal(o Money) bool {
 
 func (m Money) String() string {
 	return fmt.Sprintf("%s-%s", m.amount.String(), m.currency.String())
-}
-
-type moneyDto struct {
-	Amount   decimal.Decimal `json:"amount"`
-	Currency Currency        `json:"currency"`
-}
-
-func (m *Money) UnmarshalJSON(data []byte) error {
-	var dto moneyDto
-	err := json.Unmarshal(data, &dto)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal money: %w", err)
-	}
-
-	m.amount = dto.Amount
-	m.currency = dto.Currency
-
-	return nil
-}
-
-func (m Money) MarshalJSON() ([]byte, error) {
-	dto := moneyDto{
-		Amount:   m.amount,
-		Currency: m.currency,
-	}
-
-	return json.Marshal(dto)
 }

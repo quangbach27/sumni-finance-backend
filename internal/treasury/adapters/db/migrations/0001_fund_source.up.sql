@@ -23,11 +23,6 @@ CREATE TABLE treasury.fund_sources (
     -- cash metadata
     cash_owner              varchar(255),
 
-    created_at              timestamptz                 NOT NULL,
-    created_by              varchar(255)                NOT NULL,
-    updated_at              timestamptz,
-    updated_by              varchar(255),
-
     PRIMARY KEY (fund_source_uuid),
 
     CONSTRAINT chk_bank_metadata_fields CHECK (

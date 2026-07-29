@@ -9,16 +9,16 @@ import (
 	"sumni-finance-backend/internal/common/shared"
 )
 
-type BankLookupProvider interface {
-	FindByBankCode(ctx context.Context, bankCode string) (BankInfo, error)
+type BankProvider interface {
+	FindBankInfoByCode(ctx context.Context, bankCode string) (BankInfo, error)
 }
 
 type FundSourceFactory struct {
-	bankLookupProvider BankLookupProvider
+	bankProvider BankProvider
 }
 
-func NewFundSourceFactory(bankProvider BankLookupProvider) *FundSourceFactory {
-	return &FundSourceFactory{bankLookupProvider: bankProvider}
+func NewFundSourceFactory(bankProvider BankProvider) *FundSourceFactory {
+	return &FundSourceFactory{bankProvider: bankProvider}
 }
 
 func (f *FundSourceFactory) NewFundSource(
@@ -83,7 +83,6 @@ func (f *FundSourceFactory) NewFundSource(
 		availableBalance: initBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            shared.NewAudit(""),
 	}, nil
 }
 
@@ -120,15 +119,16 @@ func (f *FundSourceFactory) NewBankMetadata(
 		return FundSourceBankMetadata{}, common.NewInvalidInputError("invalid-bank-metadata", "bank metadata is not valid").WithDetails(errDetails)
 	}
 
-	bankInfo, err := f.bankLookupProvider.FindByBankCode(ctx, bankCode)
+	bankInfo, err := f.bankProvider.FindBankInfoByCode(ctx, bankCode)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return FundSourceBankMetadata{}, common.NewNotFoundError(
-				"bank-code-not-found",
-				"bank code %s not found",
+				"bank-code-not-valid",
+				"can't find bank information for bankcode: %s",
 				bankCode,
 			)
 		}
+
 		return FundSourceBankMetadata{}, fmt.Errorf("error retrieving bank information: %w", err)
 	}
 	if bankInfo.IsZero() {

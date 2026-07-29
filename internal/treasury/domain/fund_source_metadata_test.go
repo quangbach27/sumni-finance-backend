@@ -2,48 +2,45 @@ package domain_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
+	"sumni-finance-backend/internal/treasury/adapters/bankprovider"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
-func newTestFactory(t *testing.T) *domain.FundSourceFactory {
+func newTestFactory(t *testing.T, withErr bool) *domain.FundSourceFactory {
 	t.Helper()
-	return domain.NewFundSourceFactory(lookup.NewStubClient())
-}
-
-func newValidBankInfo(t *testing.T) domain.BankInfo {
-	t.Helper()
-	b, err := domain.NewBankInfo("Vietcombank", 970436, "VCB", "VCB", "https://logo.url", "https://icon.url", 1, 1)
-	require.NoError(t, err)
-	return b
+	var bankProvider domain.BankProvider
+	if withErr {
+		bankProvider = bankprovider.NewStubClientWithError(errors.New("failed to retrive bank info"))
+	} else {
+		bankProvider = bankprovider.NewStubClient()
+	}
+	return domain.NewFundSourceFactory(bankProvider)
 }
 
 func TestNewBankInfo_Success(t *testing.T) {
 	t.Parallel()
 
-	b, err := domain.NewBankInfo("Vietcombank", 970436, "VCB", "VCB", "https://logo.url", "https://icon.url", 1, 1)
+	b, err := domain.NewBankInfo("Vietcombank", "970436", "VCB", "VCB", "https://logo.url")
 	require.NoError(t, err)
 
 	assert.Equal(t, "Vietcombank", b.Name())
-	assert.Equal(t, 970436, b.Bin())
+	assert.Equal(t, "970436", b.Bin())
 	assert.Equal(t, "VCB", b.BankCode())
 	assert.Equal(t, "VCB", b.ShortName())
 	assert.Equal(t, "https://logo.url", b.LogoUrl())
-	assert.Equal(t, "https://icon.url", b.IconUrl())
-	assert.Equal(t, 1, b.LookupSupport())
-	assert.Equal(t, 1, b.TransferSupport())
 }
 
 func TestNewBankInfo_ValidationErrors(t *testing.T) {
 	tests := []struct {
 		name            string
 		bankName        string
-		bin             int
+		bin             string
 		bankCode        string
 		shortName       string
 		logoUrl         string
@@ -53,76 +50,49 @@ func TestNewBankInfo_ValidationErrors(t *testing.T) {
 		wantErr         string
 	}{
 		{
-			name:            "missing-name",
-			bankName:        "",
-			bin:             970436,
-			bankCode:        "VCB",
-			shortName:       "VCB",
-			logoUrl:         "https://logo.url",
-			iconUrl:         "https://icon.url",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "name is required",
+			name:      "missing-name",
+			bankName:  "",
+			bin:       "970436",
+			bankCode:  "VCB",
+			shortName: "VCB",
+			logoUrl:   "https://logo.url",
+			wantErr:   "name is required",
 		},
 		{
-			name:            "missing-bin",
-			bankName:        "Vietcombank",
-			bin:             0,
-			bankCode:        "VCB",
-			shortName:       "VCB",
-			logoUrl:         "https://logo.url",
-			iconUrl:         "https://icon.url",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "bin is required",
+			name:      "missing-bin",
+			bankName:  "Vietcombank",
+			bin:       "",
+			bankCode:  "VCB",
+			shortName: "VCB",
+			logoUrl:   "https://logo.url",
+			wantErr:   "bin is required",
 		},
 		{
-			name:            "missing-bank-code",
-			bankName:        "Vietcombank",
-			bin:             970436,
-			bankCode:        "",
-			shortName:       "VCB",
-			logoUrl:         "https://logo.url",
-			iconUrl:         "https://icon.url",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "bank code is required",
+			name:      "missing-bank-code",
+			bankName:  "Vietcombank",
+			bin:       "970436",
+			bankCode:  "",
+			shortName: "VCB",
+			logoUrl:   "https://logo.url",
+			wantErr:   "bank code is required",
 		},
 		{
-			name:            "missing-short-name",
-			bankName:        "Vietcombank",
-			bin:             970436,
-			bankCode:        "VCB",
-			shortName:       "",
-			logoUrl:         "https://logo.url",
-			iconUrl:         "https://icon.url",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "short name is required",
+			name:      "missing-short-name",
+			bankName:  "Vietcombank",
+			bin:       "970436",
+			bankCode:  "VCB",
+			shortName: "",
+			logoUrl:   "https://logo.url",
+			wantErr:   "short name is required",
 		},
 		{
-			name:            "missing-logo-url",
-			bankName:        "Vietcombank",
-			bin:             970436,
-			bankCode:        "VCB",
-			shortName:       "VCB",
-			logoUrl:         "",
-			iconUrl:         "https://icon.url",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "logo url is required",
-		},
-		{
-			name:            "missing-icon-url",
-			bankName:        "Vietcombank",
-			bin:             970436,
-			bankCode:        "VCB",
-			shortName:       "VCB",
-			logoUrl:         "https://logo.url",
-			iconUrl:         "",
-			lookupSupport:   1,
-			transferSupport: 1,
-			wantErr:         "icon url is required",
+			name:      "missing-logo-url",
+			bankName:  "Vietcombank",
+			bin:       "970436",
+			bankCode:  "VCB",
+			shortName: "VCB",
+			logoUrl:   "",
+			wantErr:   "logo url is required",
 		},
 	}
 
@@ -130,7 +100,7 @@ func TestNewBankInfo_ValidationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, err := domain.NewBankInfo(tt.bankName, tt.bin, tt.bankCode, tt.shortName, tt.logoUrl, tt.iconUrl, tt.lookupSupport, tt.transferSupport)
+			_, err := domain.NewBankInfo(tt.bankName, tt.bin, tt.bankCode, tt.shortName, tt.logoUrl)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
@@ -140,7 +110,8 @@ func TestNewBankInfo_ValidationErrors(t *testing.T) {
 func TestBankInfo_Value(t *testing.T) {
 	t.Parallel()
 
-	b := newValidBankInfo(t)
+	b, err := domain.NewBankInfo("Vietcombank", "970436", "VCB", "VCB", "https://logo.url")
+	require.NoError(t, err)
 
 	val, err := b.Value()
 	require.NoError(t, err)
@@ -149,13 +120,10 @@ func TestBankInfo_Value(t *testing.T) {
 	require.True(t, ok)
 	assert.JSONEq(t, `{
 		"name": "Vietcombank",
-		"bin": 970436,
+		"bin": "970436",
 		"bankCode": "VCB",
 		"shortName": "VCB",
-		"logoUrl": "https://logo.url",
-		"iconUrl": "https://icon.url",
-		"lookupSupport": 1,
-		"transferSupport": 1
+		"logoUrl": "https://logo.url"
 	}`, data)
 }
 
@@ -164,37 +132,25 @@ func TestBankInfo_Scan(t *testing.T) {
 		t.Parallel()
 
 		var b domain.BankInfo
-		err := b.Scan(`{"name":"Vietcombank","bin":970436,"bankCode":"VCB","shortName":"VCB","logoUrl":"https://logo.url","iconUrl":"https://icon.url","lookupSupport":1,"transferSupport":1}`)
+		err := b.Scan(`{"name":"Vietcombank","bin":"970436","bankCode":"VCB","shortName":"VCB","logoUrl":"https://logo.url"}`)
 		require.NoError(t, err)
 
 		assert.Equal(t, "Vietcombank", b.Name())
-		assert.Equal(t, 970436, b.Bin())
+		assert.Equal(t, "970436", b.Bin())
 		assert.Equal(t, "VCB", b.BankCode())
 		assert.Equal(t, "VCB", b.ShortName())
 		assert.Equal(t, "https://logo.url", b.LogoUrl())
-		assert.Equal(t, "https://icon.url", b.IconUrl())
-		assert.Equal(t, 1, b.LookupSupport())
-		assert.Equal(t, 1, b.TransferSupport())
 	})
 
 	t.Run("scans from bytes", func(t *testing.T) {
 		t.Parallel()
 
 		var b domain.BankInfo
-		err := b.Scan([]byte(`{"name":"Vietcombank","bin":970436,"bankCode":"VCB","shortName":"VCB","logoUrl":"https://logo.url","iconUrl":"https://icon.url","lookupSupport":1,"transferSupport":1}`))
+		err := b.Scan([]byte(`{"name":"Vietcombank","bin":"970436","bankCode":"VCB","shortName":"VCB","logoUrl":"https://logo.url"}`))
 		require.NoError(t, err)
 
 		assert.Equal(t, "Vietcombank", b.Name())
-		assert.Equal(t, 970436, b.Bin())
-	})
-
-	t.Run("returns error on unsupported type", func(t *testing.T) {
-		t.Parallel()
-
-		var b domain.BankInfo
-		err := b.Scan(12345)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported type")
+		assert.Equal(t, "970436", b.Bin())
 	})
 
 	t.Run("returns error on invalid json", func(t *testing.T) {
@@ -207,32 +163,10 @@ func TestBankInfo_Scan(t *testing.T) {
 	})
 }
 
-func TestBankInfo_ValueScanRoundtrip(t *testing.T) {
-	t.Parallel()
-
-	original := newValidBankInfo(t)
-
-	val, err := original.Value()
-	require.NoError(t, err)
-
-	var restored domain.BankInfo
-	err = restored.Scan(val)
-	require.NoError(t, err)
-
-	assert.Equal(t, original.Name(), restored.Name())
-	assert.Equal(t, original.Bin(), restored.Bin())
-	assert.Equal(t, original.BankCode(), restored.BankCode())
-	assert.Equal(t, original.ShortName(), restored.ShortName())
-	assert.Equal(t, original.LogoUrl(), restored.LogoUrl())
-	assert.Equal(t, original.IconUrl(), restored.IconUrl())
-	assert.Equal(t, original.LookupSupport(), restored.LookupSupport())
-	assert.Equal(t, original.TransferSupport(), restored.TransferSupport())
-}
-
 func TestNewFundSourceBankMetadata_Success(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
+	factory := newTestFactory(t, false)
 	m, err := factory.NewBankMetadata(context.Background(), "VCB", "1234567890", "John Doe")
 	require.NoError(t, err)
 
@@ -244,14 +178,13 @@ func TestNewFundSourceBankMetadata_Success(t *testing.T) {
 func TestNewFundSourceBankMetadata_ValidationErrors(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
-
 	tests := []struct {
-		name          string
-		bankCode      string
-		accountNumber string
-		accountOwner  string
-		wantErr       string
+		name            string
+		bankProviderErr bool
+		bankCode        string
+		accountNumber   string
+		accountOwner    string
+		wantErr         string
 	}{
 		{
 			name:          "reject-empty-account-number",
@@ -268,11 +201,11 @@ func TestNewFundSourceBankMetadata_ValidationErrors(t *testing.T) {
 			wantErr:       "empty-account-owner",
 		},
 		{
-			name:          "reject-bank-not-found",
-			bankCode:      "UNKNOWN",
-			accountNumber: "1234567890",
-			accountOwner:  "John Doe",
-			wantErr:       "bank code UNKNOWN not found",
+			name:            "reject-bank-not-found",
+			bankProviderErr: true,
+			bankCode:        "UNKNOWN",
+			accountNumber:   "1234567890",
+			accountOwner:    "John Doe",
 		},
 	}
 
@@ -280,9 +213,12 @@ func TestNewFundSourceBankMetadata_ValidationErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
+			factory := newTestFactory(t, tt.bankProviderErr)
 			_, err := factory.NewBankMetadata(context.Background(), tt.bankCode, tt.accountNumber, tt.accountOwner)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), tt.wantErr)
+			if len(tt.wantErr) > 0 {
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
 		})
 	}
 }
@@ -298,7 +234,7 @@ func TestFundSourceBankMetadata_IsZero(t *testing.T) {
 
 	t.Run("non-zero value", func(t *testing.T) {
 		t.Parallel()
-		factory := newTestFactory(t)
+		factory := newTestFactory(t, false)
 		m, err := factory.NewBankMetadata(context.Background(), "VCB", "1234567890", "John Doe")
 		require.NoError(t, err)
 		assert.False(t, m.IsZero())
@@ -308,7 +244,7 @@ func TestFundSourceBankMetadata_IsZero(t *testing.T) {
 func TestFundSourceBankMetadata_MatchesType(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
+	factory := newTestFactory(t, false)
 	m, err := factory.NewBankMetadata(context.Background(), "VCB", "1234567890", "John Doe")
 	require.NoError(t, err)
 
@@ -319,7 +255,7 @@ func TestFundSourceBankMetadata_MatchesType(t *testing.T) {
 func TestNewFundSourceCashMetadata_Success(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
+	factory := newTestFactory(t, false)
 	m, err := factory.NewCashMetadata("Jane Doe")
 	require.NoError(t, err)
 
@@ -329,7 +265,7 @@ func TestNewFundSourceCashMetadata_Success(t *testing.T) {
 func TestNewFundSourceCashMetadata_ValidationErrors(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
+	factory := newTestFactory(t, false)
 
 	tests := []struct {
 		name      string
@@ -365,7 +301,7 @@ func TestFundSourceCashMetadata_IsZero(t *testing.T) {
 
 	t.Run("non-zero value", func(t *testing.T) {
 		t.Parallel()
-		factory := newTestFactory(t)
+		factory := newTestFactory(t, false)
 		m, err := factory.NewCashMetadata("Jane Doe")
 		require.NoError(t, err)
 		assert.False(t, m.IsZero())
@@ -375,7 +311,7 @@ func TestFundSourceCashMetadata_IsZero(t *testing.T) {
 func TestFundSourceCashMetadata_MatchesType(t *testing.T) {
 	t.Parallel()
 
-	factory := newTestFactory(t)
+	factory := newTestFactory(t, false)
 	m, err := factory.NewCashMetadata("Jane Doe")
 	require.NoError(t, err)
 

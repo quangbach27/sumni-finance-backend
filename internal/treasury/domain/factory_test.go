@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"sumni-finance-backend/internal/common/shared"
-	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
+	"sumni-finance-backend/internal/treasury/adapters/bankprovider"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
 var vnd = shared.MustNewCurrency("VND")
 
-func TestNewFundSource_BankSuccess(t *testing.T) {
+func TestNewFundSource_Bank_Success(t *testing.T) {
 	t.Parallel()
 
 	factory := newFactory(t)
@@ -135,7 +135,7 @@ func TestNewFundSource_ValidationErrors(t *testing.T) {
 
 func newFactory(t *testing.T) *domain.FundSourceFactory {
 	t.Helper()
-	return domain.NewFundSourceFactory(lookup.NewStubClient())
+	return domain.NewFundSourceFactory(bankprovider.NewStubClient())
 }
 
 func newValidBankFundMetadata(t *testing.T, factory *domain.FundSourceFactory) domain.FundSourceBankMetadata {

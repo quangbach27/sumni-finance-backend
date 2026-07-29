@@ -8,47 +8,17 @@ import (
 	"time"
 
 	"sumni-finance-backend/internal"
-	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
-	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
-	treasuryClient "sumni-finance-backend/internal/treasury/api/http/client"
-
-	"github.com/stretchr/testify/require"
 )
 
 const BaseURL = "http://localhost:9090"
 
-type TestClients struct {
-	Treasury *treasuryClient.ClientWithResponses
-}
+type TestClients struct{}
 
 func NewTestClients(t *testing.T) TestClients {
 	t.Helper()
-	httpClient := &http.Client{Timeout: 30 * time.Second}
 
-	editorFn := func(ctx context.Context, req *http.Request) error {
-		log.FromContext(ctx).
-			With(
-				"method", req.Method,
-				"url", req.URL.String(),
-				"test_name", t.Name(),
-			).
-			Info("Making component test API request")
-
-		req.Header.Set(commonHTTP.TestNameHeader, t.Name())
-		return nil
-	}
-
-	treasury, err := treasuryClient.NewClientWithResponses(
-		BaseURL,
-		treasuryClient.WithHTTPClient(httpClient),
-		treasuryClient.WithRequestEditorFn(editorFn),
-	)
-	require.NoError(t, err, "creating treasury client failed")
-
-	return TestClients{
-		Treasury: treasury,
-	}
+	return TestClients{}
 }
 
 func StartServer(ctx context.Context) {
@@ -57,9 +27,7 @@ func StartServer(ctx context.Context) {
 	svc, err := internal.New(
 		ctx,
 		NewDB(),
-		internal.ExternalService{
-			BankLookupProvider: bankLookup.NewStubClient(),
-		},
+		internal.ExternalService{},
 	)
 	if err != nil {
 		panic(err)

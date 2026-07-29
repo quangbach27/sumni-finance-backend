@@ -12,15 +12,12 @@ import (
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
 	"sumni-finance-backend/internal/treasury"
-	"sumni-finance-backend/internal/treasury/domain"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/labstack/echo/v4"
 )
 
-type ExternalService struct {
-	BankLookupProvider domain.BankLookupProvider
-}
+type ExternalService struct{}
 
 type Svc struct {
 	echoRouter *echo.Echo
@@ -40,7 +37,7 @@ func New(
 	moduleContracts := &contracts.Contracts{}
 
 	modules := []module.Module{
-		treasury.NewModule(dbPgx, externalService.BankLookupProvider),
+		treasury.NewModule(dbPgx),
 	}
 
 	for _, module := range modules {

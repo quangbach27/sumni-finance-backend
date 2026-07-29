@@ -7,7 +7,6 @@ package dbmodels
 import (
 	"database/sql/driver"
 	"fmt"
-	"time"
 
 	"github.com/shopspring/decimal"
 	"sumni-finance-backend/internal/common/shared"
@@ -56,92 +55,6 @@ func (ns NullTreasuryFundSourceType) Value() (driver.Value, error) {
 	return string(ns.TreasuryFundSourceType), nil
 }
 
-type TreasuryJournalEntryStatus string
-
-const (
-	TreasuryJournalEntryStatusRECORDED TreasuryJournalEntryStatus = "RECORDED"
-	TreasuryJournalEntryStatusPOSTED   TreasuryJournalEntryStatus = "POSTED"
-	TreasuryJournalEntryStatusVOIDED   TreasuryJournalEntryStatus = "VOIDED"
-	TreasuryJournalEntryStatusREVERSE  TreasuryJournalEntryStatus = "REVERSE"
-)
-
-func (e *TreasuryJournalEntryStatus) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = TreasuryJournalEntryStatus(s)
-	case string:
-		*e = TreasuryJournalEntryStatus(s)
-	default:
-		return fmt.Errorf("unsupported scan type for TreasuryJournalEntryStatus: %T", src)
-	}
-	return nil
-}
-
-type NullTreasuryJournalEntryStatus struct {
-	TreasuryJournalEntryStatus TreasuryJournalEntryStatus
-	Valid                      bool // Valid is true if TreasuryJournalEntryStatus is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullTreasuryJournalEntryStatus) Scan(value interface{}) error {
-	if value == nil {
-		ns.TreasuryJournalEntryStatus, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.TreasuryJournalEntryStatus.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullTreasuryJournalEntryStatus) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.TreasuryJournalEntryStatus), nil
-}
-
-type TreasuryJournalEntryType string
-
-const (
-	TreasuryJournalEntryTypeDEBIT  TreasuryJournalEntryType = "DEBIT"
-	TreasuryJournalEntryTypeCREDIT TreasuryJournalEntryType = "CREDIT"
-)
-
-func (e *TreasuryJournalEntryType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = TreasuryJournalEntryType(s)
-	case string:
-		*e = TreasuryJournalEntryType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for TreasuryJournalEntryType: %T", src)
-	}
-	return nil
-}
-
-type NullTreasuryJournalEntryType struct {
-	TreasuryJournalEntryType TreasuryJournalEntryType
-	Valid                    bool // Valid is true if TreasuryJournalEntryType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullTreasuryJournalEntryType) Scan(value interface{}) error {
-	if value == nil {
-		ns.TreasuryJournalEntryType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.TreasuryJournalEntryType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullTreasuryJournalEntryType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.TreasuryJournalEntryType), nil
-}
-
 type TreasuryFundSource struct {
 	FundSourceUuid    domain.FundSourceUUID
 	Name              string
@@ -154,29 +67,4 @@ type TreasuryFundSource struct {
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
-	CreatedAt         time.Time
-	CreatedBy         string
-	UpdatedAt         *time.Time
-	UpdatedBy         *string
-}
-
-type TreasuryJournalEntry struct {
-	JournalEntryUuid domain.JournalEntryUUID
-	FundSourceUuid   domain.FundSourceUUID
-	Amount           decimal.Decimal
-	EntryType        shared.EntryType
-	BalanceBefore    decimal.Decimal
-	BalanceAfter     decimal.Decimal
-	Status           domain.JournalEntryStatus
-	TransactionDate  time.Time
-	TransactionNo    *string
-	Description      *string
-	ReverseEntryUuid *domain.JournalEntryUUID
-	VoidedBy         *string
-	VoidedAt         *time.Time
-	VoidedReason     *string
-	CreatedAt        time.Time
-	CreatedBy        string
-	UpdatedAt        *time.Time
-	UpdatedBy        *string
 }
