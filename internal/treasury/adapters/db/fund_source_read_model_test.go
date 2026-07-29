@@ -23,8 +23,7 @@ func TestListFundSources_IncludesBankFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 
@@ -47,8 +46,7 @@ func TestListFundSources_IncludesCashFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 
@@ -71,8 +69,7 @@ func TestListFundSources_ReturnsAllSavedFundSources(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewFundSourceReadModel(db)
 
@@ -119,10 +116,10 @@ func expectedFundSourceView(fs *domain.FundSource) query.FundSourceView {
 		Balance:          fs.Balance().Amount(),
 		AvailableBalance: fs.AvailableBalance().Amount(),
 		Currency:         fs.Currency(),
-		CreatedAt:        fs.Audit().CreatedAt(),
-		CreatedBy:        fs.Audit().CreatedBy(),
-		UpdatedAt:        fs.Audit().UpdatedAt(),
-		UpdatedBy:        fs.Audit().UpdatedBy(),
+		CreatedAt:        fs.CreatedAt(),
+		CreatedBy:        fs.CreatedBy(),
+		UpdatedAt:        fs.UpdatedAt(),
+		UpdatedBy:        fs.UpdatedBy(),
 	}
 
 	if bankMeta, ok := fs.BankMetadata(); ok {

@@ -12,4 +12,3 @@ vendor/
 .DS_Store
 coverage.out
 coverage-*.out
-.env

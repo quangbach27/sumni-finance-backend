@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
-	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/log"
 
 	"github.com/labstack/echo/v4"
@@ -72,11 +72,13 @@ func rateLimiterMiddleware() echo.MiddlewareFunc {
 	})
 }
 
-func useMiddlewares(
-	config *common.Config,
-	e *echo.Echo,
-) {
+func useMiddlewares(e *echo.Echo) {
 	e.Use(
+		corsMiddleware,
+		rateLimiterMiddleware(),
+		middleware.ContextTimeout(10*time.Second),
+		middleware.Recover(),
+		// Correlation-ID runs first: available in context for the request log middleware.
 		func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				req := c.Request()
@@ -101,16 +103,24 @@ func useMiddlewares(
 				return next(c)
 			}
 		},
-		middleware.Recover(),
-		corsMiddleware(config),
-		rateLimiterMiddleware(),
-		middleware.ContextTimeout(10*time.Second),
 		requestLogMiddleware,
 	)
 }
 
-func corsMiddleware(config *common.Config) echo.MiddlewareFunc {
-	allowedOrigins := config.App.CorsAllowedOrigins
+func corsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	allowedOrigins := []string{"*"}
+
+	if originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS"); originsEnv != "" {
+		origins := strings.Split(originsEnv, ";")
+		allowedOrigins = make([]string, 0, len(origins))
+
+		for _, origin := range origins {
+			if trimmed := strings.TrimSpace(origin); trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
+	}
+
 	corsConfig := middleware.CORSConfig{
 		AllowOrigins: allowedOrigins,
 		AllowMethods: []string{
@@ -134,7 +144,7 @@ func corsMiddleware(config *common.Config) echo.MiddlewareFunc {
 		MaxAge:           300,
 	}
 
-	return middleware.CORSWithConfig(corsConfig)
+	return middleware.CORSWithConfig(corsConfig)(next)
 }
 
 type bodyCapturingWriter struct {

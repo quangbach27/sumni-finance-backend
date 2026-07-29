@@ -41,12 +41,10 @@ var cmpOpts = []cmp.Option{
 func TestSaveFundSource_NilError(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
-	err := repo.SaveFundSource(ctx, nil)
+	err := repo.SaveFundSource(context.Background(), nil)
 	require.Error(t, err)
 }
 
@@ -54,8 +52,7 @@ func TestSaveFundSource_BankFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
@@ -82,8 +79,7 @@ func TestSaveFundSource_CashFundSource(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.NewFromInt(200_000), vnd)
@@ -110,8 +106,7 @@ func TestSaveFundSource_DuplicateBankAccountReturnsError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	balance, err := shared.NewMoney(decimal.Zero, vnd)
@@ -138,8 +133,7 @@ func TestRecordJournalEntries_FundSourceNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	nonExistentUUID := domain.FundSourceUUID{UUID: common.NewUUIDv7()}
@@ -155,8 +149,7 @@ func TestRecordJournalEntries_RecordFnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(100_000))
@@ -173,8 +166,7 @@ func TestRecordJournalEntries_DebitEntry_Wtihdraw(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	initialBalance := decimal.NewFromInt(500_000)
@@ -212,8 +204,7 @@ func TestRecordJournalEntries_CreditEntry_TopUp(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	initialBalance := decimal.NewFromInt(500_000)
@@ -251,8 +242,7 @@ func TestRecordJournalEntries_MultipleEntries_Concurrent(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	initialBalance := decimal.NewFromInt(1_000_000)
@@ -328,8 +318,7 @@ func TestVoidJournalEntry_Success(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(500_000))
@@ -392,8 +381,7 @@ func TestVoidJournalEntry_FundSourceNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	nonExistentFSUUID := domain.FundSourceUUID{UUID: common.NewUUIDv7()}
@@ -415,8 +403,7 @@ func TestVoidJournalEntry_JournalEntryNotFound(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(100_000))
@@ -438,8 +425,7 @@ func TestVoidJournalEntry_VoidFnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 
 	fs := mustCreateCashFundSource(t, ctx, repo, decimal.NewFromInt(500_000))
@@ -522,10 +508,10 @@ func fundSourceToExpectedRow(fs *domain.FundSource) dbmodels.TreasuryFundSource 
 		Balance:          fs.Balance().Amount(),
 		AvailableBalance: fs.AvailableBalance().Amount(),
 		Currency:         fs.Currency(),
-		CreatedAt:        fs.Audit().CreatedAt(),
-		CreatedBy:        fs.Audit().CreatedBy(),
-		UpdatedAt:        fs.Audit().UpdatedAt(),
-		UpdatedBy:        fs.Audit().UpdatedBy(),
+		CreatedAt:        fs.CreatedAt(),
+		CreatedBy:        fs.CreatedBy(),
+		UpdatedAt:        fs.UpdatedAt(),
+		UpdatedBy:        fs.UpdatedBy(),
 	}
 
 	if bankMeta, ok := fs.BankMetadata(); ok {

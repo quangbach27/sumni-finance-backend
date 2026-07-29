@@ -102,11 +102,3 @@ func NewConflictError(slug, publicErrorFormat string, a ...any) Error {
 		ErrorSlug:     slug,
 	}
 }
-
-func NewInternalServerError(slug, publicErrorFormat string, a ...any) Error {
-	return Error{
-		HttpErrorCode: http.StatusInternalServerError,
-		PublicError:   fmt.Sprintf(publicErrorFormat, a...),
-		ErrorSlug:     slug,
-	}
-}

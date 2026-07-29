@@ -55,7 +55,7 @@ type FundSource struct {
 	currency         shared.Currency
 
 	metadata FundSourceMetadata
-	audit    *shared.Audit
+	shared.Audit
 }
 
 func (f *FundSource) UUID() FundSourceUUID           { return f.uuid }
@@ -69,7 +69,6 @@ func (fp *FundSource) BankMetadata() (FundSourceBankMetadata, bool) {
 	m, ok := fp.metadata.(FundSourceBankMetadata)
 	return m, ok
 }
-func (fp *FundSource) Audit() *shared.Audit { return fp.audit }
 
 func (fp *FundSource) CashMetadata() (FundSourceCashMetadata, bool) {
 	m, ok := fp.metadata.(FundSourceCashMetadata)

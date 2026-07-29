@@ -34,8 +34,7 @@ func TestListJournalEntries_EmptyResult(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -58,8 +57,7 @@ func TestListJournalEntries_FieldMapping(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -91,8 +89,7 @@ func TestListJournalEntries_DoesNotIncludeOtherFundSources(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -120,8 +117,7 @@ func TestListJournalEntries_Pagination(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -164,8 +160,7 @@ func TestListJournalEntries_DateFromFilter(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -198,8 +193,7 @@ func TestListJournalEntries_DateToFilter(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	db, cleanup := testutils.NewDB(ctx)
-	defer cleanup()
+	db := testutils.NewDB()
 	repo := repoDb.NewFundSourceRepository(db)
 	readModel := repoDb.NewJournalEntryReadModel(db)
 
@@ -293,9 +287,9 @@ func expectedJournalEntryView(je *domain.JournalEntry) query.JournalEntryView {
 		VoidedBy:         je.VoidedBy(),
 		VoidedAt:         je.VoidedAt(),
 		VoidedReason:     je.VoidedReason(),
-		CreatedAt:        je.Audit().CreatedAt(),
-		CreatedBy:        je.Audit().CreatedBy(),
-		UpdatedAt:        je.Audit().UpdatedAt(),
-		UpdatedBy:        je.Audit().UpdatedBy(),
+		CreatedAt:        je.CreatedAt(),
+		CreatedBy:        je.CreatedBy(),
+		UpdatedAt:        je.UpdatedAt(),
+		UpdatedBy:        je.UpdatedBy(),
 	}
 }

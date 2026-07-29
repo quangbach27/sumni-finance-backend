@@ -11,18 +11,18 @@ type Audit struct {
 	updatedBy *string
 }
 
-func NewAudit(actorID string) *Audit {
+func NewAudit(actorID string) Audit {
 	if actorID == "" {
 		actorID = "system"
 	}
 
-	return &Audit{
+	return Audit{
 		createdAt: time.Now(),
 		createdBy: actorID,
 	}
 }
 
-func (a *Audit) CaptureCreate(actorID string) {
+func (a *Audit) SetAuditCreate(actorID string) {
 	now := time.Now()
 
 	if actorID == "" {
@@ -33,7 +33,7 @@ func (a *Audit) CaptureCreate(actorID string) {
 	a.createdBy = actorID
 }
 
-func (a *Audit) CaptureUpdate(actorID string) {
+func (a *Audit) SetAuditUpdate(actorID string) {
 	now := time.Now()
 	if actorID == "" {
 		actorID = "system"
@@ -43,7 +43,7 @@ func (a *Audit) CaptureUpdate(actorID string) {
 	a.updatedBy = &actorID
 }
 
-func (a *Audit) CreatedAt() time.Time  { return a.createdAt }
-func (a *Audit) CreatedBy() string     { return a.createdBy }
-func (a *Audit) UpdatedAt() *time.Time { return a.updatedAt }
-func (a *Audit) UpdatedBy() *string    { return a.updatedBy }
+func (a Audit) CreatedAt() time.Time  { return a.createdAt }
+func (a Audit) CreatedBy() string     { return a.createdBy }
+func (a Audit) UpdatedAt() *time.Time { return a.updatedAt }
+func (a Audit) UpdatedBy() *string    { return a.updatedBy }
