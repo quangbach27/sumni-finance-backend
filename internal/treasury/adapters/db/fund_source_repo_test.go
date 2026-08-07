@@ -7,7 +7,6 @@ import (
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/common/testutils"
-	"sumni-finance-backend/internal/treasury/adapters/bankprovider"
 	"sumni-finance-backend/internal/treasury/adapters/db"
 	"sumni-finance-backend/internal/treasury/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/treasury/domain"
@@ -17,8 +16,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
-
-var fundSourceFactory = domain.NewFundSourceFactory(bankprovider.NewStubClient())
 
 var vnd = shared.MustNewCurrency("VND")
 
@@ -35,13 +32,23 @@ func TestSaveFundSource(t *testing.T) {
 		balance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
 		require.NoError(t, err)
 
-		metadata, err := fundSourceFactory.NewBankMetadata(ctx, "VCB", gofakeit.Numerify("##########"), gofakeit.Name())
+		metadata, err := domain.NewBankMetadata(
+			gofakeit.Numerify("##########"),
+			gofakeit.Name(),
+			domain.BankInfoData{
+				Name:      "Vietcombank",
+				Bin:       "970436",
+				ShortName: "VCB",
+			},
+		)
 		require.NoError(t, err)
 
-		fs, err := fundSourceFactory.NewFundSource("Techcombank-SRB", domain.FundSourceTypeBank, balance, vnd, metadata)
+		fs, err := domain.NewFundSource("Techcombank-SRB", domain.FundSourceTypeBank, balance, vnd, metadata)
 		require.NoError(t, err)
 
-		require.NoError(t, repo.SaveFundSource(ctx, fs))
+		tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+		require.NoError(t, err)
+		require.NoError(t, repo.CreateFundSource(ctx, tenantContext, fs))
 
 		queries := dbmodels.New(pgxDb)
 		actualRow, err := queries.GetFundSourceByUUID(ctx, fs.UUID())
@@ -68,13 +75,15 @@ func TestSaveFundSource(t *testing.T) {
 		balance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
 		require.NoError(t, err)
 
-		metadata, err := fundSourceFactory.NewBankMetadata(ctx, "VCB", gofakeit.Numerify("##########"), gofakeit.Name())
+		metadata, err := domain.NewCashMetadata(gofakeit.Name())
 		require.NoError(t, err)
 
-		fs, err := fundSourceFactory.NewFundSource("Techcombank-SRB", domain.FundSourceTypeBank, balance, vnd, metadata)
+		fs, err := domain.NewFundSource("Cash-Wallet", domain.FundSourceTypeCash, balance, vnd, metadata)
 		require.NoError(t, err)
 
-		require.NoError(t, repo.SaveFundSource(ctx, fs))
+		tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+		require.NoError(t, err)
+		require.NoError(t, repo.CreateFundSource(ctx, tenantContext, fs))
 
 		queries := dbmodels.New(pgxDb)
 		actualRow, err := queries.GetFundSourceByUUID(ctx, fs.UUID())
@@ -100,11 +109,13 @@ func fundSourceDomainToExpectedRow(fs *domain.FundSource) dbmodels.TreasuryFundS
 		Balance:          fs.Balance().Amount(),
 		AvailableBalance: fs.AvailableBalance().Amount(),
 		Currency:         fs.Currency(),
+		TenantID:         "tenant-1",
+		OfficeID:         "office-1",
 	}
 
 	if bankMeta, ok := fs.BankMetadata(); ok {
 		row.BankInfo = bankMeta.BankInfo()
-		row.BankCode = common.ToPtr(bankMeta.BankInfo().BankCode())
+		row.Bin = common.ToPtr(bankMeta.BankInfo().Bin())
 		row.BankAccountNumber = common.ToPtr(bankMeta.AccountNumber())
 		row.BankAccountOwner = common.ToPtr(bankMeta.AccountOwner())
 	}

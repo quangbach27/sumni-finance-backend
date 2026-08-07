@@ -63,8 +63,25 @@ type TreasuryFundSource struct {
 	Balance           decimal.Decimal
 	AvailableBalance  decimal.Decimal
 	BankInfo          domain.BankInfo
-	BankCode          *string
+	Bin               *string
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
+	TenantID          string
+	OfficeID          string
+}
+
+type TreasuryWallet struct {
+	WalletUuid domain.WalletUUID
+	Name       string
+	Currency   shared.Currency
+	Balance    decimal.Decimal
+	TenantID   string
+	OfficeID   string
+}
+
+type TreasuryWalletAllocation struct {
+	WalletUuid     domain.WalletUUID
+	FundSourceUuid domain.FundSourceUUID
+	Balance        decimal.Decimal
 }

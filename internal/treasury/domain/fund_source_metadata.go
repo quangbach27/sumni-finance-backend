@@ -9,140 +9,120 @@ import (
 )
 
 type FundSourceMetadata interface {
-	MatchesType(accountType FundSourceType) bool
+	MatchesType(fsType FundSourceType) bool
 	IsZero() bool
 }
 
-type FundSourceBankMetadata struct {
+type BankMetadata struct {
 	bankInfo      BankInfo
 	accountNumber string
 	accountOwner  string
 }
 
-func (bm FundSourceBankMetadata) BankInfo() BankInfo {
-	return bm.bankInfo
+type BankInfoData struct {
+	Name      string
+	Bin       string
+	ShortName string
 }
 
-func (bm FundSourceBankMetadata) AccountNumber() string {
-	return bm.accountNumber
-}
-
-func (bm FundSourceBankMetadata) AccountOwner() string {
-	return bm.accountOwner
-}
-
-func (bm FundSourceBankMetadata) MatchesType(sourceType FundSourceType) bool {
-	return sourceType == FundSourceTypeBank
-}
-
-func (bm FundSourceBankMetadata) IsZero() bool {
-	return bm == FundSourceBankMetadata{}
-}
-
-type FundSourceCashMetadata struct {
-	ownerName string
-}
-
-func (cm FundSourceCashMetadata) OwnerName() string {
-	return cm.ownerName
-}
-
-func (cm FundSourceCashMetadata) MatchesType(sourceType FundSourceType) bool {
-	return sourceType == FundSourceTypeCash
-}
-
-func (cm FundSourceCashMetadata) IsZero() bool {
-	return cm == FundSourceCashMetadata{}
-}
-
-type BankInfo struct {
-	name      string
-	bin       string
-	bankCode  string
-	shortName string
-	logoUrl   string
-}
-
-func NewBankInfo(
-	name string,
-	bin string,
-	bankCode string,
-	shortName string,
-	logoUrl string,
-) (BankInfo, error) {
+func NewBankMetadata(
+	accountNumber string,
+	accountOwner string,
+	bankInfoData BankInfoData,
+) (BankMetadata, error) {
 	errDetails := []common.ErrorDetails{}
-
-	if name == "" {
+	if accountNumber == "" {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSourceBankMetadata",
+			ErrorSlug:  "empty-account-number",
+			Message:    "account number can't be empty",
+		})
+	}
+	if accountOwner == "" {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSourceBankMetadata",
+			ErrorSlug:  "empty-account-owner",
+			Message:    "account owner can't be empty",
+		})
+	}
+	if bankInfoData.Name == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "BankInfo",
 			ErrorSlug:  "name",
 			Message:    "name is required",
 		})
 	}
-	if bin == "" {
+	if bankInfoData.Bin == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "BankInfo",
 			ErrorSlug:  "bin",
 			Message:    "bin is required",
 		})
 	}
-	if bankCode == "" {
-		errDetails = append(errDetails, common.ErrorDetails{
-			EntityType: "BankInfo",
-			ErrorSlug:  "bankCode",
-			Message:    "bank code is required",
-		})
-	}
-	if shortName == "" {
+	if bankInfoData.ShortName == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "BankInfo",
 			ErrorSlug:  "shortName",
 			Message:    "short name is required",
 		})
 	}
-	if logoUrl == "" {
-		errDetails = append(errDetails, common.ErrorDetails{
-			EntityType: "BankInfo",
-			ErrorSlug:  "logoUrl",
-			Message:    "logo url is required",
-		})
+	if len(errDetails) != 0 {
+		return BankMetadata{}, common.NewInvalidInputError("invalid-bank-metadata", "bank metadata is not valid").WithDetails(errDetails)
 	}
 
-	if len(errDetails) > 0 {
-		return BankInfo{}, common.NewInvalidInputError("invalid-bank-info", "bank info is not valid").WithDetails(errDetails)
-	}
-
-	return BankInfo{
-		name:      name,
-		bin:       bin,
-		bankCode:  bankCode,
-		shortName: shortName,
-		logoUrl:   logoUrl,
+	return BankMetadata{
+		bankInfo: BankInfo{
+			name:      bankInfoData.Name,
+			bin:       bankInfoData.Bin,
+			shortName: bankInfoData.ShortName,
+		},
+		accountNumber: accountNumber,
+		accountOwner:  accountOwner,
 	}, nil
+}
+
+func (bm BankMetadata) BankInfo() BankInfo {
+	return bm.bankInfo
+}
+
+func (bm BankMetadata) AccountNumber() string {
+	return bm.accountNumber
+}
+
+func (bm BankMetadata) AccountOwner() string {
+	return bm.accountOwner
+}
+
+func (bm BankMetadata) MatchesType(fsType FundSourceType) bool {
+	return fsType == FundSourceTypeBank
+}
+
+func (bm BankMetadata) IsZero() bool {
+	return bm == BankMetadata{}
+}
+
+type BankInfo struct {
+	name      string
+	bin       string
+	shortName string
 }
 
 func (b BankInfo) Name() string      { return b.name }
 func (b BankInfo) Bin() string       { return b.bin }
-func (b BankInfo) BankCode() string  { return b.bankCode }
 func (b BankInfo) ShortName() string { return b.shortName }
-func (b BankInfo) LogoUrl() string   { return b.logoUrl }
 func (b BankInfo) IsZero() bool      { return b == BankInfo{} }
 
 type bankInfoDto struct {
 	Name      string `json:"name"`
 	Bin       string `json:"bin"`
-	BankCode  string `json:"bankCode"`
-	ShortName string `json:"shortName"`
-	LogoUrl   string `json:"logoUrl"`
+	ShortName string `json:"short_name"`
 }
 
 func (b BankInfo) Value() (driver.Value, error) {
 	dto := bankInfoDto{
 		Name:      b.name,
 		Bin:       b.bin,
-		BankCode:  b.bankCode,
 		ShortName: b.shortName,
-		LogoUrl:   b.logoUrl,
 	}
 	data, err := json.Marshal(dto)
 	if err != nil {
@@ -169,8 +149,39 @@ func (b *BankInfo) Scan(src any) error {
 
 	b.name = dto.Name
 	b.bin = dto.Bin
-	b.bankCode = dto.BankCode
 	b.shortName = dto.ShortName
-	b.logoUrl = dto.LogoUrl
 	return nil
+}
+
+type CashMetadata struct {
+	ownerName string
+}
+
+func (cm CashMetadata) OwnerName() string {
+	return cm.ownerName
+}
+
+func (cm CashMetadata) MatchesType(fsType FundSourceType) bool {
+	return fsType == FundSourceTypeCash
+}
+
+func (cm CashMetadata) IsZero() bool {
+	return cm == CashMetadata{}
+}
+
+func NewCashMetadata(ownerName string) (CashMetadata, error) {
+	errDetails := []common.ErrorDetails{}
+	if ownerName == "" {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSourceCashMetadata",
+			ErrorSlug:  "empty-owner-name",
+			Message:    "owner name can't be empty",
+		})
+	}
+
+	if len(errDetails) != 0 {
+		return CashMetadata{}, common.NewInvalidInputError("invalid-cash-metadata", "cash metadata is not valid").WithDetails(errDetails)
+	}
+
+	return CashMetadata{ownerName: ownerName}, nil
 }

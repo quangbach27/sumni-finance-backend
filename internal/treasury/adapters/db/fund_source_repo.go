@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/treasury/domain"
 
@@ -27,7 +28,7 @@ func NewFundSourceRepository(pgxDb *pgxpool.Pool) *fundSourceRepo {
 	}
 }
 
-func (r *fundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.FundSource) error {
+func (r *fundSourceRepo) CreateFundSource(ctx context.Context, tenantContext shared.TenantContext, fundSource *domain.FundSource) error {
 	if fundSource == nil {
 		return errors.New("fund source can't be empty")
 	}
@@ -42,6 +43,8 @@ func (r *fundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.
 			Balance:          fundSource.Balance().Amount(),
 			AvailableBalance: fundSource.AvailableBalance().Amount(),
 			Currency:         fundSource.Currency(),
+			TenantID:         tenantContext.TenantID(),
+			OfficeID:         tenantContext.OfficeID(),
 		}
 		addFundSourceMetadataToParams(fundSource, &params)
 
@@ -57,7 +60,7 @@ func (r *fundSourceRepo) SaveFundSource(ctx context.Context, fundSource *domain.
 func addFundSourceMetadataToParams(fs *domain.FundSource, params *dbmodels.InsertFundSourceParams) {
 	if bankMetadata, ok := fs.BankMetadata(); ok {
 		params.BankInfo = bankMetadata.BankInfo()
-		params.BankCode = common.ToPtr(bankMetadata.BankInfo().BankCode())
+		params.Bin = common.ToPtr(bankMetadata.BankInfo().Bin())
 		params.BankAccountNumber = common.ToPtr(bankMetadata.AccountNumber())
 		params.BankAccountOwner = common.ToPtr(bankMetadata.AccountOwner())
 	}

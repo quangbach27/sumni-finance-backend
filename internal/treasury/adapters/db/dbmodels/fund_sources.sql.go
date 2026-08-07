@@ -9,12 +9,13 @@ import (
 	"context"
 
 	"github.com/shopspring/decimal"
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
 const getFundSourceByUUID = `-- name: GetFundSourceByUUID :one
-SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
 FROM treasury.fund_sources
 WHERE fund_source_uuid = $1
 `
@@ -30,12 +31,62 @@ func (q *Queries) GetFundSourceByUUID(ctx context.Context, fundSourceUuid domain
 		&i.Balance,
 		&i.AvailableBalance,
 		&i.BankInfo,
-		&i.BankCode,
+		&i.Bin,
 		&i.BankAccountNumber,
 		&i.BankAccountOwner,
 		&i.CashOwner,
+		&i.TenantID,
+		&i.OfficeID,
 	)
 	return i, err
+}
+
+const getFundSourcesByUUIDs = `-- name: GetFundSourcesByUUIDs :many
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
+FROM treasury.fund_sources
+WHERE fund_source_uuid = ANY($1::uuid[]) 
+  AND tenant_id = $2
+  AND office_id = $3
+`
+
+type GetFundSourcesByUUIDsParams struct {
+	FundSourceUuids []common.UUID
+	TenantID        string
+	OfficeID        string
+}
+
+func (q *Queries) GetFundSourcesByUUIDs(ctx context.Context, arg GetFundSourcesByUUIDsParams) ([]TreasuryFundSource, error) {
+	rows, err := q.db.Query(ctx, getFundSourcesByUUIDs, arg.FundSourceUuids, arg.TenantID, arg.OfficeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TreasuryFundSource{}
+	for rows.Next() {
+		var i TreasuryFundSource
+		if err := rows.Scan(
+			&i.FundSourceUuid,
+			&i.Name,
+			&i.SourceType,
+			&i.Currency,
+			&i.Balance,
+			&i.AvailableBalance,
+			&i.BankInfo,
+			&i.Bin,
+			&i.BankAccountNumber,
+			&i.BankAccountOwner,
+			&i.CashOwner,
+			&i.TenantID,
+			&i.OfficeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertFundSource = `-- name: InsertFundSource :exec
@@ -47,10 +98,12 @@ INSERT INTO treasury.fund_sources (
     available_balance,
     currency,
     bank_info,
-    bank_code,
+    bin,
     bank_account_number,
     bank_account_owner,
-    cash_owner
+    cash_owner,
+    tenant_id,
+    office_id
 ) VALUES (
     $1,
     $2,
@@ -62,7 +115,9 @@ INSERT INTO treasury.fund_sources (
     $8,
     $9,
     $10,
-    $11
+    $11,
+    $12,
+    $13
 )
 `
 
@@ -74,10 +129,12 @@ type InsertFundSourceParams struct {
 	AvailableBalance  decimal.Decimal
 	Currency          shared.Currency
 	BankInfo          domain.BankInfo
-	BankCode          *string
+	Bin               *string
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
+	TenantID          string
+	OfficeID          string
 }
 
 func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourceParams) error {
@@ -89,10 +146,28 @@ func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourcePara
 		arg.AvailableBalance,
 		arg.Currency,
 		arg.BankInfo,
-		arg.BankCode,
+		arg.Bin,
 		arg.BankAccountNumber,
 		arg.BankAccountOwner,
 		arg.CashOwner,
+		arg.TenantID,
+		arg.OfficeID,
 	)
+	return err
+}
+
+const updateFundSourceAvailableBalance = `-- name: UpdateFundSourceAvailableBalance :exec
+UPDATE treasury.fund_sources
+SET available_balance = $1
+WHERE fund_source_uuid = $2
+`
+
+type UpdateFundSourceAvailableBalanceParams struct {
+	NewAvailableBalance decimal.Decimal
+	FundSourceUuid      domain.FundSourceUUID
+}
+
+func (q *Queries) UpdateFundSourceAvailableBalance(ctx context.Context, arg UpdateFundSourceAvailableBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateFundSourceAvailableBalance, arg.NewAvailableBalance, arg.FundSourceUuid)
 	return err
 }

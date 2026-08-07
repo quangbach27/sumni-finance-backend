@@ -16,30 +16,35 @@ CREATE TABLE treasury.fund_sources (
 
     -- bank metadata
     bank_info               json,
-    bank_code               varchar(20),
+    bin                     varchar(20),
     bank_account_number     varchar(50),
     bank_account_owner      varchar(255),
 
     -- cash metadata
     cash_owner              varchar(255),
 
+    -- tenant context
+    tenant_id               varchar(255)                NOT NULL,
+    office_id               varchar(255)                NOT NULL,
+
     PRIMARY KEY (fund_source_uuid),
 
     CONSTRAINT chk_bank_metadata_fields CHECK (
-        (source_type = 'BANK' AND bank_account_number IS NOT NULL AND bank_account_owner IS NOT NULL AND bank_code IS NOT NULL)
+        (source_type = 'BANK' AND bank_account_number IS NOT NULL AND bank_account_owner IS NOT NULL AND bin IS NOT NULL)
         OR
-        (source_type = 'CASH' AND bank_account_number IS NULL AND bank_account_owner IS NULL AND bank_code IS NULL)
+        (source_type = 'CASH' AND bank_account_number IS NULL AND bank_account_owner IS NULL AND bin IS NULL)
     ),
 
     CONSTRAINT chk_cash_metadata_fields CHECK (
         (source_type = 'CASH' AND cash_owner IS NOT NULL)
         OR
         (source_type = 'BANK' AND cash_owner IS NULL)
-    )
+    ),
+    CONSTRAINT chk_available_balance CHECK (available_balance <= balance)
 );
 
 CREATE UNIQUE INDEX uq_fund_sources_bank_account
-    ON treasury.fund_sources (bank_account_number, bank_code)
+    ON treasury.fund_sources (bank_account_number, bin)
     WHERE source_type = 'BANK';
 
 COMMIT;

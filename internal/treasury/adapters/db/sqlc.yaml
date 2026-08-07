@@ -11,6 +11,7 @@ sql:
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         overrides:
+          # Common type overrides
           - db_type: "timestamptz"
             nullable: true
             go_type:
@@ -59,6 +60,12 @@ sql:
               import: "sumni-finance-backend/internal/treasury/domain"
               type: "FundSourceUUID"
 
+          - column: "treasury.fund_sources.fund_source_uuid"
+            nullable: false
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "[]FundSourceUUID"
+
           - column: "treasury.fund_sources.currency"
             go_type:
               import: "sumni-finance-backend/internal/common/shared"
@@ -68,5 +75,24 @@ sql:
             go_type:
               import: "sumni-finance-backend/internal/treasury/domain"
               type: "BankInfo"
+
+          # treasury.wallets
+          - column: "treasury.wallets.wallet_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "WalletUUID"
+          - column: "treasury.wallets.currency"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "Currency"
+          - column: "treasury.wallet_allocations.wallet_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "WalletUUID"
+
+          - column: "treasury.wallet_allocations.fund_source_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "FundSourceUUID"
 
         

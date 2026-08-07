@@ -8,6 +8,7 @@ import (
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
 
+	"sumni-finance-backend/internal/treasury/adapters/db"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/app/query"
 
@@ -49,7 +50,13 @@ func (m *Module) Init(ctx context.Context) error {
 		return err
 	}
 
-	m.commandHandler = command.NewHandlers()
+	walletRepo := db.NewWalletRepository(m.pgxDb)
+	fundSourceRepo := db.NewFundSourceRepository(m.pgxDb)
+
+	m.commandHandler = command.NewHandlers(
+		walletRepo,
+		fundSourceRepo,
+	)
 	m.queryHandler = query.NewHandlers()
 
 	return nil
