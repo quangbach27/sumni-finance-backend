@@ -1,3 +1,5 @@
+//go:build integration
+
 package db_test
 
 import (
@@ -76,7 +78,7 @@ func TestCreateWallet_SavesWalletAndAllocations(t *testing.T) {
 		Balance:        allocationAmount.Amount(),
 	}}
 
-	actualWalletAllocations := make([]dbmodels.TreasuryWalletAllocation, 0,len(allocations))
+	actualWalletAllocations := make([]dbmodels.TreasuryWalletAllocation, 0, len(allocations))
 	for _, allocation := range allocations {
 		actualWalletAllocations = append(actualWalletAllocations, allocation.TreasuryWalletAllocation)
 	}

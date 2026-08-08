@@ -45,3 +45,18 @@ WHERE fund_source_uuid = ANY(sqlc.arg(fund_source_uuids)::uuid[])
 UPDATE treasury.fund_sources
 SET available_balance = sqlc.arg(new_available_balance)
 WHERE fund_source_uuid = sqlc.arg(fund_source_uuid);
+
+-- name: ListFundSources :many
+SELECT *
+FROM treasury.fund_sources
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND office_id = sqlc.arg(office_id)
+ORDER BY fund_source_uuid ASC
+LIMIT sqlc.arg(limit_val) 
+OFFSET sqlc.arg(offset_val);
+
+-- name: CountFundSources :one
+SELECT COUNT(*)
+FROM treasury.fund_sources
+WHERE tenant_id = sqlc.arg(tenant_id)
+  AND office_id = sqlc.arg(office_id);

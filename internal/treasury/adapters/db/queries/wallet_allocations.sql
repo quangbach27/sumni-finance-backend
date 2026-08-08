@@ -10,3 +10,9 @@ SELECT sqlc.embed(wa), sqlc.embed(fs)
 FROM treasury.wallet_allocations wa
     JOIN treasury.fund_sources fs ON fs.fund_source_uuid = wa.fund_source_uuid
 WHERE wa.wallet_uuid = sqlc.arg(wallet_uuid);
+
+-- name: GetAllocationsByWalletUUIDs :many
+SELECT sqlc.embed(wa), sqlc.embed(fs)
+FROM treasury.wallet_allocations wa
+    JOIN treasury.fund_sources fs ON fs.fund_source_uuid = wa.fund_source_uuid
+WHERE wa.wallet_uuid = ANY(sqlc.arg(wallet_uuids)::uuid[]);

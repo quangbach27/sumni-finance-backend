@@ -65,7 +65,7 @@ func TestNewWallet(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, wallet)
 
-			assert.False(t, wallet.UUID().UUID.IsZero())
+			assert.False(t, wallet.UUID().IsZero())
 			assert.Equal(t, tt.wantName, wallet.Name())
 			assert.Equal(t, tt.wantZero, wallet.Balance().Amount().String())
 			assert.True(t, wallet.Balance().Currency().Equal(tt.wantCur))

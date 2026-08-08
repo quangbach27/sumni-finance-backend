@@ -32,7 +32,8 @@ func New(
 	dbPgx *pgxpool.Pool,
 	externalService ExternalService,
 ) (Svc, error) {
-	e := commonHTTP.NewEcho()
+	router := commonHTTP.NewEcho()
+	protectedRouter := router
 
 	moduleContracts := &contracts.Contracts{}
 
@@ -62,14 +63,14 @@ func New(
 	}
 
 	for _, module := range modules {
-		err := module.RegisterHttp(ctx, e)
+		err := module.RegisterHttp(ctx, router, protectedRouter)
 		if err != nil {
 			return Svc{}, fmt.Errorf("registering http for module %s failed: %w", module.Name(), err)
 		}
 	}
 
 	return Svc{
-		echoRouter: e,
+		echoRouter: router,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil
@@ -89,11 +90,6 @@ func (s Svc) Run(ctx context.Context, port string) error {
 			log.FromContext(ctx).Error("shutting down http server failed")
 		}
 	}()
-
-	s.echoRouter.Server.WriteTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadTimeout = 30 * time.Second
-	s.echoRouter.Server.IdleTimeout = 60 * time.Second
 
 	err := s.echoRouter.Start(port)
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {

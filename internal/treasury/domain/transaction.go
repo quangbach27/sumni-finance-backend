@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 )

@@ -111,11 +111,6 @@ func newValidFundSource(t *testing.T, balance shared.Money, opts ...newValidFund
 	return fs
 }
 
-func newZeroBalance(t *testing.T) shared.Money {
-	t.Helper()
-	return newValidMoney(t, 0, vnd)
-}
-
 func newValidMoney(t *testing.T, amount int64, currency shared.Currency) shared.Money {
 	t.Helper()
 	m, err := shared.NewMoney(decimal.NewFromInt(amount), currency)

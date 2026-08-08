@@ -11,6 +11,7 @@ import (
 	"sumni-finance-backend/internal/treasury/adapters/db"
 	"sumni-finance-backend/internal/treasury/app/command"
 	"sumni-finance-backend/internal/treasury/app/query"
+	treasuryhttp "sumni-finance-backend/internal/treasury/ports/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,12 +53,14 @@ func (m *Module) Init(ctx context.Context) error {
 
 	walletRepo := db.NewWalletRepository(m.pgxDb)
 	fundSourceRepo := db.NewFundSourceRepository(m.pgxDb)
+	fundSourceReadModel := db.NewFundSourceReadModel(m.pgxDb)
+	walletReadModel := db.NewWalletReadModel(m.pgxDb)
 
 	m.commandHandler = command.NewHandlers(
 		walletRepo,
 		fundSourceRepo,
 	)
-	m.queryHandler = query.NewHandlers()
+	m.queryHandler = query.NewHandlers(fundSourceReadModel, walletReadModel)
 
 	return nil
 }
@@ -66,6 +69,12 @@ func (m *Module) RegisterContracts(ctx context.Context, contracts *contracts.Con
 	return nil
 }
 
-func (m *Module) RegisterHttp(ctx context.Context, e common.EchoRouter) error {
-	return nil
+func (m *Module) RegisterHttp(ctx context.Context, publicRouter common.EchoRouter, protectedRouter common.EchoRouter) error {
+	return treasuryhttp.Register(
+		protectedRouter,
+		treasuryhttp.NewHandler(
+			m.queryHandler,
+			m.commandHandler,
+		),
+	)
 }
