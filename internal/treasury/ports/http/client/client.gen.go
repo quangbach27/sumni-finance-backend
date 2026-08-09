@@ -141,6 +141,19 @@ type FundSourceType = domain.FundSourceType
 // FundSourceUUID UUID of a fund source
 type FundSourceUUID = domain.FundSourceUUID
 
+// LinkFundSourceAllocationRequest defines model for LinkFundSourceAllocationRequest.
+type LinkFundSourceAllocationRequest struct {
+	AllocatedAmount Decimal `json:"allocated_amount"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+}
+
+// LinkFundSourcesRequest defines model for LinkFundSourcesRequest.
+type LinkFundSourcesRequest struct {
+	Allocations []LinkFundSourceAllocationRequest `json:"allocations"`
+}
+
 // ListFundSourcesResponse defines model for ListFundSourcesResponse.
 type ListFundSourcesResponse struct {
 	Items      []FundSourceResponse `json:"items"`
@@ -206,6 +219,9 @@ type CreateFundSourceJSONRequestBody = CreateFundSourceRequest
 
 // CreateWalletJSONRequestBody defines body for CreateWallet for application/json ContentType.
 type CreateWalletJSONRequestBody = CreateWalletRequest
+
+// LinkFundSourcesJSONRequestBody defines body for LinkFundSources for application/json ContentType.
+type LinkFundSourcesJSONRequestBody = LinkFundSourcesRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -295,6 +311,11 @@ type ClientInterface interface {
 	CreateWalletWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateWallet(ctx context.Context, body CreateWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LinkFundSourcesWithBody request with any body
+	LinkFundSourcesWithBody(ctx context.Context, walletUuid WalletUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LinkFundSources(ctx context.Context, walletUuid WalletUUID, body LinkFundSourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ListFundSources(ctx context.Context, params *ListFundSourcesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -359,6 +380,30 @@ func (c *Client) CreateWalletWithBody(ctx context.Context, contentType string, b
 
 func (c *Client) CreateWallet(ctx context.Context, body CreateWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateWalletRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LinkFundSourcesWithBody(ctx context.Context, walletUuid WalletUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkFundSourcesRequestWithBody(c.Server, walletUuid, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) LinkFundSources(ctx context.Context, walletUuid WalletUUID, body LinkFundSourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkFundSourcesRequest(c.Server, walletUuid, body)
 	if err != nil {
 		return nil, err
 	}
@@ -579,6 +624,53 @@ func NewCreateWalletRequestWithBody(server string, contentType string, body io.R
 	return req, nil
 }
 
+// NewLinkFundSourcesRequest calls the generic LinkFundSources builder with application/json body
+func NewLinkFundSourcesRequest(server string, walletUuid WalletUUID, body LinkFundSourcesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLinkFundSourcesRequestWithBody(server, walletUuid, "application/json", bodyReader)
+}
+
+// NewLinkFundSourcesRequestWithBody generates requests for LinkFundSources with any type of body
+func NewLinkFundSourcesRequestWithBody(server string, walletUuid WalletUUID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "wallet_uuid", walletUuid, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/treasury/wallets/%s/fund-sources", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -637,6 +729,11 @@ type ClientWithResponsesInterface interface {
 	CreateWalletWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateWalletClientResponse, error)
 
 	CreateWalletWithResponse(ctx context.Context, body CreateWalletJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateWalletClientResponse, error)
+
+	// LinkFundSourcesWithBodyWithResponse request with any body
+	LinkFundSourcesWithBodyWithResponse(ctx context.Context, walletUuid WalletUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkFundSourcesClientResponse, error)
+
+	LinkFundSourcesWithResponse(ctx context.Context, walletUuid WalletUUID, body LinkFundSourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkFundSourcesClientResponse, error)
 }
 
 type ListFundSourcesClientResponse struct {
@@ -735,6 +832,29 @@ func (r CreateWalletClientResponse) StatusCode() int {
 	return 0
 }
 
+type LinkFundSourcesClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r LinkFundSourcesClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LinkFundSourcesClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // ListFundSourcesWithResponse request returning *ListFundSourcesClientResponse
 func (c *ClientWithResponses) ListFundSourcesWithResponse(ctx context.Context, params *ListFundSourcesParams, reqEditors ...RequestEditorFn) (*ListFundSourcesClientResponse, error) {
 	rsp, err := c.ListFundSources(ctx, params, reqEditors...)
@@ -785,6 +905,23 @@ func (c *ClientWithResponses) CreateWalletWithResponse(ctx context.Context, body
 		return nil, err
 	}
 	return ParseCreateWalletClientResponse(rsp)
+}
+
+// LinkFundSourcesWithBodyWithResponse request with arbitrary body returning *LinkFundSourcesClientResponse
+func (c *ClientWithResponses) LinkFundSourcesWithBodyWithResponse(ctx context.Context, walletUuid WalletUUID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkFundSourcesClientResponse, error) {
+	rsp, err := c.LinkFundSourcesWithBody(ctx, walletUuid, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkFundSourcesClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) LinkFundSourcesWithResponse(ctx context.Context, walletUuid WalletUUID, body LinkFundSourcesJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkFundSourcesClientResponse, error) {
+	rsp, err := c.LinkFundSources(ctx, walletUuid, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkFundSourcesClientResponse(rsp)
 }
 
 // ParseListFundSourcesClientResponse parses an HTTP response from a ListFundSourcesWithResponse call
@@ -934,6 +1071,39 @@ func ParseCreateWalletClientResponse(rsp *http.Response) (*CreateWalletClientRes
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLinkFundSourcesClientResponse parses an HTTP response from a LinkFundSourcesWithResponse call
+func ParseLinkFundSourcesClientResponse(rsp *http.Response) (*LinkFundSourcesClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LinkFundSourcesClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError

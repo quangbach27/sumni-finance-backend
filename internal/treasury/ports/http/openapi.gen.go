@@ -139,6 +139,19 @@ type FundSourceType = domain.FundSourceType
 // FundSourceUUID UUID of a fund source
 type FundSourceUUID = domain.FundSourceUUID
 
+// LinkFundSourceAllocationRequest defines model for LinkFundSourceAllocationRequest.
+type LinkFundSourceAllocationRequest struct {
+	AllocatedAmount Decimal `json:"allocated_amount"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+}
+
+// LinkFundSourcesRequest defines model for LinkFundSourcesRequest.
+type LinkFundSourcesRequest struct {
+	Allocations []LinkFundSourceAllocationRequest `json:"allocations"`
+}
+
 // ListFundSourcesResponse defines model for ListFundSourcesResponse.
 type ListFundSourcesResponse struct {
 	Items      []FundSourceResponse `json:"items"`
@@ -205,6 +218,9 @@ type CreateFundSourceJSONRequestBody = CreateFundSourceRequest
 // CreateWalletJSONRequestBody defines body for CreateWallet for application/json ContentType.
 type CreateWalletJSONRequestBody = CreateWalletRequest
 
+// LinkFundSourcesJSONRequestBody defines body for LinkFundSources for application/json ContentType.
+type LinkFundSourcesJSONRequestBody = LinkFundSourcesRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// List all fund sources
@@ -219,6 +235,9 @@ type ServerInterface interface {
 	// Create a wallet
 	// (POST /v1/treasury/wallets)
 	CreateWallet(ctx echo.Context) error
+	// Link fund sources to a wallet
+	// (POST /v1/treasury/wallets/{wallet_uuid}/fund-sources)
+	LinkFundSources(ctx echo.Context, walletUuid WalletUUID) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -294,6 +313,22 @@ func (w *ServerInterfaceWrapper) CreateWallet(ctx echo.Context) error {
 	return err
 }
 
+// LinkFundSources converts echo context to params.
+func (w *ServerInterfaceWrapper) LinkFundSources(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "wallet_uuid" -------------
+	var walletUuid WalletUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "wallet_uuid", ctx.Param("wallet_uuid"), &walletUuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter wallet_uuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.LinkFundSources(ctx, walletUuid)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -326,6 +361,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/v1/treasury/fund-sources", wrapper.CreateFundSource)
 	router.GET(baseURL+"/v1/treasury/wallets", wrapper.ListWallets)
 	router.POST(baseURL+"/v1/treasury/wallets", wrapper.CreateWallet)
+	router.POST(baseURL+"/v1/treasury/wallets/:wallet_uuid/fund-sources", wrapper.LinkFundSources)
 
 }
 
@@ -481,6 +517,43 @@ func (response CreateWallet500JSONResponse) VisitCreateWalletResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type LinkFundSourcesRequestObject struct {
+	WalletUuid WalletUUID `json:"wallet_uuid"`
+	Body       *LinkFundSourcesJSONRequestBody
+}
+
+type LinkFundSourcesResponseObject interface {
+	VisitLinkFundSourcesResponse(w http.ResponseWriter) error
+}
+
+type LinkFundSources204Response struct {
+}
+
+func (response LinkFundSources204Response) VisitLinkFundSourcesResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LinkFundSources400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response LinkFundSources400JSONResponse) VisitLinkFundSourcesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LinkFundSources500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response LinkFundSources500JSONResponse) VisitLinkFundSourcesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// List all fund sources
@@ -495,6 +568,9 @@ type StrictServerInterface interface {
 	// Create a wallet
 	// (POST /v1/treasury/wallets)
 	CreateWallet(ctx context.Context, request CreateWalletRequestObject) (CreateWalletResponseObject, error)
+	// Link fund sources to a wallet
+	// (POST /v1/treasury/wallets/{wallet_uuid}/fund-sources)
+	LinkFundSources(ctx context.Context, request LinkFundSourcesRequestObject) (LinkFundSourcesResponseObject, error)
 }
 
 type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
@@ -611,6 +687,37 @@ func (sh *strictHandler) CreateWallet(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(CreateWalletResponseObject); ok {
 		return validResponse.VisitCreateWalletResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// LinkFundSources operation middleware
+func (sh *strictHandler) LinkFundSources(ctx echo.Context, walletUuid WalletUUID) error {
+	var request LinkFundSourcesRequestObject
+
+	request.WalletUuid = walletUuid
+
+	var body LinkFundSourcesJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkFundSources(ctx.Request().Context(), request.(LinkFundSourcesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkFundSources")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(LinkFundSourcesResponseObject); ok {
+		return validResponse.VisitLinkFundSourcesResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

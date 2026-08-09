@@ -23,16 +23,16 @@ type CreateWalletAllocation struct {
 }
 
 func (h *Handlers) CreateWallet(ctx context.Context, cmd CreateWallet) (domain.WalletUUID, error) {
-	fsUUIDsFroAllocations := make([]domain.FundSourceUUID, 0, len(cmd.Allocations))
+	fsUUIDsForAllocations := make([]domain.FundSourceUUID, 0, len(cmd.Allocations))
 	for _, allocation := range cmd.Allocations {
-		fsUUIDsFroAllocations = append(fsUUIDsFroAllocations, allocation.FundSourceUUID)
+		fsUUIDsForAllocations = append(fsUUIDsForAllocations, allocation.FundSourceUUID)
 	}
 
 	var wallet *domain.Wallet
 	err := h.walletRepository.CreateWallet(
 		ctx,
 		cmd.TenantContext,
-		fsUUIDsFroAllocations,
+		fsUUIDsForAllocations,
 		func(fundSources map[domain.FundSourceUUID]*domain.FundSource) (*domain.Wallet, error) {
 			wallet, err := domain.NewWallet(
 				cmd.Name,

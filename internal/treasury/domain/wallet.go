@@ -20,6 +20,18 @@ type WalletRepository interface {
 			fundSources map[FundSourceUUID]*FundSource,
 		) (*Wallet, error),
 	) error
+
+	LinkFundSources(
+		ctx context.Context,
+		tenantContext shared.TenantContext,
+		walletUUID WalletUUID,
+		allocations []FundSourceAllocationData,
+	) error
+}
+
+type FundSourceAllocationData struct {
+	FundSourceUUID  FundSourceUUID
+	AllocatedAmount decimal.Decimal
 }
 
 type WalletUUID struct {

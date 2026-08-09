@@ -120,6 +120,32 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /v1/treasury/wallets/{wallet_uuid}/fund-sources:
+    post:
+      summary: Link fund sources to a wallet
+      operationId: linkFundSources
+      tags:
+        - wallets
+      parameters:
+        - name: wallet_uuid
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/WalletUUID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkFundSourcesRequest'
+      responses:
+        '204':
+          description: Fund sources linked successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   schemas:
     Pagination:
@@ -325,6 +351,27 @@ components:
       properties:
         wallet_uuid:
           $ref: '#/components/schemas/WalletUUID'
+
+    LinkFundSourcesRequest:
+      type: object
+      required:
+        - allocations
+      properties:
+        allocations:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkFundSourceAllocationRequest'
+
+    LinkFundSourceAllocationRequest:
+      type: object
+      required:
+        - fund_source_uuid
+        - allocated_amount
+      properties:
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+        allocated_amount:
+          $ref: '#/components/schemas/Decimal'
 
     Decimal:
       type: string

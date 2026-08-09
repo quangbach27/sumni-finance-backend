@@ -36,3 +36,8 @@ SELECT COUNT(*)
 FROM treasury.wallets
 WHERE tenant_id = sqlc.arg(tenant_id)
   AND office_id = sqlc.arg(office_id);
+
+-- name: UpdateWalletBalance :exec
+UPDATE treasury.wallets
+SET balance = $1
+WHERE wallet_uuid = $2;

@@ -156,6 +156,31 @@ func (h *Handler) CreateWallet(ctx context.Context, request CreateWalletRequestO
 	return CreateWallet201JSONResponse{WalletUuid: walletUUID}, nil
 }
 
+func (h *Handler) LinkFundSources(ctx context.Context, request LinkFundSourcesRequestObject) (LinkFundSourcesResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("invalid-link-fund-sources-request", "request body is required")
+	}
+
+	allocations := make([]command.LinkFundSourcesAllocation, 0, len(request.Body.Allocations))
+	for _, allocation := range request.Body.Allocations {
+		allocations = append(allocations, command.LinkFundSourcesAllocation{
+			FundSourceUUID:  allocation.FundSourceUuid,
+			AllocatedAmount: allocation.AllocatedAmount,
+		})
+	}
+
+	err := h.commandHandler.LinkFundSources(ctx, command.LinkFundSources{
+		WalletUUID:  request.WalletUuid,
+		Allocations: allocations,
+		Tenant:      mockedTenantContext(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return LinkFundSources204Response{}, nil
+}
+
 func (h *Handler) ListWallets(ctx context.Context, request ListWalletsRequestObject) (ListWalletsResponseObject, error) {
 	result, err := h.queryHandler.ListWallets(ctx, query.ListWallets{
 		Page:          common.SafeDeref(request.Params.Page, 1),

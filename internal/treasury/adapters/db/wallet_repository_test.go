@@ -165,6 +165,62 @@ func TestCreateWallet_Concurrent(t *testing.T) {
 	require.True(t, actualFundSource.AvailableBalance.Equal(expectedAvailableBalance), "expected available balance %s, got %s", expectedAvailableBalance, actualFundSource.AvailableBalance)
 }
 
+func TestLinkFundSources_SavesAllocationsAndUpdatesBalances(t *testing.T) {
+	ctx := context.Background()
+	pgxDB := testutils.NewDB()
+	fundSourceRepo := db.NewFundSourceRepository(pgxDB)
+	walletRepo := db.NewWalletRepository(pgxDB)
+
+	tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+	require.NoError(t, err)
+
+	initialBalance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
+	require.NoError(t, err)
+
+	metadata, err := domain.NewCashMetadata("Finance Ops")
+	require.NoError(t, err)
+
+	fundSource, err := domain.NewFundSource("Cash Reserve", domain.FundSourceTypeCash, initialBalance, vnd, metadata)
+	require.NoError(t, err)
+
+	require.NoError(t, fundSourceRepo.CreateFundSource(ctx, tenantContext, fundSource))
+
+	wallet, err := domain.NewWallet("Ops Wallet", vnd)
+	require.NoError(t, err)
+
+	require.NoError(t, walletRepo.CreateWallet(
+		ctx,
+		tenantContext,
+		nil,
+		func(_ map[domain.FundSourceUUID]*domain.FundSource) (*domain.Wallet, error) {
+			return wallet, nil
+		},
+	))
+
+	allocationAmount, err := shared.NewMoney(decimal.NewFromInt(200_000), vnd)
+	require.NoError(t, err)
+
+	err = walletRepo.LinkFundSources(ctx, tenantContext, wallet.UUID(), []domain.FundSourceAllocationData{{
+		FundSourceUUID:  fundSource.UUID(),
+		AllocatedAmount: allocationAmount.Amount(),
+	}})
+	require.NoError(t, err)
+
+	gotWallet, err := walletRepo.GetWallet(ctx, tenantContext, wallet.UUID())
+	require.NoError(t, err)
+	require.True(t, gotWallet.Balance().Amount().Equal(decimal.NewFromInt(200_000)))
+
+	allocations, err := getWalletAllocationsByWalletUUID(ctx, pgxDB, wallet.UUID())
+	require.NoError(t, err)
+	require.Len(t, allocations, 1)
+	require.Equal(t, fundSource.UUID(), allocations[0].FundSourceUuid)
+	require.True(t, allocations[0].Balance.Equal(allocationAmount.Amount()))
+
+	updatedFundSource, err := getFundSourceByUUID(ctx, pgxDB, fundSource.UUID())
+	require.NoError(t, err)
+	require.True(t, updatedFundSource.AvailableBalance.Equal(decimal.NewFromInt(300_000)))
+}
+
 func TestGetWallet_ReturnsWalletWithoutAllocations(t *testing.T) {
 	t.Parallel()
 
