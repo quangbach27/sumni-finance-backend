@@ -16,6 +16,8 @@ type walletReadModel struct {
 	db *pgxpool.Pool
 }
 
+var _ query.WalletReadModel = (*walletReadModel)(nil)
+
 func NewWalletReadModel(db *pgxpool.Pool) *walletReadModel {
 	if db == nil {
 		panic("db can't be nil")

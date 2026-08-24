@@ -146,6 +146,26 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /v1/treasury/transactions:
+    post:
+      summary: Create transactions
+      operationId: createTransactions
+      tags:
+        - transactions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionsRequest'
+      responses:
+        '204':
+          description: Transactions created successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
 components:
   schemas:
     Pagination:
@@ -373,6 +393,52 @@ components:
         allocated_amount:
           $ref: '#/components/schemas/Decimal'
 
+    CreateTransactionsRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateTransactionItemRequest'
+
+    CreateTransactionItemRequest:
+      type: object
+      required:
+        - fund_source_uuid
+        - entry_type
+        - amount
+        - currency
+        - transaction_date
+      properties:
+        fund_source_uuid:
+          $ref: '#/components/schemas/FundSourceUUID'
+        wallet_uuid:
+          $ref: '#/components/schemas/WalletUUID'
+          nullable: true
+        entry_type:
+          $ref: '#/components/schemas/EntryType'
+        amount:
+          $ref: '#/components/schemas/Decimal'
+        currency:
+          $ref: '#/components/schemas/Currency'
+        description:
+          type: string
+        transaction_date:
+          type: string
+          format: date-time
+
+    CreateTransactionsResponse:
+      type: object
+      required:
+        - transaction_uuids
+      properties:
+        transaction_uuids:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionUUID'
+
     Decimal:
       type: string
       x-go-type: decimal.Decimal
@@ -412,6 +478,14 @@ components:
       format: uuid
       description: UUID of a wallet
       x-go-type: domain.WalletUUID
+      x-go-type-import:
+        path: sumni-finance-backend/internal/treasury/domain
+
+    TransactionUUID:
+      type: string
+      format: uuid
+      description: UUID of a transaction
+      x-go-type: domain.TransactionUUID
       x-go-type-import:
         path: sumni-finance-backend/internal/treasury/domain
 

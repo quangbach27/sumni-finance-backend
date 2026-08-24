@@ -63,7 +63,7 @@ func (q *Queries) GetFundSourceByUUID(ctx context.Context, fundSourceUuid domain
 const getFundSourcesByUUIDs = `-- name: GetFundSourcesByUUIDs :many
 SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
 FROM treasury.fund_sources
-WHERE fund_source_uuid = ANY($1::uuid[]) 
+WHERE fund_source_uuid = ANY($1::uuid[])
   AND tenant_id = $2
   AND office_id = $3
 `
@@ -181,7 +181,7 @@ FROM treasury.fund_sources
 WHERE tenant_id = $1
   AND office_id = $2
 ORDER BY fund_source_uuid ASC
-LIMIT $4 
+LIMIT $4
 OFFSET $3
 `
 
@@ -244,5 +244,21 @@ type UpdateFundSourceAvailableBalanceParams struct {
 
 func (q *Queries) UpdateFundSourceAvailableBalance(ctx context.Context, arg UpdateFundSourceAvailableBalanceParams) error {
 	_, err := q.db.Exec(ctx, updateFundSourceAvailableBalance, arg.NewAvailableBalance, arg.FundSourceUuid)
+	return err
+}
+
+const updateFundSourceBalance = `-- name: UpdateFundSourceBalance :exec
+UPDATE treasury.fund_sources
+SET balance = $1
+WHERE fund_source_uuid = $2
+`
+
+type UpdateFundSourceBalanceParams struct {
+	NewBalance     decimal.Decimal
+	FundSourceUuid domain.FundSourceUUID
+}
+
+func (q *Queries) UpdateFundSourceBalance(ctx context.Context, arg UpdateFundSourceBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateFundSourceBalance, arg.NewBalance, arg.FundSourceUuid)
 	return err
 }

@@ -116,3 +116,20 @@ func (q *Queries) GetAllocationsByWalletUUIDs(ctx context.Context, walletUuids [
 	}
 	return items, nil
 }
+
+const updateWalletAllocationBalance = `-- name: UpdateWalletAllocationBalance :exec
+UPDATE treasury.wallet_allocations
+SET balance = $1
+WHERE wallet_uuid = $2 AND fund_source_uuid = $3
+`
+
+type UpdateWalletAllocationBalanceParams struct {
+	Balance        decimal.Decimal
+	WalletUuid     domain.WalletUUID
+	FundSourceUuid domain.FundSourceUUID
+}
+
+func (q *Queries) UpdateWalletAllocationBalance(ctx context.Context, arg UpdateWalletAllocationBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateWalletAllocationBalance, arg.Balance, arg.WalletUuid, arg.FundSourceUuid)
+	return err
+}

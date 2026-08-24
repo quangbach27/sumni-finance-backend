@@ -3,8 +3,8 @@ package shared
 import "sumni-finance-backend/internal/common"
 
 var (
-	EntryTypeDebit  = common.MustEnum[EntryType]("DEBIT")
-	EntryTypeCredit = common.MustEnum[EntryType]("CREDIT")
+	EntryTypeIn  = common.MustEnum[EntryType]("in")
+	EntryTypeOut = common.MustEnum[EntryType]("out")
 )
 
 type EntryType struct {
@@ -12,15 +12,15 @@ type EntryType struct {
 }
 
 func (e EntryType) Reverse() EntryType {
-	if e.Equal(EntryTypeDebit.Enum) {
-		return EntryTypeCredit
+	if e.Equal(EntryTypeIn.Enum) {
+		return EntryTypeOut
 	}
 
-	return EntryTypeDebit
+	return EntryTypeIn
 }
 
 type EntryTypeValues string
 
 func (e EntryTypeValues) Values() []string {
-	return []string{"DEBIT", "CREDIT"}
+	return []string{"in", "out"}
 }

@@ -16,6 +16,8 @@ type fundSourceReadModel struct {
 	db *pgxpool.Pool
 }
 
+var _ query.FundSourceReadModel = (*fundSourceReadModel)(nil)
+
 func NewFundSourceReadModel(db *pgxpool.Pool) *fundSourceReadModel {
 	if db == nil {
 		panic("db can't be nil")

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
@@ -35,6 +36,28 @@ type CreateFundSourceRequest struct {
 type CreateFundSourceResponse struct {
 	// FundSourceUuid UUID of a fund source
 	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+}
+
+// CreateTransactionItemRequest defines model for CreateTransactionItemRequest.
+type CreateTransactionItemRequest struct {
+	Amount      Decimal  `json:"amount"`
+	Currency    Currency `json:"currency"`
+	Description *string  `json:"description,omitempty"`
+
+	// EntryType Journal entry type (DEBIT || CREDIT)
+	EntryType EntryType `json:"entry_type"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid  FundSourceUUID `json:"fund_source_uuid"`
+	TransactionDate time.Time      `json:"transaction_date"`
+
+	// WalletUuid UUID of a wallet
+	WalletUuid *WalletUUID `json:"wallet_uuid,omitempty"`
+}
+
+// CreateTransactionsRequest defines model for CreateTransactionsRequest.
+type CreateTransactionsRequest struct {
+	Items []CreateTransactionItemRequest `json:"items"`
 }
 
 // CreateWalletAllocationRequest defines model for CreateWalletAllocationRequest.
@@ -63,6 +86,9 @@ type Currency = shared.Currency
 
 // Decimal defines model for Decimal.
 type Decimal = decimal.Decimal
+
+// EntryType Journal entry type (DEBIT || CREDIT)
+type EntryType = shared.EntryType
 
 // ErrorDetails defines model for ErrorDetails.
 type ErrorDetails struct {
@@ -217,6 +243,9 @@ type ListWalletsParams struct {
 // CreateFundSourceJSONRequestBody defines body for CreateFundSource for application/json ContentType.
 type CreateFundSourceJSONRequestBody = CreateFundSourceRequest
 
+// CreateTransactionsJSONRequestBody defines body for CreateTransactions for application/json ContentType.
+type CreateTransactionsJSONRequestBody = CreateTransactionsRequest
+
 // CreateWalletJSONRequestBody defines body for CreateWallet for application/json ContentType.
 type CreateWalletJSONRequestBody = CreateWalletRequest
 
@@ -304,6 +333,11 @@ type ClientInterface interface {
 
 	CreateFundSource(ctx context.Context, body CreateFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateTransactionsWithBody request with any body
+	CreateTransactionsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateTransactions(ctx context.Context, body CreateTransactionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListWallets request
 	ListWallets(ctx context.Context, params *ListWalletsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -344,6 +378,30 @@ func (c *Client) CreateFundSourceWithBody(ctx context.Context, contentType strin
 
 func (c *Client) CreateFundSource(ctx context.Context, body CreateFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateFundSourceRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTransactionsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTransactionsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateTransactions(ctx context.Context, body CreateTransactionsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateTransactionsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -500,6 +558,46 @@ func NewCreateFundSourceRequestWithBody(server string, contentType string, body 
 	}
 
 	operationPath := fmt.Sprintf("/v1/treasury/fund-sources")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateTransactionsRequest calls the generic CreateTransactions builder with application/json body
+func NewCreateTransactionsRequest(server string, body CreateTransactionsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateTransactionsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateTransactionsRequestWithBody generates requests for CreateTransactions with any type of body
+func NewCreateTransactionsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/treasury/transactions")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -722,6 +820,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateFundSourceWithResponse(ctx context.Context, body CreateFundSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFundSourceClientResponse, error)
 
+	// CreateTransactionsWithBodyWithResponse request with any body
+	CreateTransactionsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTransactionsClientResponse, error)
+
+	CreateTransactionsWithResponse(ctx context.Context, body CreateTransactionsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTransactionsClientResponse, error)
+
 	// ListWalletsWithResponse request
 	ListWalletsWithResponse(ctx context.Context, params *ListWalletsParams, reqEditors ...RequestEditorFn) (*ListWalletsClientResponse, error)
 
@@ -778,6 +881,29 @@ func (r CreateFundSourceClientResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateFundSourceClientResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateTransactionsClientResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateTransactionsClientResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateTransactionsClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -879,6 +1005,23 @@ func (c *ClientWithResponses) CreateFundSourceWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseCreateFundSourceClientResponse(rsp)
+}
+
+// CreateTransactionsWithBodyWithResponse request with arbitrary body returning *CreateTransactionsClientResponse
+func (c *ClientWithResponses) CreateTransactionsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateTransactionsClientResponse, error) {
+	rsp, err := c.CreateTransactionsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTransactionsClientResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateTransactionsWithResponse(ctx context.Context, body CreateTransactionsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateTransactionsClientResponse, error) {
+	rsp, err := c.CreateTransactions(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateTransactionsClientResponse(rsp)
 }
 
 // ListWalletsWithResponse request returning *ListWalletsClientResponse
@@ -991,6 +1134,39 @@ func ParseCreateFundSourceClientResponse(rsp *http.Response) (*CreateFundSourceC
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateTransactionsClientResponse parses an HTTP response from a CreateTransactionsWithResponse call
+func ParseCreateTransactionsClientResponse(rsp *http.Response) (*CreateTransactionsClientResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateTransactionsClientResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalServerError

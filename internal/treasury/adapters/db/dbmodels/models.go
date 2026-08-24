@@ -7,11 +7,54 @@ package dbmodels
 import (
 	"database/sql/driver"
 	"fmt"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
 )
+
+type TreasuryEntryType string
+
+const (
+	TreasuryEntryTypeIn  TreasuryEntryType = "in"
+	TreasuryEntryTypeOut TreasuryEntryType = "out"
+)
+
+func (e *TreasuryEntryType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TreasuryEntryType(s)
+	case string:
+		*e = TreasuryEntryType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TreasuryEntryType: %T", src)
+	}
+	return nil
+}
+
+type NullTreasuryEntryType struct {
+	TreasuryEntryType TreasuryEntryType
+	Valid             bool // Valid is true if TreasuryEntryType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTreasuryEntryType) Scan(value interface{}) error {
+	if value == nil {
+		ns.TreasuryEntryType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TreasuryEntryType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTreasuryEntryType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TreasuryEntryType), nil
+}
 
 type TreasuryFundSourceType string
 
@@ -55,6 +98,51 @@ func (ns NullTreasuryFundSourceType) Value() (driver.Value, error) {
 	return string(ns.TreasuryFundSourceType), nil
 }
 
+type TreasuryTransactionStatus string
+
+const (
+	TreasuryTransactionStatusDRAFTED  TreasuryTransactionStatus = "DRAFTED"
+	TreasuryTransactionStatusRECORDED TreasuryTransactionStatus = "RECORDED"
+	TreasuryTransactionStatusPOSTED   TreasuryTransactionStatus = "POSTED"
+	TreasuryTransactionStatusVOIDED   TreasuryTransactionStatus = "VOIDED"
+	TreasuryTransactionStatusREVERSED TreasuryTransactionStatus = "REVERSED"
+)
+
+func (e *TreasuryTransactionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TreasuryTransactionStatus(s)
+	case string:
+		*e = TreasuryTransactionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TreasuryTransactionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullTreasuryTransactionStatus struct {
+	TreasuryTransactionStatus TreasuryTransactionStatus
+	Valid                     bool // Valid is true if TreasuryTransactionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTreasuryTransactionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.TreasuryTransactionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TreasuryTransactionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTreasuryTransactionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TreasuryTransactionStatus), nil
+}
+
 type TreasuryFundSource struct {
 	FundSourceUuid    domain.FundSourceUUID
 	Name              string
@@ -69,6 +157,21 @@ type TreasuryFundSource struct {
 	CashOwner         *string
 	TenantID          string
 	OfficeID          string
+}
+
+type TreasuryTransaction struct {
+	TransactionUuid         domain.TransactionUUID
+	Status                  domain.TransactionStatus
+	EntryType               shared.EntryType
+	Amount                  decimal.Decimal
+	Currency                shared.Currency
+	Description             *string
+	TransactionDate         time.Time
+	TenantID                string
+	OfficeID                string
+	FundSourceUuid          domain.FundSourceUUID
+	WalletUuid              *domain.WalletUUID
+	ReversedTransactionUuid *domain.TransactionUUID
 }
 
 type TreasuryWallet struct {

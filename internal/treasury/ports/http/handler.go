@@ -220,6 +220,35 @@ func (h *Handler) ListWallets(ctx context.Context, request ListWalletsRequestObj
 	return resp, nil
 }
 
+func (h *Handler) CreateTransactions(ctx context.Context, request CreateTransactionsRequestObject) (CreateTransactionsResponseObject, error) {
+	if request.Body == nil {
+		return nil, common.NewInvalidInputError("invalid-create-transactions-request", "request body is required")
+	}
+
+	items := make([]command.CreateTransactionItem, 0, len(request.Body.Items))
+	for _, item := range request.Body.Items {
+		items = append(items, command.CreateTransactionItem{
+			FundSourceUUID:  item.FundSourceUuid,
+			WalletUUID:      item.WalletUuid,
+			EntryType:       item.EntryType,
+			Amount:          item.Amount,
+			Currency:        item.Currency,
+			Description:     item.Description,
+			TransactionDate: item.TransactionDate,
+		})
+	}
+
+	err := h.commandHandler.CreateTransactions(ctx, command.CreateTransactions{
+		Items:         items,
+		TenantContext: mockedTenantContext(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateTransactions204Response{}, nil
+}
+
 func Register(protectedRoute EchoRouter, handler *Handler) error {
 	if handler == nil {
 		return errors.New("handler can't be nil")

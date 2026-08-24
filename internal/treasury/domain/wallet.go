@@ -5,11 +5,16 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shopspring/decimal"
+
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
-
-	"github.com/shopspring/decimal"
 )
+
+type WalletQuery struct {
+	WalletUUID      WalletUUID
+	FundSourceUUIDs []FundSourceUUID
+}
 
 type WalletRepository interface {
 	CreateWallet(
@@ -26,6 +31,13 @@ type WalletRepository interface {
 		tenantContext shared.TenantContext,
 		walletUUID WalletUUID,
 		allocations []FundSourceAllocationData,
+	) error
+
+	CreateTransactions(
+		ctx context.Context,
+		tenantContext shared.TenantContext,
+		walletQuery []WalletQuery,
+		createFn func(wallet map[WalletUUID]*Wallet) ([]*Transaction, error),
 	) error
 }
 

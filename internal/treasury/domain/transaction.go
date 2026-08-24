@@ -1,13 +1,16 @@
+// Package domain
 package domain
 
 import (
+	"errors"
 	"fmt"
+	"time"
 
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 )
 
-// TransactionType represents the lifecycle state of a transaction. A transaction
+// TransactionStatus represents the lifecycle state of a transaction. A transaction
 // moves through these states in order, generally as follows:
 //
 //	DRAFTED -> RECORDED -> POSTED
@@ -45,52 +48,60 @@ import (
 //     counterpart is zero.
 //     - This is the state that actually neutralizes the original
 //     transaction's effect on wallet/fund source balances.
-type TransactionType struct {
-	common.Enum[TransactionTypeValues]
+type TransactionStatus struct {
+	common.Enum[TransactionStatusValues]
 }
 
-type TransactionTypeValues string
+type TransactionStatusValues string
 
-func (tv TransactionTypeValues) Values() []string {
+func (tv TransactionStatusValues) Values() []string {
 	return []string{"DRAFTED", "RECORDED", "POSTED", "VOIDED", "REVERSED"}
 }
 
 var (
-	TransactionTypeDrafted  = common.MustEnum[TransactionType]("DRAFTED")
-	TransactionTypeRecorded = common.MustEnum[TransactionType]("RECORDED")
-	TransactionTypePosted   = common.MustEnum[TransactionType]("POSTED")
-	TransactionTypeVoided   = common.MustEnum[TransactionType]("VOIDED")
-	TransactionTypeReversed = common.MustEnum[TransactionType]("REVERSED")
+	TransactionStatusDrafted  = common.MustEnum[TransactionStatus]("DRAFTED")
+	TransactionStatusRecorded = common.MustEnum[TransactionStatus]("RECORDED")
+	TransactionStatusPosted   = common.MustEnum[TransactionStatus]("POSTED")
+	TransactionStatusVoided   = common.MustEnum[TransactionStatus]("VOIDED")
+	TransactionStatusReversed = common.MustEnum[TransactionStatus]("REVERSED")
 )
 
 type TransactionUUID struct {
 	common.UUID
 }
+
 type Transaction struct {
 	uuid TransactionUUID
 
-	transactionType TransactionType
-	entryType       shared.EntryType
-	amount          shared.Money
+	status    TransactionStatus
+	entryType shared.EntryType
+	amount    shared.Money
 
 	fundSourceUUID          FundSourceUUID
 	walletUUID              *WalletUUID
 	reversedTransactionUUID *TransactionUUID
+
+	description     *string
+	transactionDate time.Time
 }
 
 func (t *Transaction) UUID() TransactionUUID                     { return t.uuid }
-func (t *Transaction) TransactionType() TransactionType          { return t.transactionType }
+func (t *Transaction) Status() TransactionStatus                 { return t.status }
 func (t *Transaction) EntryType() shared.EntryType               { return t.entryType }
 func (t *Transaction) Amount() shared.Money                      { return t.amount }
 func (t *Transaction) FundSourceUUID() FundSourceUUID            { return t.fundSourceUUID }
 func (t *Transaction) WalletUUID() *WalletUUID                   { return t.walletUUID }
 func (t *Transaction) ReversedTransactionUUID() *TransactionUUID { return t.reversedTransactionUUID }
+func (t *Transaction) Description() *string                      { return t.description }
+func (t *Transaction) TransactionDate() time.Time                { return t.transactionDate }
 
 func NewTransaction(
 	entryType shared.EntryType,
 	amount shared.Money,
 	fundSourceUUID FundSourceUUID,
 	walletUUID WalletUUID,
+	description *string,
+	transactionDate time.Time,
 ) (*Transaction, error) {
 	errDetails := []common.ErrorDetails{}
 	if entryType.IsZero() {
@@ -114,55 +125,72 @@ func NewTransaction(
 			Message:    "fund source uuid can't be empty",
 		})
 	}
+	if transactionDate.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "Transaction",
+			ErrorSlug:  "empty-transaction-date",
+			Message:    "transaction date can't be empty",
+		})
+	}
 	if len(errDetails) != 0 {
 		return nil, common.NewInvalidInputError("invalid-transaction", "transacion is not valid").WithDetails(errDetails)
 	}
 
-	transactionType := TransactionTypeDrafted
-	if !walletUUID.IsZero() {
-		transactionType = TransactionTypeRecorded
-	}
-
 	var walletUUIDPtr *WalletUUID
+	status := TransactionStatusDrafted
+
 	if !walletUUID.IsZero() {
 		walletUUIDPtr = &walletUUID
+		status = TransactionStatusRecorded
 	}
 
 	return &Transaction{
 		uuid:            TransactionUUID{common.NewUUIDv7()},
-		transactionType: transactionType,
+		status:          status,
 		entryType:       entryType,
 		amount:          amount,
 		fundSourceUUID:  fundSourceUUID,
 		walletUUID:      walletUUIDPtr,
+		description:     description,
+		transactionDate: transactionDate,
 	}, nil
 }
 
-func (t *Transaction) MarkAsRecorded() error {
-	if t.transactionType != TransactionTypeDrafted {
-		return fmt.Errorf("can't mark as record with transaction type: %s", t.transactionType.String())
+func (t *Transaction) IsRecorded() bool {
+	return t.status == TransactionStatusRecorded
+}
+
+func (t *Transaction) MarkAsRecorded(walletUUID WalletUUID) error {
+	if walletUUID.IsZero() {
+		return errors.New("walletUUID can't be empty")
 	}
 
-	t.transactionType = TransactionTypeRecorded
+	if t.status != TransactionStatusDrafted {
+		return fmt.Errorf("can't mark as record with transaction type: %s", t.status.String())
+	}
+
+	t.status = TransactionStatusRecorded
+	t.walletUUID = &walletUUID
+
 	return nil
 }
 
 func (t *Transaction) MarkAsPosted() error {
-	if t.transactionType != TransactionTypeRecorded {
-		return fmt.Errorf("can't mark as post with transaction type: %s", t.transactionType.String())
+	if t.status != TransactionStatusRecorded {
+		return fmt.Errorf("can't mark as post with transaction type: %s", t.status.String())
 	}
 
-	t.transactionType = TransactionTypePosted
+	t.status = TransactionStatusPosted
 	return nil
 }
 
 func (t *Transaction) Void() (*Transaction, error) {
-	if t.transactionType != TransactionTypePosted {
-		return nil, fmt.Errorf("")
+	if t.status != TransactionStatusPosted {
+		return nil, fmt.Errorf("transaction can't be voided because transaction (status: %s) isn't posted", t.status.String())
 	}
 	reverseTransaction := t.newReverseTransaction()
 
-	t.transactionType = TransactionTypeVoided
+	t.status = TransactionStatusVoided
 	t.reversedTransactionUUID = common.ToPtr(reverseTransaction.uuid)
 
 	return reverseTransaction, nil
@@ -170,18 +198,20 @@ func (t *Transaction) Void() (*Transaction, error) {
 
 func (t *Transaction) newReverseTransaction() *Transaction {
 	var reverseEntryType shared.EntryType
-	if t.entryType == shared.EntryTypeCredit {
-		reverseEntryType = shared.EntryTypeDebit
+	if t.entryType == shared.EntryTypeOut {
+		reverseEntryType = shared.EntryTypeIn
 	} else {
-		reverseEntryType = shared.EntryTypeCredit
+		reverseEntryType = shared.EntryTypeOut
 	}
 
 	return &Transaction{
 		uuid:            TransactionUUID{common.NewUUIDv7()},
-		transactionType: TransactionTypeReversed,
+		status:          TransactionStatusReversed,
 		entryType:       reverseEntryType,
 		amount:          t.amount,
 		fundSourceUUID:  t.fundSourceUUID,
 		walletUUID:      t.walletUUID,
+		description:     t.description,
+		transactionDate: time.Now(),
 	}
 }

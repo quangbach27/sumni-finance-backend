@@ -1,21 +1,24 @@
+// Package db
 package db
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/adapters/db/dbmodels"
 	"sumni-finance-backend/internal/treasury/domain"
-
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type walletRepo struct {
 	db *pgxpool.Pool
 }
+
+var _ domain.WalletRepository = (*walletRepo)(nil)
 
 func NewWalletRepository(db *pgxpool.Pool) *walletRepo {
 	if db == nil {
@@ -258,6 +261,152 @@ func (r *walletRepo) LinkFundSources(
 			return nil
 		},
 	)
+}
+
+func (r *walletRepo) CreateTransactions(
+	ctx context.Context,
+	tenantContext shared.TenantContext,
+	walletQueries []domain.WalletQuery,
+	createFn func(wallets map[domain.WalletUUID]*domain.Wallet) ([]*domain.Transaction, error),
+) error {
+	return common.UpdateInTx(ctx, r.db, func(ctx context.Context, tx pgx.Tx) error {
+		queries := dbmodels.New(tx)
+
+		wallets, err := loadWalletsForTransactions(ctx, queries, walletQueries, tenantContext)
+		if err != nil {
+			return fmt.Errorf("error retrieving wallets for transactions: %w", err)
+		}
+
+		transactions, err := createFn(wallets)
+		if err != nil {
+			return err
+		}
+
+		for _, txn := range transactions {
+			if err := queries.InsertTransaction(ctx, toInsertTransactionParams(txn, tenantContext)); err != nil {
+				return fmt.Errorf("error saving transaction: %w", err)
+			}
+		}
+
+		return persistTouchedWalletBalances(ctx, queries, wallets)
+	})
+}
+
+// loadWalletsForTransactions loads exactly the wallets and fund-source allocations named by
+// walletQueries — not each wallet's full allocation set — since the closure passed to
+// CreateTransactions only ever needs the fund sources referenced by the transaction batch.
+func loadWalletsForTransactions(
+	ctx context.Context,
+	queries *dbmodels.Queries,
+	walletQueries []domain.WalletQuery,
+	tenantContext shared.TenantContext,
+) (map[domain.WalletUUID]*domain.Wallet, error) {
+	if len(walletQueries) == 0 {
+		return map[domain.WalletUUID]*domain.Wallet{}, nil
+	}
+
+	walletUUIDs := make([]common.UUID, 0, len(walletQueries))
+	fundSourceUUIDs := make([]common.UUID, 0, len(walletQueries))
+	for _, wq := range walletQueries {
+		for _, fsUUID := range wq.FundSourceUUIDs {
+			walletUUIDs = append(walletUUIDs, common.UUID(wq.WalletUUID.UUID))
+			fundSourceUUIDs = append(fundSourceUUIDs, common.UUID(fsUUID.UUID))
+		}
+	}
+
+	rows, err := queries.GetWalletsWithAllocationsByUUIDs(ctx, dbmodels.GetWalletsWithAllocationsByUUIDsParams{
+		WalletUuids:     walletUUIDs,
+		FundSourceUuids: fundSourceUUIDs,
+		TenantID:        tenantContext.TenantID(),
+		OfficeID:        tenantContext.OfficeID(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	allocationsByWallet := make(map[domain.WalletUUID]map[domain.FundSourceUUID]*domain.FundSourceAllocation, len(walletQueries))
+	for _, row := range rows {
+		fundSource := unmarshalFundSourceRowToDomain(row.TreasuryFundSource)
+
+		walletUUID := row.TreasuryWalletAllocation.WalletUuid
+		if _, ok := allocationsByWallet[walletUUID]; !ok {
+			allocationsByWallet[walletUUID] = make(map[domain.FundSourceUUID]*domain.FundSourceAllocation)
+		}
+
+		allocationsByWallet[walletUUID][fundSource.UUID()] = domain.UnmarshalFundSourceAllocation(
+			fundSource,
+			shared.UnmarshalMoney(row.TreasuryWalletAllocation.Balance, row.TreasuryWallet.Currency),
+		)
+	}
+
+	wallets := make(map[domain.WalletUUID]*domain.Wallet, len(walletQueries))
+	for _, row := range rows {
+		wallets[row.TreasuryWallet.WalletUuid] = unmarshalWalletRowToDomain(
+			row.TreasuryWallet,
+			allocationsByWallet[row.TreasuryWallet.WalletUuid],
+		)
+	}
+
+	return wallets, nil
+}
+
+type walletFundSourcePair struct {
+	walletUUID domain.WalletUUID
+	fsUUID     domain.FundSourceUUID
+}
+
+// persistTouchedWalletBalances uses the returned transactions themselves as the record of what
+// changed: only RECORDED transactions (WalletUUID set) touch a wallet/allocation/fund-source
+// balance, and Transaction.FundSourceUUID/WalletUUID say exactly which ones.
+func persistTouchedWalletBalances(
+	ctx context.Context,
+	queries *dbmodels.Queries,
+	wallets map[domain.WalletUUID]*domain.Wallet,
+) error {
+	for _, w := range wallets {
+		if err := queries.UpdateWalletBalance(ctx, dbmodels.UpdateWalletBalanceParams{
+			WalletUuid: w.UUID(),
+			Balance:    w.Balance().Amount(),
+		}); err != nil {
+			return fmt.Errorf("error updating wallet allocation balance: %w", err)
+		}
+
+		for _, allocation := range w.Allocations() {
+			if err := queries.UpdateWalletAllocationBalance(ctx, dbmodels.UpdateWalletAllocationBalanceParams{
+				Balance:        allocation.Balance().Amount(),
+				WalletUuid:     w.UUID(),
+				FundSourceUuid: allocation.FundSource().UUID(),
+			}); err != nil {
+				return fmt.Errorf("error updating wallet allocation balance: %w", err)
+			}
+
+			if err := queries.UpdateFundSourceBalance(ctx, dbmodels.UpdateFundSourceBalanceParams{
+				NewBalance:     allocation.FundSource().Balance().Amount(),
+				FundSourceUuid: allocation.FundSource().UUID(),
+			}); err != nil {
+				return fmt.Errorf("error updating fund source balance: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func toInsertTransactionParams(txn *domain.Transaction, tenantContext shared.TenantContext) dbmodels.InsertTransactionParams {
+	return dbmodels.InsertTransactionParams{
+		TransactionUuid:         txn.UUID(),
+		Status:                  txn.Status(),
+		EntryType:               txn.EntryType(),
+		Amount:                  txn.Amount().Amount(),
+		Currency:                txn.Amount().Currency(),
+		Description:             txn.Description(),
+		TransactionDate:         txn.TransactionDate(),
+		TenantID:                tenantContext.TenantID(),
+		OfficeID:                tenantContext.OfficeID(),
+		FundSourceUuid:          txn.FundSourceUUID(),
+		WalletUuid:              txn.WalletUUID(),
+		ReversedTransactionUuid: txn.ReversedTransactionUUID(),
+	}
 }
 
 func unmarshalWalletRowToDomain(walletRow dbmodels.TreasuryWallet, allocations map[domain.FundSourceUUID]*domain.FundSourceAllocation) *domain.Wallet {

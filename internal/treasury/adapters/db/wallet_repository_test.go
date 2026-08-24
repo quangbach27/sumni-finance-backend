@@ -6,6 +6,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/common/testutils"
@@ -298,6 +299,229 @@ func TestGetWallet_ReturnsWalletWithAllocations(t *testing.T) {
 	require.Equal(t, wallet.Name(), got.Name())
 	require.True(t, wallet.Balance().Amount().Equal(got.Balance().Amount()))
 	require.Equal(t, wallet.Balance().Currency(), got.Balance().Currency())
+}
+
+func TestCreateTransactions_Drafted_DoesNotChangeBalances(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	pgxDB := testutils.NewDB()
+	fundSourceRepo := db.NewFundSourceRepository(pgxDB)
+	walletRepo := db.NewWalletRepository(pgxDB)
+
+	tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+	require.NoError(t, err)
+
+	initialBalance, err := shared.NewMoney(decimal.NewFromInt(500_000), vnd)
+	require.NoError(t, err)
+
+	metadata, err := domain.NewCashMetadata("Finance Ops")
+	require.NoError(t, err)
+
+	fundSource, err := domain.NewFundSource("Cash Reserve", domain.FundSourceTypeCash, initialBalance, vnd, metadata)
+	require.NoError(t, err)
+	require.NoError(t, fundSourceRepo.CreateFundSource(ctx, tenantContext, fundSource))
+
+	amount, err := shared.NewMoney(decimal.NewFromInt(100_000), vnd)
+	require.NoError(t, err)
+
+	var transactionUUID domain.TransactionUUID
+	err = walletRepo.CreateTransactions(ctx, tenantContext, nil, func(_ map[domain.WalletUUID]*domain.Wallet) ([]*domain.Transaction, error) {
+		txn, err := domain.NewTransaction(shared.EntryTypeIn, amount, fundSource.UUID(), domain.WalletUUID{}, nil, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		transactionUUID = txn.UUID()
+		return []*domain.Transaction{txn}, nil
+	})
+	require.NoError(t, err)
+
+	queries := dbmodels.New(pgxDB)
+	txnRow, err := queries.GetTransactionByUUID(ctx, transactionUUID)
+	require.NoError(t, err)
+	require.Equal(t, domain.TransactionStatusDrafted, txnRow.Status)
+	require.Nil(t, txnRow.WalletUuid)
+
+	updatedFundSource, err := getFundSourceByUUID(ctx, pgxDB, fundSource.UUID())
+	require.NoError(t, err)
+	require.True(t, updatedFundSource.Balance.Equal(initialBalance.Amount()))
+}
+
+func TestCreateTransactions_Recorded_UpdatesWalletFundSourceAndAllocationBalances(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	pgxDB := testutils.NewDB()
+	fundSourceRepo := db.NewFundSourceRepository(pgxDB)
+	walletRepo := db.NewWalletRepository(pgxDB)
+
+	tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+	require.NoError(t, err)
+
+	initialBalance, err := shared.NewMoney(decimal.NewFromInt(1_000_000), vnd)
+	require.NoError(t, err)
+
+	metadata, err := domain.NewCashMetadata("Finance Ops")
+	require.NoError(t, err)
+
+	fundSource, err := domain.NewFundSource("Cash Reserve", domain.FundSourceTypeCash, initialBalance, vnd, metadata)
+	require.NoError(t, err)
+	require.NoError(t, fundSourceRepo.CreateFundSource(ctx, tenantContext, fundSource))
+
+	wallet, err := domain.NewWallet("Ops Wallet", vnd)
+	require.NoError(t, err)
+
+	allocationAmount, err := shared.NewMoney(decimal.NewFromInt(200_000), vnd)
+	require.NoError(t, err)
+
+	require.NoError(t, walletRepo.CreateWallet(
+		ctx,
+		tenantContext,
+		[]domain.FundSourceUUID{fundSource.UUID()},
+		func(fundSources map[domain.FundSourceUUID]*domain.FundSource) (*domain.Wallet, error) {
+			if err := wallet.Allocate(fundSources[fundSource.UUID()], allocationAmount); err != nil {
+				return nil, err
+			}
+			return wallet, nil
+		},
+	))
+
+	creditAmount, err := shared.NewMoney(decimal.NewFromInt(50_000), vnd)
+	require.NoError(t, err)
+	debitAmount, err := shared.NewMoney(decimal.NewFromInt(30_000), vnd)
+	require.NoError(t, err)
+
+	walletQueries := []domain.WalletQuery{{
+		WalletUUID:      wallet.UUID(),
+		FundSourceUUIDs: []domain.FundSourceUUID{fundSource.UUID()},
+	}}
+
+	var transactionUUIDs []domain.TransactionUUID
+	err = walletRepo.CreateTransactions(ctx, tenantContext, walletQueries, func(wallets map[domain.WalletUUID]*domain.Wallet) ([]*domain.Transaction, error) {
+		w, ok := wallets[wallet.UUID()]
+		require.True(t, ok)
+
+		creditTxn, err := domain.NewTransaction(shared.EntryTypeIn, creditAmount, fundSource.UUID(), wallet.UUID(), nil, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, w.TopUp(fundSource.UUID(), creditAmount))
+
+		debitTxn, err := domain.NewTransaction(shared.EntryTypeOut, debitAmount, fundSource.UUID(), wallet.UUID(), nil, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, w.Withdraw(fundSource.UUID(), debitAmount))
+
+		transactionUUIDs = []domain.TransactionUUID{creditTxn.UUID(), debitTxn.UUID()}
+		return []*domain.Transaction{creditTxn, debitTxn}, nil
+	})
+	require.NoError(t, err)
+	require.Len(t, transactionUUIDs, 2)
+
+	queries := dbmodels.New(pgxDB)
+	for _, txnUUID := range transactionUUIDs {
+		row, err := queries.GetTransactionByUUID(ctx, txnUUID)
+		require.NoError(t, err)
+		require.Equal(t, domain.TransactionStatusRecorded, row.Status)
+		require.NotNil(t, row.WalletUuid)
+		require.Equal(t, wallet.UUID(), *row.WalletUuid)
+	}
+
+	// 200_000 (allocated) + 50_000 (credit) - 30_000 (debit) = 220_000
+	expectedBalance := decimal.NewFromInt(220_000)
+
+	gotWallet, err := walletRepo.GetWallet(ctx, tenantContext, wallet.UUID())
+	require.NoError(t, err)
+	require.True(t, gotWallet.Balance().Amount().Equal(expectedBalance))
+
+	allocations, err := getWalletAllocationsByWalletUUID(ctx, pgxDB, wallet.UUID())
+	require.NoError(t, err)
+	require.Len(t, allocations, 1)
+	require.True(t, allocations[0].Balance.Equal(expectedBalance))
+
+	// 1_000_000 (initial) + 50_000 (credit) - 30_000 (debit) = 1_020_000
+	updatedFundSource, err := getFundSourceByUUID(ctx, pgxDB, fundSource.UUID())
+	require.NoError(t, err)
+	require.True(t, updatedFundSource.Balance.Equal(decimal.NewFromInt(1_020_000)))
+}
+
+func TestCreateTransactions_SameWalletAndFundSourceTwiceInOneBatch_AccumulatesBalances(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	pgxDB := testutils.NewDB()
+	fundSourceRepo := db.NewFundSourceRepository(pgxDB)
+	walletRepo := db.NewWalletRepository(pgxDB)
+
+	tenantContext, err := shared.NewTenantContext("tenant-1", "office-1")
+	require.NoError(t, err)
+
+	initialBalance, err := shared.NewMoney(decimal.NewFromInt(1_000_000), vnd)
+	require.NoError(t, err)
+
+	metadata, err := domain.NewCashMetadata("Finance Ops")
+	require.NoError(t, err)
+
+	fundSource, err := domain.NewFundSource("Cash Reserve", domain.FundSourceTypeCash, initialBalance, vnd, metadata)
+	require.NoError(t, err)
+	require.NoError(t, fundSourceRepo.CreateFundSource(ctx, tenantContext, fundSource))
+
+	wallet, err := domain.NewWallet("Ops Wallet", vnd)
+	require.NoError(t, err)
+
+	allocationAmount, err := shared.NewMoney(decimal.NewFromInt(200_000), vnd)
+	require.NoError(t, err)
+
+	require.NoError(t, walletRepo.CreateWallet(
+		ctx,
+		tenantContext,
+		[]domain.FundSourceUUID{fundSource.UUID()},
+		func(fundSources map[domain.FundSourceUUID]*domain.FundSource) (*domain.Wallet, error) {
+			if err := wallet.Allocate(fundSources[fundSource.UUID()], allocationAmount); err != nil {
+				return nil, err
+			}
+			return wallet, nil
+		},
+	))
+
+	creditAmount, err := shared.NewMoney(decimal.NewFromInt(50_000), vnd)
+	require.NoError(t, err)
+
+	walletQueries := []domain.WalletQuery{{
+		WalletUUID:      wallet.UUID(),
+		FundSourceUUIDs: []domain.FundSourceUUID{fundSource.UUID()},
+	}}
+
+	err = walletRepo.CreateTransactions(ctx, tenantContext, walletQueries, func(wallets map[domain.WalletUUID]*domain.Wallet) ([]*domain.Transaction, error) {
+		w, ok := wallets[wallet.UUID()]
+		require.True(t, ok)
+
+		txn1, err := domain.NewTransaction(shared.EntryTypeIn, creditAmount, fundSource.UUID(), wallet.UUID(), nil, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, w.TopUp(fundSource.UUID(), creditAmount))
+
+		txn2, err := domain.NewTransaction(shared.EntryTypeIn, creditAmount, fundSource.UUID(), wallet.UUID(), nil, time.Now())
+		require.NoError(t, err)
+		require.NoError(t, w.TopUp(fundSource.UUID(), creditAmount))
+
+		return []*domain.Transaction{txn1, txn2}, nil
+	})
+	require.NoError(t, err)
+
+	// 200_000 (allocated) + 50_000 + 50_000 (two credits) = 300_000 — must reflect BOTH
+	// credits, not just the last write, since both mutate the same in-memory wallet/allocation.
+	expectedBalance := decimal.NewFromInt(300_000)
+
+	gotWallet, err := walletRepo.GetWallet(ctx, tenantContext, wallet.UUID())
+	require.NoError(t, err)
+	require.True(t, gotWallet.Balance().Amount().Equal(expectedBalance))
+
+	allocations, err := getWalletAllocationsByWalletUUID(ctx, pgxDB, wallet.UUID())
+	require.NoError(t, err)
+	require.Len(t, allocations, 1)
+	require.True(t, allocations[0].Balance.Equal(expectedBalance))
+
+	// 1_000_000 (initial) + 50_000 + 50_000 = 1_100_000
+	updatedFundSource, err := getFundSourceByUUID(ctx, pgxDB, fundSource.UUID())
+	require.NoError(t, err)
+	require.True(t, updatedFundSource.Balance.Equal(decimal.NewFromInt(1_100_000)))
 }
 
 func getWalletAllocationsByWalletUUID(ctx context.Context, pgxDB *pgxpool.Pool, walletUUID domain.WalletUUID) ([]dbmodels.TreasuryWalletAllocation, error) {

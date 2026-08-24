@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
@@ -33,6 +34,28 @@ type CreateFundSourceRequest struct {
 type CreateFundSourceResponse struct {
 	// FundSourceUuid UUID of a fund source
 	FundSourceUuid FundSourceUUID `json:"fund_source_uuid"`
+}
+
+// CreateTransactionItemRequest defines model for CreateTransactionItemRequest.
+type CreateTransactionItemRequest struct {
+	Amount      Decimal  `json:"amount"`
+	Currency    Currency `json:"currency"`
+	Description *string  `json:"description,omitempty"`
+
+	// EntryType Journal entry type (DEBIT || CREDIT)
+	EntryType EntryType `json:"entry_type"`
+
+	// FundSourceUuid UUID of a fund source
+	FundSourceUuid  FundSourceUUID `json:"fund_source_uuid"`
+	TransactionDate time.Time      `json:"transaction_date"`
+
+	// WalletUuid UUID of a wallet
+	WalletUuid *WalletUUID `json:"wallet_uuid,omitempty"`
+}
+
+// CreateTransactionsRequest defines model for CreateTransactionsRequest.
+type CreateTransactionsRequest struct {
+	Items []CreateTransactionItemRequest `json:"items"`
 }
 
 // CreateWalletAllocationRequest defines model for CreateWalletAllocationRequest.
@@ -61,6 +84,9 @@ type Currency = shared.Currency
 
 // Decimal defines model for Decimal.
 type Decimal = decimal.Decimal
+
+// EntryType Journal entry type (DEBIT || CREDIT)
+type EntryType = shared.EntryType
 
 // ErrorDetails defines model for ErrorDetails.
 type ErrorDetails struct {
@@ -215,6 +241,9 @@ type ListWalletsParams struct {
 // CreateFundSourceJSONRequestBody defines body for CreateFundSource for application/json ContentType.
 type CreateFundSourceJSONRequestBody = CreateFundSourceRequest
 
+// CreateTransactionsJSONRequestBody defines body for CreateTransactions for application/json ContentType.
+type CreateTransactionsJSONRequestBody = CreateTransactionsRequest
+
 // CreateWalletJSONRequestBody defines body for CreateWallet for application/json ContentType.
 type CreateWalletJSONRequestBody = CreateWalletRequest
 
@@ -229,6 +258,9 @@ type ServerInterface interface {
 	// Create a new fund source
 	// (POST /v1/treasury/fund-sources)
 	CreateFundSource(ctx echo.Context) error
+	// Create transactions
+	// (POST /v1/treasury/transactions)
+	CreateTransactions(ctx echo.Context) error
 	// List all wallets
 	// (GET /v1/treasury/wallets)
 	ListWallets(ctx echo.Context, params ListWalletsParams) error
@@ -276,6 +308,15 @@ func (w *ServerInterfaceWrapper) CreateFundSource(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CreateFundSource(ctx)
+	return err
+}
+
+// CreateTransactions converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateTransactions(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateTransactions(ctx)
 	return err
 }
 
@@ -359,6 +400,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.GET(baseURL+"/v1/treasury/fund-sources", wrapper.ListFundSources)
 	router.POST(baseURL+"/v1/treasury/fund-sources", wrapper.CreateFundSource)
+	router.POST(baseURL+"/v1/treasury/transactions", wrapper.CreateTransactions)
 	router.GET(baseURL+"/v1/treasury/wallets", wrapper.ListWallets)
 	router.POST(baseURL+"/v1/treasury/wallets", wrapper.CreateWallet)
 	router.POST(baseURL+"/v1/treasury/wallets/:wallet_uuid/fund-sources", wrapper.LinkFundSources)
@@ -437,6 +479,42 @@ type CreateFundSource500JSONResponse struct {
 }
 
 func (response CreateFundSource500JSONResponse) VisitCreateFundSourceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(500)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateTransactionsRequestObject struct {
+	Body *CreateTransactionsJSONRequestBody
+}
+
+type CreateTransactionsResponseObject interface {
+	VisitCreateTransactionsResponse(w http.ResponseWriter) error
+}
+
+type CreateTransactions204Response struct {
+}
+
+func (response CreateTransactions204Response) VisitCreateTransactionsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CreateTransactions400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response CreateTransactions400JSONResponse) VisitCreateTransactionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateTransactions500JSONResponse struct {
+	InternalServerErrorJSONResponse
+}
+
+func (response CreateTransactions500JSONResponse) VisitCreateTransactionsResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(500)
 
@@ -562,6 +640,9 @@ type StrictServerInterface interface {
 	// Create a new fund source
 	// (POST /v1/treasury/fund-sources)
 	CreateFundSource(ctx context.Context, request CreateFundSourceRequestObject) (CreateFundSourceResponseObject, error)
+	// Create transactions
+	// (POST /v1/treasury/transactions)
+	CreateTransactions(ctx context.Context, request CreateTransactionsRequestObject) (CreateTransactionsResponseObject, error)
 	// List all wallets
 	// (GET /v1/treasury/wallets)
 	ListWallets(ctx context.Context, request ListWalletsRequestObject) (ListWalletsResponseObject, error)
@@ -633,6 +714,35 @@ func (sh *strictHandler) CreateFundSource(ctx echo.Context) error {
 		return err
 	} else if validResponse, ok := response.(CreateFundSourceResponseObject); ok {
 		return validResponse.VisitCreateFundSourceResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// CreateTransactions operation middleware
+func (sh *strictHandler) CreateTransactions(ctx echo.Context) error {
+	var request CreateTransactionsRequestObject
+
+	var body CreateTransactionsJSONRequestBody
+	if err := ctx.Bind(&body); err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateTransactions(ctx.Request().Context(), request.(CreateTransactionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateTransactions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(CreateTransactionsResponseObject); ok {
+		return validResponse.VisitCreateTransactionsResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

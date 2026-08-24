@@ -18,6 +18,8 @@ type fundSourceRepo struct {
 	db *pgxpool.Pool
 }
 
+var _ domain.FundSourceRepository = (*fundSourceRepo)(nil)
+
 func NewFundSourceRepository(pgxDb *pgxpool.Pool) *fundSourceRepo {
 	if pgxDb == nil {
 		panic("pgxDb can't be nil")

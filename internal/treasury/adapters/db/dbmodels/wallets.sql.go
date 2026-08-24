@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/shopspring/decimal"
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
 )
@@ -58,6 +59,82 @@ func (q *Queries) GetWalletByUUID(ctx context.Context, arg GetWalletByUUIDParams
 		&i.OfficeID,
 	)
 	return i, err
+}
+
+const getWalletsWithAllocationsByUUIDs = `-- name: GetWalletsWithAllocationsByUUIDs :many
+WITH requested_pairs AS (
+    SELECT unnest($3::uuid[]) AS wallet_uuid,
+           unnest($4::uuid[]) AS fund_source_uuid
+)
+SELECT w.wallet_uuid, w.name, w.currency, w.balance, w.tenant_id, w.office_id, wa.wallet_uuid, wa.fund_source_uuid, wa.balance, fs.fund_source_uuid, fs.name, fs.source_type, fs.currency, fs.balance, fs.available_balance, fs.bank_info, fs.bin, fs.bank_account_number, fs.bank_account_owner, fs.cash_owner, fs.tenant_id, fs.office_id
+FROM treasury.wallets w
+JOIN requested_pairs rp ON rp.wallet_uuid = w.wallet_uuid
+JOIN treasury.wallet_allocations wa
+    ON wa.wallet_uuid = rp.wallet_uuid AND wa.fund_source_uuid = rp.fund_source_uuid
+JOIN treasury.fund_sources fs ON fs.fund_source_uuid = wa.fund_source_uuid
+WHERE w.tenant_id = $1
+  AND w.office_id = $2
+`
+
+type GetWalletsWithAllocationsByUUIDsParams struct {
+	TenantID        string
+	OfficeID        string
+	WalletUuids     []common.UUID
+	FundSourceUuids []common.UUID
+}
+
+type GetWalletsWithAllocationsByUUIDsRow struct {
+	TreasuryWallet           TreasuryWallet
+	TreasuryWalletAllocation TreasuryWalletAllocation
+	TreasuryFundSource       TreasuryFundSource
+}
+
+func (q *Queries) GetWalletsWithAllocationsByUUIDs(ctx context.Context, arg GetWalletsWithAllocationsByUUIDsParams) ([]GetWalletsWithAllocationsByUUIDsRow, error) {
+	rows, err := q.db.Query(ctx, getWalletsWithAllocationsByUUIDs,
+		arg.TenantID,
+		arg.OfficeID,
+		arg.WalletUuids,
+		arg.FundSourceUuids,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetWalletsWithAllocationsByUUIDsRow{}
+	for rows.Next() {
+		var i GetWalletsWithAllocationsByUUIDsRow
+		if err := rows.Scan(
+			&i.TreasuryWallet.WalletUuid,
+			&i.TreasuryWallet.Name,
+			&i.TreasuryWallet.Currency,
+			&i.TreasuryWallet.Balance,
+			&i.TreasuryWallet.TenantID,
+			&i.TreasuryWallet.OfficeID,
+			&i.TreasuryWalletAllocation.WalletUuid,
+			&i.TreasuryWalletAllocation.FundSourceUuid,
+			&i.TreasuryWalletAllocation.Balance,
+			&i.TreasuryFundSource.FundSourceUuid,
+			&i.TreasuryFundSource.Name,
+			&i.TreasuryFundSource.SourceType,
+			&i.TreasuryFundSource.Currency,
+			&i.TreasuryFundSource.Balance,
+			&i.TreasuryFundSource.AvailableBalance,
+			&i.TreasuryFundSource.BankInfo,
+			&i.TreasuryFundSource.Bin,
+			&i.TreasuryFundSource.BankAccountNumber,
+			&i.TreasuryFundSource.BankAccountOwner,
+			&i.TreasuryFundSource.CashOwner,
+			&i.TreasuryFundSource.TenantID,
+			&i.TreasuryFundSource.OfficeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertWallet = `-- name: InsertWallet :exec
