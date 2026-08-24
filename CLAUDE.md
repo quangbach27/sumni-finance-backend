@@ -164,6 +164,5 @@ the generated `Register*` function). Pagination on list endpoints follows `Page`
 ## Local dev environment
 
 `docker-compose.yml` runs the app (hot-reload via `reflex`, see `docker/app-local/`) plus a `postgres:17.6-alpine`
-container; `POSTGRES_URL` is read from `.env`. Keycloak/swagger-ui services exist in the compose file but are
-commented out — auth integration isn't active yet. Delve debug port `40000` is exposed; set `DEBUG=true` (e.g. `task
-up DEBUG=true`) to enable it.
+container; `POSTGRES_URL` is read from `.env`. Delve debug port `40000` is exposed; set `DEBUG=true` (e.g. `task up
+DEBUG=true`) to enable it.
