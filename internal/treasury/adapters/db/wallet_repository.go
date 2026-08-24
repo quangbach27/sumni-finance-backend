@@ -350,11 +350,6 @@ func loadWalletsForTransactions(
 	return wallets, nil
 }
 
-type walletFundSourcePair struct {
-	walletUUID domain.WalletUUID
-	fsUUID     domain.FundSourceUUID
-}
-
 // persistTouchedWalletBalances uses the returned transactions themselves as the record of what
 // changed: only RECORDED transactions (WalletUUID set) touch a wallet/allocation/fund-source
 // balance, and Transaction.FundSourceUUID/WalletUUID say exactly which ones.
