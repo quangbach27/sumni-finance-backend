@@ -98,10 +98,11 @@ func (h *Handler) CreateFundSource(ctx context.Context, request CreateFundSource
 	}
 
 	cmd := command.CreateFundSource{
-		Name:        request.Body.Name,
-		SourceType:  request.Body.SourceType,
-		InitBalance: request.Body.InitBalance,
-		Currency:    request.Body.Currency,
+		Name:          request.Body.Name,
+		SourceType:    request.Body.SourceType,
+		InitBalance:   request.Body.InitBalance,
+		Currency:      request.Body.Currency,
+		TenantContext: mockedTenantContext(),
 	}
 
 	if request.Body.Metadata.BankMetadata != nil {
@@ -145,9 +146,10 @@ func (h *Handler) CreateWallet(ctx context.Context, request CreateWalletRequestO
 	}
 
 	walletUUID, err := h.commandHandler.CreateWallet(ctx, command.CreateWallet{
-		Name:        request.Body.Name,
-		Currency:    request.Body.Currency,
-		Allocations: allocations,
+		Name:          request.Body.Name,
+		Currency:      request.Body.Currency,
+		Allocations:   allocations,
+		TenantContext: mockedTenantContext(),
 	})
 	if err != nil {
 		return nil, err

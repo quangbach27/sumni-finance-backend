@@ -2,9 +2,7 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
 	commonHTTP "sumni-finance-backend/internal/common/http"
@@ -14,13 +12,13 @@ import (
 	"sumni-finance-backend/internal/treasury"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/labstack/echo/v4"
+	"golang.org/x/sync/errgroup"
 )
 
 type ExternalService struct{}
 
 type Svc struct {
-	echoRouter *echo.Echo
+	echoServer *commonHTTP.EchoServer
 
 	modules []module.Module
 
@@ -32,8 +30,9 @@ func New(
 	dbPgx *pgxpool.Pool,
 	externalService ExternalService,
 ) (Svc, error) {
-	router := commonHTTP.NewEcho()
-	protectedRouter := router
+	server := commonHTTP.NewEchoServer()
+	// TODO: Add authentication router for protectedRouter. For now, keep it with global router
+	protectedRouter := server.Router
 
 	moduleContracts := &contracts.Contracts{}
 
@@ -63,38 +62,34 @@ func New(
 	}
 
 	for _, module := range modules {
-		err := module.RegisterHttp(ctx, router, protectedRouter)
+		err := module.RegisterHttp(ctx, server.Router, protectedRouter)
 		if err != nil {
 			return Svc{}, fmt.Errorf("registering http for module %s failed: %w", module.Name(), err)
 		}
 	}
 
 	return Svc{
-		echoRouter: router,
+		echoServer: server,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil
 }
 
 func (s Svc) Run(ctx context.Context, port string) error {
-	defer s.dbPgx.Close()
+	g, gCtx := errgroup.WithContext(ctx)
 
-	go func() {
-		<-ctx.Done()
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		err := s.echoRouter.Shutdown(shutdownCtx)
+	g.Go(func() error {
+		err := s.echoServer.Start(gCtx, port)
 		if err != nil {
-			log.FromContext(ctx).Error("shutting down http server failed")
+			return err
 		}
-	}()
+		return nil
+	})
 
-	err := s.echoRouter.Start(port)
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("starting http server failed: %w", err)
-	}
-
-	return nil
+	g.Go(func() error {
+		<-ctx.Done()
+		defer s.dbPgx.Close()
+		return nil
+	})
+	return g.Wait()
 }

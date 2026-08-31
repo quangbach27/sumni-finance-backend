@@ -34,7 +34,8 @@ func (h *Handlers) CreateWallet(ctx context.Context, cmd CreateWallet) (domain.W
 		cmd.TenantContext,
 		fsUUIDsForAllocations,
 		func(fundSources map[domain.FundSourceUUID]*domain.FundSource) (*domain.Wallet, error) {
-			wallet, err := domain.NewWallet(
+			var err error
+			wallet, err = domain.NewWallet(
 				cmd.Name,
 				cmd.Currency,
 			)

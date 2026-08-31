@@ -7,11 +7,11 @@ import (
 
 	"sumni-finance-backend/internal/common/log"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
-func EchoErrorHandler(err error, c echo.Context) {
-	if c.Response().Committed {
+func EchoErrorHandler(c *echo.Context, err error) {
+	if echoResp, unwrapErr := echo.UnwrapResponse(c.Response()); unwrapErr == nil && echoResp.Committed {
 		return
 	}
 

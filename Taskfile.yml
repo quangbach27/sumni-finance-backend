@@ -43,7 +43,8 @@ tasks:
 
   test-component:
     desc: Run component tests
-    cmd: go test ./tests/... -count=1 {{.CLI_ARGS}}
+    dotenv: ['.env.test']
+    cmd: go test -tags component ./tests/... -count=1 {{.CLI_ARGS}}
 
   domain-coverage:
     desc: Check domain test coverage
