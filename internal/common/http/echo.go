@@ -24,7 +24,7 @@ func NewEchoServer() *EchoServer {
 	e.HTTPErrorHandler = common.EchoErrorHandler
 	e.Logger = slog.Default()
 
-	e.GET("/health", func(c *echo.Context) error {
+	e.GET("/healthz", func(c *echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	})
 

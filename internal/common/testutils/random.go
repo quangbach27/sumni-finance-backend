@@ -4,9 +4,9 @@ import (
 	"math/rand/v2"
 )
 
-func RandomString(n int) string {
+func RandomString(length int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, n)
+	b := make([]byte, length)
 	for i := range b {
 		b[i] = letters[rand.IntN(len(letters))]
 	}

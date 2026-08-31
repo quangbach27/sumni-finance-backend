@@ -49,7 +49,7 @@ func rateLimiterMiddleware() echo.MiddlewareFunc {
 
 	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		Skipper: func(c *echo.Context) bool {
-			return c.Request().URL.Path == "/health"
+			return c.Request().URL.Path == "/healthz"
 		},
 		Store: store,
 		IdentifierExtractor: func(c *echo.Context) (string, error) {

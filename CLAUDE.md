@@ -4,16 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-Sumni Finance Backend is a Go monolith (module `sumni-finance-backend`, Go 1.26) built as a set of self-contained
-modules behind a single HTTP server (Echo). It currently has one active module: **treasury** (fund sources, wallets,
-transactions/ledger). There is no `Makefile` — all tasks are run through `task` (Taskfile.yml). Auth is not wired up
-yet (`internal.ExternalService` is an empty placeholder in `cmd/main.go`, and HTTP handlers use a hardcoded
+Sumni Finance Backend is a Go monolith (module `sumni-finance-backend`, Go 1.27) built as a set of self-contained
+modules behind a single HTTP server (Echo v5). It currently has one active module: **treasury** (fund sources,
+wallets, transactions/ledger). There is no `Makefile` — all tasks are run through `task` (Taskfile.yml). Auth is not
+wired up yet (`internal.ExternalService` is an empty placeholder in `cmd/main.go`, and HTTP handlers use a hardcoded
 `mockedTenantContext()` in `internal/treasury/ports/http/handler.go` until real auth middleware lands).
-
-Note: `.github/copilot-instructions.md` and `.github/FILE_STRUCTURE.md` describe an earlier `internal/finance` /
-`internal/auth` layout with Makefile/mockery/golangci.yml tooling. That architecture was reverted (see git log:
-"revert treasury implement but keep fund-source"). None of that exists in the current tree — treat those two docs as
-historical/aspirational, not ground truth. This file describes what's actually here.
 
 ## Commands
 
@@ -89,6 +84,7 @@ order, for every module in the `modules` slice. **To add a new module**, mirror 
 append it to the `modules` slice in `internal/svc.go`. `RegisterContracts`/`contracts.Contracts` is the seam for
 future cross-module, in-process calls (currently unused/empty — see `internal/common/module/contracts`).
 
+
 ### Layout inside a module (using `internal/treasury/` as the reference)
 
 ```
@@ -111,7 +107,18 @@ transaction, e.g. `WalletRepository.CreateWallet(ctx, tenantContext, fundSourceU
 constructed aggregate to persist. Follow this pattern instead of doing separate load-then-save calls when an
 invariant spans multiple aggregates.
 
-### Domain conventions (internal/treasury/domain, internal/common)
+Treasury-specific domain conventions (ID/enum/error/money/tenancy patterns) and the transaction lifecycle state
+machine are documented in `internal/treasury/CLAUDE.md` — read that when working under `internal/treasury/domain/`.
+
+### HTTP layer
+
+Each module's `openapi.yaml` is the API contract; `oapi-codegen` generates strict request/response types and a
+`StrictServerInterface` that `ports/http/handler.go`'s `Handler` implements. `module.go`'s `RegisterHttp` calls
+`treasuryhttp.Register(protectedRouter, handler)` to mount routes (`internal/treasury/ports/http/openapi.gen.go` has
+the generated `Register*` function). Pagination on list endpoints follows `Page`/`PageSize` query params with a
+`defaultPageSize` constant per handler package.
+
+## Domain conventions (internal/treasury/domain, internal/common)
 
 - **IDs**: every aggregate has a `<Name>UUID struct { common.UUID }` wrapper type (`WalletUUID`, `FundSourceUUID`,
   `TransactionUUID`) rather than passing raw `uuid.UUID`/`shortuuid` around. New UUIDs are created with
@@ -135,22 +142,6 @@ invariant spans multiple aggregates.
   structs and repository methods — there's no ambient context lookup. Real auth isn't wired up yet, so HTTP handlers
   currently synthesize it via `mockedTenantContext()`; when wiring real auth, that's the seam to replace.
 
-### Transaction lifecycle (internal/treasury/domain/transaction.go)
-
-Transactions move through `DRAFTED -> RECORDED -> POSTED -> VOIDED -> REVERSED` (state machine documented in a
-comment on `TransactionStatus`). `Void()` doesn't mutate balances itself — it produces a paired reversing
-`Transaction` with flipped `EntryType` and marks the original `VOIDED`; the caller is responsible for persisting
-both. Follow this pattern (produce a companion transaction rather than mutating amounts) for any future changes to
-posted transactions.
-
-### HTTP layer
-
-Each module's `openapi.yaml` is the API contract; `oapi-codegen` generates strict request/response types and a
-`StrictServerInterface` that `ports/http/handler.go`'s `Handler` implements. `module.go`'s `RegisterHttp` calls
-`treasuryhttp.Register(protectedRouter, handler)` to mount routes (`internal/treasury/ports/http/openapi.gen.go` has
-the generated `Register*` function). Pagination on list endpoints follows `Page`/`PageSize` query params with a
-`defaultPageSize` constant per handler package.
-
 ## CI (.github/workflows)
 
 - `commit-stage.yml`: on push/PR to `main` — spins up a Postgres service container, runs `golangci-lint`
@@ -158,11 +149,8 @@ the generated `Register*` function). Pagination on list endpoints follows `Page`
   ./...`, then an Anchore container scan; on push to `main` it also builds/publishes the Docker image
   (`docker/app-prod/Dockerfile`) and dispatches to the acceptance stage, which triggers a deploy to staging in a
   separate `sumni-finance-deployment` repo.
-- `publish-contract.yml`: label a PR `publish-contract` to have it open a companion PR against
-  `sumni-finance-frontend-vite` syncing `openapi.yaml`.
 
 ## Local dev environment
 
 `docker-compose.yml` runs the app (hot-reload via `reflex`, see `docker/app-local/`) plus a `postgres:17.6-alpine`
-container; `POSTGRES_URL` is read from `.env`. Delve debug port `40000` is exposed; set `DEBUG=true` (e.g. `task up
-DEBUG=true`) to enable it.
+container; `POSTGRES_URL` is read from `.env`. 

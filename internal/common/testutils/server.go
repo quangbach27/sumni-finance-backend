@@ -44,7 +44,7 @@ func StartServer(ctx context.Context) {
 
 func waitForServer() {
 	for range 100 {
-		resp, err := http.Get(BaseURL + "/health")
+		resp, err := http.Get(BaseURL + "/healthz")
 		if err == nil && resp.StatusCode < 300 {
 			_ = resp.Body.Close()
 			return
