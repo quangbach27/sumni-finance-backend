@@ -2,29 +2,18 @@ package common
 
 import (
 	"database/sql/driver"
-
-	"github.com/google/uuid"
+	"fmt"
+	"uuid"
 )
 
 type UUID [16]byte
 
 func NewUUIDv7() UUID {
-	u, err := uuid.NewV7()
-	if err != nil {
-		panic(err)
-	}
-
-	return UUID(u)
+	return UUID(uuid.NewV7())
 }
 
 func MustUUIDFromString(s string) UUID {
-	var u UUID
-	err := u.UnmarshalText([]byte(s))
-	if err != nil {
-		panic(err)
-	}
-
-	return u
+	return UUID(uuid.MustParse(s))
 }
 
 func (u UUID) String() string {
@@ -36,31 +25,53 @@ func (u UUID) MarshalText() ([]byte, error) {
 }
 
 func (u *UUID) UnmarshalText(data []byte) error {
-	var guuid uuid.UUID
-	if err := guuid.UnmarshalText(data); err != nil {
+	var parsed uuid.UUID
+	if err := parsed.UnmarshalText(data); err != nil {
 		return err
 	}
 
-	*u = UUID(guuid)
+	*u = UUID(parsed)
 	return nil
 }
 
 func (u UUID) Value() (driver.Value, error) {
-	return uuid.UUID(u).Value()
+	return u.String(), nil
 }
 
 func (u *UUID) Scan(src any) error {
-	var guuid uuid.UUID
-	if err := guuid.Scan(src); err != nil {
-		return err
-	}
+	switch v := src.(type) {
+	case nil:
+		return nil
+	case string:
+		if v == "" {
+			return nil
+		}
 
-	*u = UUID(guuid)
-	return nil
+		parsed, err := uuid.Parse(v)
+		if err != nil {
+			return fmt.Errorf("Scan: %w", err)
+		}
+
+		*u = UUID(parsed)
+		return nil
+	case []byte:
+		if len(v) == 0 {
+			return nil
+		}
+
+		if len(v) != 16 {
+			return u.Scan(string(v))
+		}
+
+		copy(u[:], v)
+		return nil
+	default:
+		return fmt.Errorf("Scan: unable to scan type %T into UUID", src)
+	}
 }
 
 func (u UUID) IsZero() bool {
-	return uuid.UUID(u) == uuid.Nil
+	return u == UUID(uuid.Nil())
 }
 
 func (u UUID) Equals(other UUID) bool {
