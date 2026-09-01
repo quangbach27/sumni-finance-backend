@@ -57,10 +57,7 @@ jobs:
           sudo apt install task
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v7
-        with:
-          version: v2.11.4
-          args: --timeout=5m
+        run: go tool golangci-lint run --timeout=5m ./...
 
       - name: Test
         run: task test

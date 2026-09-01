@@ -63,7 +63,7 @@ tasks:
       - task: fmt
 
   lint:
-    cmd: golangci-lint run ./...
+    cmd: go tool golangci-lint run ./...
 
   tidy:
     cmd: go mod tidy
