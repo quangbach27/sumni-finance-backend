@@ -9,17 +9,15 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 	"unicode/utf8"
-
-	"sumni-finance-backend/internal/common/log"
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/lithammer/shortuuid/v3"
+
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/log"
 )
 
 const (
@@ -27,15 +25,8 @@ const (
 	CorrelationIDHttpHeader = "Correlation-ID"
 )
 
-func rateLimiterMiddleware() echo.MiddlewareFunc {
-	rps := 20.0
-	if val := os.Getenv("RATE_LIMIT_RPS"); val != "" {
-		if parsed, err := strconv.ParseFloat(val, 64); err == nil && parsed > 0 {
-			rps = parsed
-		} else {
-			slog.Warn("invalid RATE_LIMIT_RPS value, using default", "value", val, "default", rps)
-		}
-	}
+func rateLimiterMiddleware(config *common.AppConfig) echo.MiddlewareFunc {
+	rps := config.RateLimitRPS
 
 	store := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{
@@ -71,10 +62,10 @@ func rateLimiterMiddleware() echo.MiddlewareFunc {
 	})
 }
 
-func useMiddlewares(e *echo.Echo) {
+func useMiddlewares(e *echo.Echo, config *common.AppConfig) {
 	e.Use(
-		corsMiddleware,
-		rateLimiterMiddleware(),
+		corsMiddleware(config),
+		rateLimiterMiddleware(config),
 		middleware.ContextTimeout(10*time.Second),
 		middleware.Recover(),
 		// Correlation-ID runs first: available in context for the request log middleware.
@@ -106,19 +97,8 @@ func useMiddlewares(e *echo.Echo) {
 	)
 }
 
-func corsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	allowedOrigins := []string{"*"}
-
-	if originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS"); originsEnv != "" {
-		origins := strings.Split(originsEnv, ";")
-		allowedOrigins = make([]string, 0, len(origins))
-
-		for _, origin := range origins {
-			if trimmed := strings.TrimSpace(origin); trimmed != "" {
-				allowedOrigins = append(allowedOrigins, trimmed)
-			}
-		}
-	}
+func corsMiddleware(config *common.AppConfig) echo.MiddlewareFunc {
+	allowedOrigins := config.CorsAllowedOrigins
 
 	corsConfig := middleware.CORSConfig{
 		AllowMethods: []string{
@@ -153,7 +133,7 @@ func corsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		corsConfig.AllowOrigins = allowedOrigins
 	}
 
-	return middleware.CORSWithConfig(corsConfig)(next)
+	return middleware.CORSWithConfig(corsConfig)
 }
 
 type bodyCapturingWriter struct {

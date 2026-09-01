@@ -7,10 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"sumni-finance-backend/internal"
-	"sumni-finance-backend/internal/common/log"
-
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"sumni-finance-backend/internal"
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/log"
 )
 
 func main() {
@@ -19,12 +20,9 @@ func main() {
 
 	log.Init(slog.LevelInfo)
 
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
-	}
+	config := common.NewConfig()
 
-	dbPgx, err := pgxpool.New(ctx, dsn)
+	dbPgx, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
@@ -33,6 +31,7 @@ func main() {
 
 	svc, err := internal.New(
 		ctx,
+		config,
 		dbPgx,
 		externalSerivce,
 	)
@@ -40,12 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "4000"
-	}
-
-	if err := svc.Run(ctx, ":"+port); err != nil {
+	if err := svc.Run(ctx, ":"+config.App.Port); err != nil {
 		panic(err)
 	}
 }

@@ -5,20 +5,22 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
+
+	"sumni-finance-backend/internal/common"
 	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
 	"sumni-finance-backend/internal/treasury"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/sync/errgroup"
 )
 
 type ExternalService struct{}
 
 type Svc struct {
 	echoServer *commonHTTP.EchoServer
+	config     *common.Config
 
 	modules []module.Module
 
@@ -27,10 +29,11 @@ type Svc struct {
 
 func New(
 	ctx context.Context,
+	config *common.Config,
 	dbPgx *pgxpool.Pool,
 	externalService ExternalService,
 ) (Svc, error) {
-	server := commonHTTP.NewEchoServer()
+	server := commonHTTP.NewEchoServer(config.App)
 	// TODO: Add authentication router for protectedRouter. For now, keep it with global router
 	protectedRouter := server.Router
 
@@ -70,26 +73,33 @@ func New(
 
 	return Svc{
 		echoServer: server,
+		config:     config,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil
 }
 
 func (s Svc) Run(ctx context.Context, port string) error {
-	g, gCtx := errgroup.WithContext(ctx)
+	if port == "" {
+		port = s.config.App.Port
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		err := s.echoServer.Start(gCtx, port)
-		if err != nil {
+		if err := s.echoServer.Start(ctx, port); err != nil {
 			return err
 		}
+
 		return nil
 	})
 
 	g.Go(func() error {
 		<-ctx.Done()
 		defer s.dbPgx.Close()
+
 		return nil
 	})
+
 	return g.Wait()
 }

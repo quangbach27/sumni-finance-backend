@@ -18,14 +18,15 @@ func TestMain(m *testing.M) {
 
 	testutils.StartServer(ctx)
 
-	var err error
-	treasuryClient, err = client.NewClientWithResponses(testutils.BaseURL)
+	clients, err := testutils.NewTestClients()
 	if err != nil {
 		cancel()
 		panic(err)
 	}
+	treasuryClient = clients.Treasury
 
 	code := m.Run()
 	cancel()
+	testutils.CloseDB()
 	os.Exit(code)
 }

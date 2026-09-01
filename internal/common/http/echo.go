@@ -7,19 +7,19 @@ import (
 	"net/http"
 	"time"
 
-	"sumni-finance-backend/internal/common"
-
 	"github.com/labstack/echo/v5"
+
+	"sumni-finance-backend/internal/common"
 )
 
 type EchoServer struct {
 	Router *echo.Echo
 }
 
-func NewEchoServer() *EchoServer {
+func NewEchoServer(config *common.AppConfig) *EchoServer {
 	e := echo.New()
 
-	useMiddlewares(e)
+	useMiddlewares(e, config)
 
 	e.HTTPErrorHandler = common.EchoErrorHandler
 	e.Logger = slog.Default()
