@@ -39,9 +39,10 @@ go test -tags integration ./internal/treasury/adapters/db/... -run TestCreateWal
 ```
 
 **Test build tags matter.** Files under `internal/*/adapters/db/*_test.go` use `//go:build integration` and need a
-live Postgres (`.env.test`: `postgres://user:password@localhost:5432/sumni-finance?sslmode=disable`, i.e. `task up`
-first). Files under `tests/**` use `//go:build component`. Domain package tests (`internal/*/domain/*_test.go`) have
-no build tag and are pure unit tests with no DB dependency.
+live Postgres — `.env.test` sets `DB_USERNAME`/`DB_PASSWORD`/`DB_HOST`/`DB_PORT`/`DB_NAME` (defaults:
+`user`/`password`/`localhost`/`5432`/`sumni-finance`), which `common.NewConfig()` assembles into the connection DSN,
+i.e. `task up` first. Files under `tests/**` use `//go:build component`. Domain package tests
+(`internal/*/domain/*_test.go`) have no build tag and are pure unit tests with no DB dependency.
 
 Migrations run automatically on module `Init()` (see `internal/treasury/module.go`) via
 `internal.common.MigrateDatabaseUp`, embedding `adapters/db/migrations/*.sql` with golang-migrate — there's no
@@ -144,13 +145,15 @@ the generated `Register*` function). Pagination on list endpoints follows `Page`
 
 ## CI (.github/workflows)
 
-- `commit-stage.yml`: on push/PR to `main` — spins up a Postgres service container, runs `golangci-lint`
-  (v2.11.4), `task test`, `task domain-coverage` (`continue-on-error: true`, i.e. informational only), `go build
-  ./...`, then an Anchore container scan; on push to `main` it also builds/publishes the Docker image
-  (`docker/app-prod/Dockerfile`) and dispatches to the acceptance stage, which triggers a deploy to staging in a
-  separate `sumni-finance-deployment` repo.
+- `commit-stage.yml`: on push/PR to `main` — spins up a Postgres service container, runs `golangci-lint` (pinned via
+  the `tool` directive in `go.mod`, currently v2.13.2), `task test`, `task domain-coverage` (`continue-on-error:
+  true`, i.e. informational only), `go build ./...`, then an Anchore container scan; on push to `main` it also
+  builds/publishes the Docker image (`docker/app-prod/Dockerfile`) and dispatches to the acceptance stage, which
+  triggers a deploy to staging in a separate `sumni-finance-deployment` repo.
+- `publish-contract.yml`: the `publish-contract`-labeled PR workflow described above.
 
 ## Local dev environment
 
-`docker-compose.yml` runs the app (hot-reload via `reflex`, see `docker/app-local/`) plus a `postgres:17.6-alpine`
-container; `POSTGRES_URL` is read from `.env`. 
+`docker-compose.yml` runs the app (hot-reload via `reflex`, see `docker/app-local/`) plus a `postgres:17.6-alpine3.22`
+container; env vars (`PORT`, `DB_USERNAME`/`DB_PASSWORD`/`DB_HOST`/`DB_PORT`/`DB_NAME`, etc., see `.env.example`) are
+read from `.env` via `env_file` and assembled into config by `internal/common/config.go`'s `NewConfig()`.
