@@ -12,10 +12,10 @@ import (
 func TestEntryType_Vars(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, "DEBIT", shared.EntryTypeDebit.String())
-	assert.Equal(t, "CREDIT", shared.EntryTypeCredit.String())
-	assert.False(t, shared.EntryTypeDebit.IsZero())
-	assert.False(t, shared.EntryTypeCredit.IsZero())
+	assert.Equal(t, "in", shared.EntryTypeIn.String())
+	assert.Equal(t, "out", shared.EntryTypeOut.String())
+	assert.False(t, shared.EntryTypeIn.IsZero())
+	assert.False(t, shared.EntryTypeOut.IsZero())
 }
 
 func TestEntryType_ZeroValue(t *testing.T) {
@@ -35,13 +35,13 @@ func TestEntryType_Reverse(t *testing.T) {
 	}{
 		{
 			name:  "debit reverses to credit",
-			input: shared.EntryTypeDebit,
-			want:  shared.EntryTypeCredit,
+			input: shared.EntryTypeIn,
+			want:  shared.EntryTypeOut,
 		},
 		{
 			name:  "credit reverses to debit",
-			input: shared.EntryTypeCredit,
-			want:  shared.EntryTypeDebit,
+			input: shared.EntryTypeOut,
+			want:  shared.EntryTypeIn,
 		},
 	}
 

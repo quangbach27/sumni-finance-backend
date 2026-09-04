@@ -9,7 +9,7 @@ import (
 
 	"sumni-finance-backend/internal/common"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +32,7 @@ func TestEchoErrorHandler(t *testing.T) {
 		},
 		{
 			Name:  "echo_http_error_with_404",
-			Error: echo.NewHTTPError(http.StatusNotFound),
+			Error: echo.NewHTTPError(http.StatusNotFound, http.StatusText(http.StatusNotFound)),
 			ExpectedResponse: common.HttpErrorResponse{
 				Message: "Not Found",
 				Slug:    "not_found",
@@ -41,7 +41,7 @@ func TestEchoErrorHandler(t *testing.T) {
 		},
 		{
 			Name:  "echo_http_error_with_400",
-			Error: echo.NewHTTPError(http.StatusBadRequest),
+			Error: echo.NewHTTPError(http.StatusBadRequest, http.StatusText(http.StatusBadRequest)),
 			ExpectedResponse: common.HttpErrorResponse{
 				Message: "Bad Request",
 				Slug:    "bad_request",
@@ -333,7 +333,7 @@ func TestEchoErrorHandler(t *testing.T) {
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
 
-			common.EchoErrorHandler(tc.Error, c)
+			common.EchoErrorHandler(c, tc.Error)
 
 			assert.Equal(t, tc.ExpectedStatusCode, rec.Code)
 

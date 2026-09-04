@@ -1,28 +1,26 @@
 package command
 
-import (
-	"sumni-finance-backend/internal/treasury/domain"
-)
+import "sumni-finance-backend/internal/treasury/domain"
 
 type Handlers struct {
+	walletRepository     domain.WalletRepository
 	fundSourceRepository domain.FundSourceRepository
-	fundSourceFactory    *domain.FundSourceFactory
 }
 
 func NewHandlers(
+	walletRepository domain.WalletRepository,
 	fundSourceRepository domain.FundSourceRepository,
-	fundSourceFactory *domain.FundSourceFactory,
 ) *Handlers {
-	if fundSourceRepository == nil {
-		panic("fund source repository can't be nil")
+	if walletRepository == nil {
+		panic("walletRepository can't be nil")
 	}
 
-	if fundSourceFactory == nil {
-		panic("fund source factory can't be nil")
+	if fundSourceRepository == nil {
+		panic("fundSourceRepository can't be nil")
 	}
 
 	return &Handlers{
+		walletRepository:     walletRepository,
 		fundSourceRepository: fundSourceRepository,
-		fundSourceFactory:    fundSourceFactory,
 	}
 }

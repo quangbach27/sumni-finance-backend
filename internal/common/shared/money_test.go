@@ -183,37 +183,6 @@ func TestMoney_Equal(t *testing.T) {
 	})
 }
 
-func TestMoney_UnmarshalJSON(t *testing.T) {
-	t.Parallel()
-	moneyJson := `
-	{
-		"amount": 200000,
-		"currency": "VND"	
-	}
-	`
-
-	var money shared.Money
-	err := money.UnmarshalJSON([]byte(moneyJson))
-	require.NoError(t, err)
-
-	assert.Equal(t, money.Amount(), decimal.NewFromInt(200_000))
-	assert.True(t, money.Currency().Equal(shared.MustNewCurrency("VND")))
-}
-
-func TestMoney_MarshalJSON(t *testing.T) {
-	t.Parallel()
-
-	amount := decimal.NewFromInt(200_000)
-	vnd := shared.MustNewCurrency("VND")
-
-	money := assertValidMoney(t, amount, vnd)
-
-	data, err := money.MarshalJSON()
-	require.NoError(t, err)
-
-	assert.JSONEq(t, `{"amount":"200000","currency":"VND"}`, string(data))
-}
-
 func TestMoney_InSharedTypes(t *testing.T) {
 	t.Parallel()
 

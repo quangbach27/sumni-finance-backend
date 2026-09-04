@@ -9,13 +9,13 @@ import (
 	"context"
 )
 
-// iteratorForBatchInsertJournalEntries implements pgx.CopyFromSource.
-type iteratorForBatchInsertJournalEntries struct {
-	rows                 []BatchInsertJournalEntriesParams
+// iteratorForCreateWalletAllocations implements pgx.CopyFromSource.
+type iteratorForCreateWalletAllocations struct {
+	rows                 []CreateWalletAllocationsParams
 	skippedFirstNextCall bool
 }
 
-func (r *iteratorForBatchInsertJournalEntries) Next() bool {
+func (r *iteratorForCreateWalletAllocations) Next() bool {
 	if len(r.rows) == 0 {
 		return false
 	}
@@ -27,27 +27,18 @@ func (r *iteratorForBatchInsertJournalEntries) Next() bool {
 	return len(r.rows) > 0
 }
 
-func (r iteratorForBatchInsertJournalEntries) Values() ([]interface{}, error) {
+func (r iteratorForCreateWalletAllocations) Values() ([]interface{}, error) {
 	return []interface{}{
-		r.rows[0].JournalEntryUuid,
+		r.rows[0].WalletUuid,
 		r.rows[0].FundSourceUuid,
-		r.rows[0].Amount,
-		r.rows[0].EntryType,
-		r.rows[0].BalanceBefore,
-		r.rows[0].BalanceAfter,
-		r.rows[0].Status,
-		r.rows[0].TransactionDate,
-		r.rows[0].TransactionNo,
-		r.rows[0].Description,
-		r.rows[0].CreatedAt,
-		r.rows[0].CreatedBy,
+		r.rows[0].Balance,
 	}, nil
 }
 
-func (r iteratorForBatchInsertJournalEntries) Err() error {
+func (r iteratorForCreateWalletAllocations) Err() error {
 	return nil
 }
 
-func (q *Queries) BatchInsertJournalEntries(ctx context.Context, arg []BatchInsertJournalEntriesParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"treasury", "journal_entries"}, []string{"journal_entry_uuid", "fund_source_uuid", "amount", "entry_type", "balance_before", "balance_after", "status", "transaction_date", "transaction_no", "description", "created_at", "created_by"}, &iteratorForBatchInsertJournalEntries{rows: arg})
+func (q *Queries) CreateWalletAllocations(ctx context.Context, arg []CreateWalletAllocationsParams) (int64, error) {
+	return q.db.CopyFrom(ctx, []string{"treasury", "wallet_allocations"}, []string{"wallet_uuid", "fund_source_uuid", "balance"}, &iteratorForCreateWalletAllocations{rows: arg})
 }

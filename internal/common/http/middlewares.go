@@ -9,18 +9,15 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 	"unicode/utf8"
 
-	"sumni-finance-backend/internal/common/log"
-
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/lithammer/shortuuid/v3"
-	"golang.org/x/time/rate"
+
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/log"
 )
 
 const (
@@ -28,19 +25,12 @@ const (
 	CorrelationIDHttpHeader = "Correlation-ID"
 )
 
-func rateLimiterMiddleware() echo.MiddlewareFunc {
-	rps := 20.0
-	if val := os.Getenv("RATE_LIMIT_RPS"); val != "" {
-		if parsed, err := strconv.ParseFloat(val, 64); err == nil && parsed > 0 {
-			rps = parsed
-		} else {
-			slog.Warn("invalid RATE_LIMIT_RPS value, using default", "value", val, "default", rps)
-		}
-	}
+func rateLimiterMiddleware(config *common.AppConfig) echo.MiddlewareFunc {
+	rps := config.RateLimitRPS
 
 	store := middleware.NewRateLimiterMemoryStoreWithConfig(
 		middleware.RateLimiterMemoryStoreConfig{
-			Rate:      rate.Limit(rps),
+			Rate:      rps,
 			Burst:     int(rps) * 3,
 			ExpiresIn: 3 * time.Minute,
 		},
@@ -49,38 +39,38 @@ func rateLimiterMiddleware() echo.MiddlewareFunc {
 	rpsHeader := fmt.Sprintf("%.0f", rps)
 
 	return middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
-		Skipper: func(c echo.Context) bool {
-			return c.Request().URL.Path == "/health"
+		Skipper: func(c *echo.Context) bool {
+			return c.Request().URL.Path == "/healthz"
 		},
 		Store: store,
-		IdentifierExtractor: func(c echo.Context) (string, error) {
+		IdentifierExtractor: func(c *echo.Context) (string, error) {
 			ip := c.RealIP()
 			if ip == "" {
 				ip = "unknown"
 			}
 			return ip, nil
 		},
-		ErrorHandler: func(c echo.Context, err error) error {
+		ErrorHandler: func(c *echo.Context, err error) error {
 			slog.Warn("rate limiter error", "ip", c.RealIP(), "error", err)
-			return echo.NewHTTPError(http.StatusInternalServerError)
+			return echo.NewHTTPError(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
 		},
-		DenyHandler: func(c echo.Context, identifier string, err error) error {
+		DenyHandler: func(c *echo.Context, identifier string, err error) error {
 			c.Response().Header().Set("Retry-After", "60")
 			c.Response().Header().Set("X-RateLimit-Limit", rpsHeader)
-			return echo.NewHTTPError(http.StatusTooManyRequests)
+			return echo.NewHTTPError(http.StatusTooManyRequests, http.StatusText(http.StatusTooManyRequests))
 		},
 	})
 }
 
-func useMiddlewares(e *echo.Echo) {
+func useMiddlewares(e *echo.Echo, config *common.AppConfig) {
 	e.Use(
-		corsMiddleware,
-		rateLimiterMiddleware(),
+		corsMiddleware(config),
+		rateLimiterMiddleware(config),
 		middleware.ContextTimeout(10*time.Second),
 		middleware.Recover(),
 		// Correlation-ID runs first: available in context for the request log middleware.
 		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
+			return func(c *echo.Context) error {
 				req := c.Request()
 				ctx := req.Context()
 
@@ -107,22 +97,10 @@ func useMiddlewares(e *echo.Echo) {
 	)
 }
 
-func corsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	allowedOrigins := []string{"*"}
-
-	if originsEnv := os.Getenv("CORS_ALLOWED_ORIGINS"); originsEnv != "" {
-		origins := strings.Split(originsEnv, ";")
-		allowedOrigins = make([]string, 0, len(origins))
-
-		for _, origin := range origins {
-			if trimmed := strings.TrimSpace(origin); trimmed != "" {
-				allowedOrigins = append(allowedOrigins, trimmed)
-			}
-		}
-	}
+func corsMiddleware(config *common.AppConfig) echo.MiddlewareFunc {
+	allowedOrigins := config.CorsAllowedOrigins
 
 	corsConfig := middleware.CORSConfig{
-		AllowOrigins: allowedOrigins,
 		AllowMethods: []string{
 			http.MethodGet,
 			http.MethodPost,
@@ -144,7 +122,18 @@ func corsMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		MaxAge:           300,
 	}
 
-	return middleware.CORSWithConfig(corsConfig)(next)
+	if len(allowedOrigins) == 1 && allowedOrigins[0] == "*" {
+		// Echo v5 refuses AllowOrigins=["*"] combined with AllowCredentials=true (insecure combination
+		// per the CORS spec). UnsafeAllowOriginFunc reflects the request's own Origin back, which is
+		// wire-compatible with the old AllowOrigins=["*"] behavior while satisfying that guard.
+		corsConfig.UnsafeAllowOriginFunc = func(_ *echo.Context, origin string) (string, bool, error) {
+			return origin, true, nil
+		}
+	} else {
+		corsConfig.AllowOrigins = allowedOrigins
+	}
+
+	return middleware.CORSWithConfig(corsConfig)
 }
 
 type bodyCapturingWriter struct {
@@ -176,7 +165,7 @@ func (w *bodyCapturingWriter) Unwrap() http.ResponseWriter {
 }
 
 func requestLogMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		// Read request body and restore it for the handler.
 		var reqBody []byte
 		if c.Request().Body != nil {
@@ -186,8 +175,9 @@ func requestLogMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		// Capture response body via MultiWriter.
 		resBody := new(bytes.Buffer)
-		mw := io.MultiWriter(c.Response().Writer, resBody)
-		c.Response().Writer = &bodyCapturingWriter{Writer: mw, ResponseWriter: c.Response().Writer}
+		respWriter := c.Response()
+		mw := io.MultiWriter(respWriter, resBody)
+		c.SetResponse(&bodyCapturingWriter{Writer: mw, ResponseWriter: respWriter})
 
 		start := time.Now()
 		err := next(c)
@@ -195,9 +185,14 @@ func requestLogMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		ctx := c.Request().Context()
 
+		status := http.StatusOK
+		if echoResp, unwrapErr := echo.UnwrapResponse(c.Response()); unwrapErr == nil {
+			status = echoResp.Status
+		}
+
 		logger := log.FromContext(ctx).With(
 			"URI", c.Request().RequestURI,
-			"status", c.Response().Status,
+			"status", status,
 			"method", c.Request().Method,
 			"duration", duration.String(),
 		)

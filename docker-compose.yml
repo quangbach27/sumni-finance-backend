@@ -43,32 +43,6 @@ services:
       retries: 120
       start_period: 2s
 
-  # swagger-ui:
-  #   image: swaggerapi/swagger-ui:latest
-  #   container_name: sumni-swagger-ui
-  #   ports:
-  #     - "127.0.0.1:8090:8080"
-  #   volumes:
-  #     - ./api/openapi/finance.yaml:/app/finance.yaml:ro
-  #   environment:
-  #     SWAGGER_JSON: /app/finance.yaml
-  #   restart: always
-
-  # keycloak:
-  #   image: quay.io/keycloak/keycloak:latest
-  #   container_name: keycloak_server
-  #   command: start-dev --import-realm
-  #   environment:
-  #     KEYCLOAK_ADMIN: admin
-  #     KEYCLOAK_ADMIN_PASSWORD: admin
-  #     KC_HTTP_ENABLED: "true"
-  #     KC_HOSTNAME_STRICT: "false"
-  #     KC_HOSTNAME_STRICT_HTTPS: "false"
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ./docker/keycloak:/opt/keycloak/data/import
-
 networks:
   finance-app:
 

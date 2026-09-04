@@ -15,5 +15,10 @@ var embedMigrations embed.FS
 
 func TestMain(m *testing.M) {
 	testutils.RunMigrations("treasury", embedMigrations, "migrations")
-	os.Exit(m.Run())
+
+	code := m.Run()
+
+	testutils.CloseDB()
+
+	os.Exit(code)
 }

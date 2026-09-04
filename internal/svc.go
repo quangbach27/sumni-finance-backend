@@ -2,28 +2,25 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
+
+	"sumni-finance-backend/internal/common"
 	commonHTTP "sumni-finance-backend/internal/common/http"
 	"sumni-finance-backend/internal/common/log"
 	"sumni-finance-backend/internal/common/module"
 	"sumni-finance-backend/internal/common/module/contracts"
 	"sumni-finance-backend/internal/treasury"
-	"sumni-finance-backend/internal/treasury/domain"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/labstack/echo/v4"
 )
 
-type ExternalService struct {
-	BankLookupProvider domain.BankLookupProvider
-}
+type ExternalService struct{}
 
 type Svc struct {
-	echoRouter *echo.Echo
+	echoServer *commonHTTP.EchoServer
+	config     *common.Config
 
 	modules []module.Module
 
@@ -32,15 +29,18 @@ type Svc struct {
 
 func New(
 	ctx context.Context,
+	config *common.Config,
 	dbPgx *pgxpool.Pool,
 	externalService ExternalService,
 ) (Svc, error) {
-	e := commonHTTP.NewEcho()
+	server := commonHTTP.NewEchoServer(config.App)
+	// TODO: Add authentication router for protectedRouter. For now, keep it with global router
+	protectedRouter := server.Router
 
 	moduleContracts := &contracts.Contracts{}
 
 	modules := []module.Module{
-		treasury.NewModule(dbPgx, externalService.BankLookupProvider),
+		treasury.NewModule(dbPgx),
 	}
 
 	for _, module := range modules {
@@ -65,43 +65,41 @@ func New(
 	}
 
 	for _, module := range modules {
-		err := module.RegisterHttp(ctx, e)
+		err := module.RegisterHttp(ctx, server.Router, protectedRouter)
 		if err != nil {
 			return Svc{}, fmt.Errorf("registering http for module %s failed: %w", module.Name(), err)
 		}
 	}
 
 	return Svc{
-		echoRouter: e,
+		echoServer: server,
+		config:     config,
 		modules:    modules,
 		dbPgx:      dbPgx,
 	}, nil
 }
 
 func (s Svc) Run(ctx context.Context, port string) error {
-	defer s.dbPgx.Close()
-
-	go func() {
-		<-ctx.Done()
-
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		err := s.echoRouter.Shutdown(shutdownCtx)
-		if err != nil {
-			log.FromContext(ctx).Error("shutting down http server failed")
-		}
-	}()
-
-	s.echoRouter.Server.WriteTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadHeaderTimeout = 30 * time.Second
-	s.echoRouter.Server.ReadTimeout = 30 * time.Second
-	s.echoRouter.Server.IdleTimeout = 60 * time.Second
-
-	err := s.echoRouter.Start(port)
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("starting http server failed: %w", err)
+	if port == "" {
+		port = s.config.App.Port
 	}
 
-	return nil
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		if err := s.echoServer.Start(ctx, port); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+		<-ctx.Done()
+		defer s.dbPgx.Close()
+
+		return nil
+	})
+
+	return g.Wait()
 }

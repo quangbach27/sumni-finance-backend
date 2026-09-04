@@ -19,3 +19,10 @@ func SafeDeref[T any](ptr *T, fallback T) T {
 
 	return *ptr
 }
+
+type Pagination[T any] struct {
+	Items      []T
+	TotalCount int
+	Page       int
+	PageSize   int
+}

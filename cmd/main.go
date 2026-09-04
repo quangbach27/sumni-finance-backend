@@ -3,18 +3,15 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-
-	"sumni-finance-backend/internal"
-	"sumni-finance-backend/internal/common/log"
-	"sumni-finance-backend/internal/treasury/adapters/bank/lookup"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"sumni-finance-backend/internal"
+	"sumni-finance-backend/internal/common"
+	"sumni-finance-backend/internal/common/log"
 )
 
 func main() {
@@ -23,34 +20,18 @@ func main() {
 
 	log.Init(slog.LevelInfo)
 
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		panic("POSTGRES_URL environment variable is not set")
-	}
+	config := common.NewConfig()
 
-	dbPgx, err := pgxpool.New(ctx, dsn)
+	dbPgx, err := pgxpool.New(ctx, config.DB.URL)
 	if err != nil {
 		panic(err)
 	}
 
-	httpClient := &http.Client{
-		Timeout: 60 * time.Second,
-		Transport: &http.Transport{
-			TLSHandshakeTimeout:   30 * time.Second,
-			DialContext:           (&net.Dialer{Timeout: 30 * time.Second}).DialContext,
-			ResponseHeaderTimeout: 30 * time.Second,
-			MaxIdleConns:          50,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       90 * time.Second,
-		},
-	}
-
-	externalSerivce := internal.ExternalService{
-		BankLookupProvider: lookup.NewClient(httpClient, os.Getenv("BANK_LOOKUP_BASE_URL")),
-	}
+	externalSerivce := internal.ExternalService{}
 
 	svc, err := internal.New(
 		ctx,
+		config,
 		dbPgx,
 		externalSerivce,
 	)
@@ -58,12 +39,7 @@ func main() {
 		panic(err)
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "4000"
-	}
-
-	if err := svc.Run(ctx, ":"+port); err != nil {
+	if err := svc.Run(ctx, ":"+config.App.Port); err != nil {
 		panic(err)
 	}
 }

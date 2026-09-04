@@ -7,15 +7,34 @@ package dbmodels
 
 import (
 	"context"
-	"time"
 
 	"github.com/shopspring/decimal"
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/shared"
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
+const countFundSources = `-- name: CountFundSources :one
+SELECT COUNT(*)
+FROM treasury.fund_sources
+WHERE tenant_id = $1
+  AND office_id = $2
+`
+
+type CountFundSourcesParams struct {
+	TenantID string
+	OfficeID string
+}
+
+func (q *Queries) CountFundSources(ctx context.Context, arg CountFundSourcesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFundSources, arg.TenantID, arg.OfficeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getFundSourceByUUID = `-- name: GetFundSourceByUUID :one
-SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner, created_at, created_by, updated_at, updated_by
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
 FROM treasury.fund_sources
 WHERE fund_source_uuid = $1
 `
@@ -31,16 +50,62 @@ func (q *Queries) GetFundSourceByUUID(ctx context.Context, fundSourceUuid domain
 		&i.Balance,
 		&i.AvailableBalance,
 		&i.BankInfo,
-		&i.BankCode,
+		&i.Bin,
 		&i.BankAccountNumber,
 		&i.BankAccountOwner,
 		&i.CashOwner,
-		&i.CreatedAt,
-		&i.CreatedBy,
-		&i.UpdatedAt,
-		&i.UpdatedBy,
+		&i.TenantID,
+		&i.OfficeID,
 	)
 	return i, err
+}
+
+const getFundSourcesByUUIDs = `-- name: GetFundSourcesByUUIDs :many
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
+FROM treasury.fund_sources
+WHERE fund_source_uuid = ANY($1::uuid[])
+  AND tenant_id = $2
+  AND office_id = $3
+`
+
+type GetFundSourcesByUUIDsParams struct {
+	FundSourceUuids []common.UUID
+	TenantID        string
+	OfficeID        string
+}
+
+func (q *Queries) GetFundSourcesByUUIDs(ctx context.Context, arg GetFundSourcesByUUIDsParams) ([]TreasuryFundSource, error) {
+	rows, err := q.db.Query(ctx, getFundSourcesByUUIDs, arg.FundSourceUuids, arg.TenantID, arg.OfficeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []TreasuryFundSource{}
+	for rows.Next() {
+		var i TreasuryFundSource
+		if err := rows.Scan(
+			&i.FundSourceUuid,
+			&i.Name,
+			&i.SourceType,
+			&i.Currency,
+			&i.Balance,
+			&i.AvailableBalance,
+			&i.BankInfo,
+			&i.Bin,
+			&i.BankAccountNumber,
+			&i.BankAccountOwner,
+			&i.CashOwner,
+			&i.TenantID,
+			&i.OfficeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertFundSource = `-- name: InsertFundSource :exec
@@ -52,12 +117,12 @@ INSERT INTO treasury.fund_sources (
     available_balance,
     currency,
     bank_info,
-    bank_code,
+    bin,
     bank_account_number,
     bank_account_owner,
     cash_owner,
-    created_at,
-    created_by
+    tenant_id,
+    office_id
 ) VALUES (
     $1,
     $2,
@@ -83,12 +148,12 @@ type InsertFundSourceParams struct {
 	AvailableBalance  decimal.Decimal
 	Currency          shared.Currency
 	BankInfo          domain.BankInfo
-	BankCode          *string
+	Bin               *string
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
-	CreatedAt         time.Time
-	CreatedBy         string
+	TenantID          string
+	OfficeID          string
 }
 
 func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourceParams) error {
@@ -100,23 +165,40 @@ func (q *Queries) InsertFundSource(ctx context.Context, arg InsertFundSourcePara
 		arg.AvailableBalance,
 		arg.Currency,
 		arg.BankInfo,
-		arg.BankCode,
+		arg.Bin,
 		arg.BankAccountNumber,
 		arg.BankAccountOwner,
 		arg.CashOwner,
-		arg.CreatedAt,
-		arg.CreatedBy,
+		arg.TenantID,
+		arg.OfficeID,
 	)
 	return err
 }
 
 const listFundSources = `-- name: ListFundSources :many
-SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bank_code, bank_account_number, bank_account_owner, cash_owner, created_at, created_by, updated_at, updated_by
+SELECT fund_source_uuid, name, source_type, currency, balance, available_balance, bank_info, bin, bank_account_number, bank_account_owner, cash_owner, tenant_id, office_id
 FROM treasury.fund_sources
+WHERE tenant_id = $1
+  AND office_id = $2
+ORDER BY fund_source_uuid ASC
+LIMIT $4
+OFFSET $3
 `
 
-func (q *Queries) ListFundSources(ctx context.Context) ([]TreasuryFundSource, error) {
-	rows, err := q.db.Query(ctx, listFundSources)
+type ListFundSourcesParams struct {
+	TenantID  string
+	OfficeID  string
+	OffsetVal int32
+	LimitVal  int32
+}
+
+func (q *Queries) ListFundSources(ctx context.Context, arg ListFundSourcesParams) ([]TreasuryFundSource, error) {
+	rows, err := q.db.Query(ctx, listFundSources,
+		arg.TenantID,
+		arg.OfficeID,
+		arg.OffsetVal,
+		arg.LimitVal,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -132,14 +214,12 @@ func (q *Queries) ListFundSources(ctx context.Context) ([]TreasuryFundSource, er
 			&i.Balance,
 			&i.AvailableBalance,
 			&i.BankInfo,
-			&i.BankCode,
+			&i.Bin,
 			&i.BankAccountNumber,
 			&i.BankAccountOwner,
 			&i.CashOwner,
-			&i.CreatedAt,
-			&i.CreatedBy,
-			&i.UpdatedAt,
-			&i.UpdatedBy,
+			&i.TenantID,
+			&i.OfficeID,
 		); err != nil {
 			return nil, err
 		}
@@ -151,31 +231,34 @@ func (q *Queries) ListFundSources(ctx context.Context) ([]TreasuryFundSource, er
 	return items, nil
 }
 
-const updateFundSource = `-- name: UpdateFundSource :exec
+const updateFundSourceAvailableBalance = `-- name: UpdateFundSourceAvailableBalance :exec
 UPDATE treasury.fund_sources
-SET
-    balance           = $1,
-    available_balance = $2,
-    updated_at        = $3,
-    updated_by        = $4
-WHERE fund_source_uuid = $5
+SET available_balance = $1
+WHERE fund_source_uuid = $2
 `
 
-type UpdateFundSourceParams struct {
-	Balance          decimal.Decimal
-	AvailableBalance decimal.Decimal
-	UpdatedAt        *time.Time
-	UpdatedBy        *string
-	FundSourceUuid   domain.FundSourceUUID
+type UpdateFundSourceAvailableBalanceParams struct {
+	NewAvailableBalance decimal.Decimal
+	FundSourceUuid      domain.FundSourceUUID
 }
 
-func (q *Queries) UpdateFundSource(ctx context.Context, arg UpdateFundSourceParams) error {
-	_, err := q.db.Exec(ctx, updateFundSource,
-		arg.Balance,
-		arg.AvailableBalance,
-		arg.UpdatedAt,
-		arg.UpdatedBy,
-		arg.FundSourceUuid,
-	)
+func (q *Queries) UpdateFundSourceAvailableBalance(ctx context.Context, arg UpdateFundSourceAvailableBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateFundSourceAvailableBalance, arg.NewAvailableBalance, arg.FundSourceUuid)
+	return err
+}
+
+const updateFundSourceBalance = `-- name: UpdateFundSourceBalance :exec
+UPDATE treasury.fund_sources
+SET balance = $1
+WHERE fund_source_uuid = $2
+`
+
+type UpdateFundSourceBalanceParams struct {
+	NewBalance     decimal.Decimal
+	FundSourceUuid domain.FundSourceUUID
+}
+
+func (q *Queries) UpdateFundSourceBalance(ctx context.Context, arg UpdateFundSourceBalanceParams) error {
+	_, err := q.db.Exec(ctx, updateFundSourceBalance, arg.NewBalance, arg.FundSourceUuid)
 	return err
 }

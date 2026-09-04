@@ -1,12 +1,6 @@
 package domain
 
-import (
-	"time"
-
-	"sumni-finance-backend/internal/common/shared"
-
-	"github.com/shopspring/decimal"
-)
+import "sumni-finance-backend/internal/common/shared"
 
 func UnmarshalFundSource(
 	uuid FundSourceUUID,
@@ -16,7 +10,6 @@ func UnmarshalFundSource(
 	availableBalance shared.Money,
 	currency shared.Currency,
 	metadata FundSourceMetadata,
-	audit shared.Audit,
 ) *FundSource {
 	return &FundSource{
 		uuid:             uuid,
@@ -26,7 +19,6 @@ func UnmarshalFundSource(
 		availableBalance: availableBalance,
 		currency:         currency,
 		metadata:         metadata,
-		Audit:            audit,
 	}
 }
 
@@ -34,8 +26,8 @@ func UnmarshalFundSourceBankMetadata(
 	bankInfo BankInfo,
 	accountNumber string,
 	accountOwner string,
-) FundSourceBankMetadata {
-	return FundSourceBankMetadata{
+) BankMetadata {
+	return BankMetadata{
 		bankInfo:      bankInfo,
 		accountNumber: accountNumber,
 		accountOwner:  accountOwner,
@@ -44,44 +36,32 @@ func UnmarshalFundSourceBankMetadata(
 
 func UnmarshalFundSourceCashMetadata(
 	ownerName string,
-) FundSourceCashMetadata {
-	return FundSourceCashMetadata{
+) CashMetadata {
+	return CashMetadata{
 		ownerName: ownerName,
 	}
 }
 
-func UnmarshalJournalEntry(
-	uuid JournalEntryUUID,
-	amount decimal.Decimal,
-	entryType shared.EntryType,
-	transactionDate time.Time,
-	transactionNo *string,
-	description *string,
-	status JournalEntryStatus,
-	fundSourceUUID FundSourceUUID,
-	balanceBefore decimal.Decimal,
-	balanceAfter decimal.Decimal,
-	voidedBy *string,
-	voidedAt *time.Time,
-	voidedReason *string,
-	reverseEntryUUID *JournalEntryUUID,
-	audit shared.Audit,
-) *JournalEntry {
-	return &JournalEntry{
-		uuid:             uuid,
-		amount:           amount,
-		entryType:        entryType,
-		transactionDate:  transactionDate,
-		transactionNo:    transactionNo,
-		description:      description,
-		status:           status,
-		fundSourceUUID:   fundSourceUUID,
-		balanceBefore:    balanceBefore,
-		balanceAfter:     balanceAfter,
-		voidedBy:         voidedBy,
-		voidedAt:         voidedAt,
-		voidedReason:     voidedReason,
-		reverseEntryUUID: reverseEntryUUID,
-		Audit:            audit,
+func UnmarshalWallet(
+	uuid WalletUUID,
+	name string,
+	balance shared.Money,
+	allocations map[FundSourceUUID]*FundSourceAllocation,
+) *Wallet {
+	return &Wallet{
+		uuid:        uuid,
+		name:        name,
+		balance:     balance,
+		allocations: allocations,
+	}
+}
+
+func UnmarshalFundSourceAllocation(
+	fs *FundSource,
+	balance shared.Money,
+) *FundSourceAllocation {
+	return &FundSourceAllocation{
+		fundSource: fs,
+		balance:    balance,
 	}
 }

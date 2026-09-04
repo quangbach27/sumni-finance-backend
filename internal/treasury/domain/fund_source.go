@@ -10,21 +10,7 @@ import (
 )
 
 type FundSourceRepository interface {
-	SaveFundSource(ctx context.Context, fundSource *FundSource) error
-	RecordJournalEntries(
-		ctx context.Context,
-		fundSourceUUID FundSourceUUID,
-		recordFn func(fundSource *FundSource) ([]*JournalEntry, error),
-	) error
-	VoidJournalEntry(
-		ctx context.Context,
-		fundSourceUUID FundSourceUUID,
-		journalEntryUUIDToVoid JournalEntryUUID,
-		voidFn func(
-			fundSource *FundSource,
-			journalEntryToVoid *JournalEntry,
-		) (*JournalEntry, error),
-	) (*JournalEntry, error)
+	CreateFundSource(ctx context.Context, tenant shared.TenantContext, fundSource *FundSource) error
 }
 
 type FundSourceUUID struct {
@@ -55,7 +41,71 @@ type FundSource struct {
 	currency         shared.Currency
 
 	metadata FundSourceMetadata
-	shared.Audit
+}
+
+func NewFundSource(
+	name string,
+	sourceType FundSourceType,
+	initBalance shared.Money,
+	currency shared.Currency,
+	metadata FundSourceMetadata,
+) (*FundSource, error) {
+	errDetails := []common.ErrorDetails{}
+
+	if name == "" {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "empty-name",
+			Message:    "name can't be empty",
+		})
+	}
+	if sourceType.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "empty-source-type",
+			Message:    "source type can't be empty",
+		})
+	}
+	if currency.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "empty-currency",
+			Message:    "currency can't be empty",
+		})
+	}
+	if initBalance.Amount().IsNegative() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "negative-balance",
+			Message:    "balance can't be negative",
+		})
+	}
+	if metadata == nil || metadata.IsZero() {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "empty-metadata",
+			Message:    "metadata can't be empty",
+		})
+	} else if !metadata.MatchesType(sourceType) {
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "FundSource",
+			ErrorSlug:  "metadata-type-mismatch",
+			Message:    "metadata type does not match source type",
+		})
+	}
+
+	if len(errDetails) != 0 {
+		return nil, common.NewInvalidInputError("invalid-fund-source-metadata", "fund source metadata is not valid").WithDetails(errDetails)
+	}
+	return &FundSource{
+		uuid:             FundSourceUUID{UUID: common.NewUUIDv7()},
+		name:             name,
+		sourceType:       sourceType,
+		balance:          initBalance,
+		availableBalance: initBalance,
+		currency:         currency,
+		metadata:         metadata,
+	}, nil
 }
 
 func (f *FundSource) UUID() FundSourceUUID           { return f.uuid }
@@ -65,17 +115,17 @@ func (f *FundSource) Balance() shared.Money          { return f.balance }
 func (f *FundSource) AvailableBalance() shared.Money { return f.availableBalance }
 func (f *FundSource) Currency() shared.Currency      { return f.currency }
 func (f *FundSource) Metadata() FundSourceMetadata   { return f.metadata }
-func (fp *FundSource) BankMetadata() (FundSourceBankMetadata, bool) {
-	m, ok := fp.metadata.(FundSourceBankMetadata)
+func (fp *FundSource) BankMetadata() (BankMetadata, bool) {
+	m, ok := fp.metadata.(BankMetadata)
 	return m, ok
 }
 
-func (fp *FundSource) CashMetadata() (FundSourceCashMetadata, bool) {
-	m, ok := fp.metadata.(FundSourceCashMetadata)
+func (fp *FundSource) CashMetadata() (CashMetadata, bool) {
+	m, ok := fp.metadata.(CashMetadata)
 	return m, ok
 }
 
-func (fp *FundSource) TopUp(m shared.Money) error {
+func (fp *FundSource) topUp(m shared.Money) error {
 	if !m.Amount().IsPositive() {
 		return errors.New("top up amount must be positive")
 	}
@@ -90,7 +140,7 @@ func (fp *FundSource) TopUp(m shared.Money) error {
 	return nil
 }
 
-func (fp *FundSource) Withdraw(m shared.Money) error {
+func (fp *FundSource) withdraw(m shared.Money) error {
 	if !m.Amount().IsPositive() {
 		return errors.New("withdraw amount must be positive")
 	}

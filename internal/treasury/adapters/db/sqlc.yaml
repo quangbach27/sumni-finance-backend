@@ -11,6 +11,7 @@ sql:
         emit_empty_slices: true
         emit_pointers_for_null_types: true
         overrides:
+          # Common type overrides
           - db_type: "timestamptz"
             nullable: true
             go_type:
@@ -59,6 +60,12 @@ sql:
               import: "sumni-finance-backend/internal/treasury/domain"
               type: "FundSourceUUID"
 
+          - column: "treasury.fund_sources.fund_source_uuid"
+            nullable: false
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "[]FundSourceUUID"
+
           - column: "treasury.fund_sources.currency"
             go_type:
               import: "sumni-finance-backend/internal/common/shared"
@@ -69,29 +76,62 @@ sql:
               import: "sumni-finance-backend/internal/treasury/domain"
               type: "BankInfo"
 
-          # treasury.journal_entries
-          - db_type: "treasury.journal_entry_type"
+          # treasury.wallets
+          - column: "treasury.wallets.wallet_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "WalletUUID"
+          - column: "treasury.wallets.currency"
             go_type:
               import: "sumni-finance-backend/internal/common/shared"
-              type: "EntryType"
-
-          - db_type: "treasury.journal_entry_status"
+              type: "Currency"
+          - column: "treasury.wallet_allocations.wallet_uuid"
             go_type:
               import: "sumni-finance-backend/internal/treasury/domain"
-              type: "JournalEntryStatus"
+              type: "WalletUUID"
 
-          - column: "treasury.journal_entries.journal_entry_uuid"
-            go_type:
-              import: "sumni-finance-backend/internal/treasury/domain"
-              type: "JournalEntryUUID"
-
-          - column: "treasury.journal_entries.fund_source_uuid"
+          - column: "treasury.wallet_allocations.fund_source_uuid"
             go_type:
               import: "sumni-finance-backend/internal/treasury/domain"
               type: "FundSourceUUID"
 
-          - column: "treasury.journal_entries.reverse_entry_uuid"
+          # treasury.transactions
+          - db_type: "treasury.transaction_status"
             go_type:
               import: "sumni-finance-backend/internal/treasury/domain"
-              type: "JournalEntryUUID"
+              type: "TransactionStatus"
+
+          - db_type: "treasury.entry_type"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "EntryType"
+
+          - column: "treasury.transactions.transaction_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "TransactionUUID"
+
+          - column: "treasury.transactions.fund_source_uuid"
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "FundSourceUUID"
+
+          - column: "treasury.transactions.wallet_uuid"
+            nullable: true
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "WalletUUID"
               pointer: true
+
+          - column: "treasury.transactions.reversed_transaction_uuid"
+            nullable: true
+            go_type:
+              import: "sumni-finance-backend/internal/treasury/domain"
+              type: "TransactionUUID"
+              pointer: true
+
+          - column: "treasury.transactions.currency"
+            go_type:
+              import: "sumni-finance-backend/internal/common/shared"
+              type: "Currency"
+

@@ -1,26 +1,53 @@
 package http
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
+
+	"github.com/labstack/echo/v5"
 
 	"sumni-finance-backend/internal/common"
-
-	"github.com/labstack/echo/v4"
 )
 
-func NewEcho() *echo.Echo {
-	e := echo.New()
-	e.HideBanner = true
+type EchoServer struct {
+	Router *echo.Echo
+}
 
-	useMiddlewares(e)
+func NewEchoServer(config *common.AppConfig) *EchoServer {
+	e := echo.New()
+
+	useMiddlewares(e, config)
 
 	e.HTTPErrorHandler = common.EchoErrorHandler
-	e.Logger = common.NewEchoSlogAdapter(slog.Default())
+	e.Logger = slog.Default()
 
-	e.GET("/health", func(c echo.Context) error {
+	e.GET("/healthz", func(c *echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	})
 
-	return e
+	return &EchoServer{
+		Router: e,
+	}
+}
+
+func (es *EchoServer) Start(ctx context.Context, port string) error {
+	startConfig := echo.StartConfig{
+		Address:         port,
+		HideBanner:      true,
+		GracefulTimeout: 30 * time.Second,
+		BeforeServeFunc: func(srv *http.Server) error {
+			srv.IdleTimeout = 60 * time.Second
+			srv.ReadHeaderTimeout = 30 * time.Second
+			return nil
+		},
+	}
+
+	if err := startConfig.Start(ctx, es.Router); err != nil {
+		return fmt.Errorf("starting http server failed: %w", err)
+	}
+
+	return nil
 }

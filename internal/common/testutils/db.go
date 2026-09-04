@@ -3,47 +3,51 @@ package testutils
 import (
 	"context"
 	"io/fs"
-	"os"
-
-	"sumni-finance-backend/internal/common"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"sumni-finance-backend/internal/common"
+)
+
+var (
+	dbPool     *pgxpool.Pool
+	dbPoolOnce sync.Once
 )
 
 func RunMigrations(moduleName string, embedFS fs.FS, migrationsDir string) {
 	ctx := context.Background()
 
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
-	}
-
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		panic(err)
-	}
-	defer pool.Close()
+	pool := NewDB()
 
 	if err := common.MigrateDatabaseUp(ctx, moduleName, pool, embedFS, migrationsDir); err != nil {
 		panic(err)
 	}
 }
 
+// NewDB returns a *pgxpool.Pool shared for the lifetime of the test process, creating it once via
+// sync.Once. Every caller reuses this same pool instead of each opening its own. A background
+// goroutine closes the pool once CloseDB is called.
 func NewDB() *pgxpool.Pool {
-	dsn := os.Getenv("POSTGRES_URL")
-	if dsn == "" {
-		dsn = "postgres://user:password@localhost:5432/sumni-finance?sslmode=disable"
-	}
+	dbPoolOnce.Do(func() {
+		config, err := pgxpool.ParseConfig(common.NewConfig().DB.URL)
+		if err != nil {
+			panic(err)
+		}
 
-	config, err := pgxpool.ParseConfig(dsn)
-	if err != nil {
-		panic(err)
-	}
+		pool, err := pgxpool.NewWithConfig(context.Background(), config)
+		if err != nil {
+			panic(err)
+		}
 
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
-	if err != nil {
-		panic(err)
-	}
+		dbPool = pool
+	})
 
-	return pool
+	return dbPool
+}
+
+// CloseDB signals the background goroutine started by NewDB to close the shared pool. Safe to call
+// even if NewDB was never invoked, and safe to call more than once.
+func CloseDB() {
+	dbPool.Close()
 }

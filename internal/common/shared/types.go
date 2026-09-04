@@ -4,5 +4,4 @@ var SharedTypes = []any{
 	Money{},
 	Currency{},
 	EntryType{},
-	Audit{},
 }

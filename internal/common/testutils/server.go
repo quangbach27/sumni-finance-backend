@@ -4,62 +4,39 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"testing"
 	"time"
 
 	"sumni-finance-backend/internal"
-	commonHTTP "sumni-finance-backend/internal/common/http"
+	"sumni-finance-backend/internal/common"
 	"sumni-finance-backend/internal/common/log"
-	bankLookup "sumni-finance-backend/internal/treasury/adapters/bank/lookup"
-	treasuryClient "sumni-finance-backend/internal/treasury/api/http/client"
-
-	"github.com/stretchr/testify/require"
+	"sumni-finance-backend/internal/treasury/ports/http/client"
 )
 
 const BaseURL = "http://localhost:9090"
 
 type TestClients struct {
-	Treasury *treasuryClient.ClientWithResponses
+	Treasury *client.ClientWithResponses
 }
 
-func NewTestClients(t *testing.T) TestClients {
-	t.Helper()
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-
-	editorFn := func(ctx context.Context, req *http.Request) error {
-		log.FromContext(ctx).
-			With(
-				"method", req.Method,
-				"url", req.URL.String(),
-				"test_name", t.Name(),
-			).
-			Info("Making component test API request")
-
-		req.Header.Set(commonHTTP.TestNameHeader, t.Name())
-		return nil
+func NewTestClients() (TestClients, error) {
+	treasuryClient, err := client.NewClientWithResponses(BaseURL)
+	if err != nil {
+		return TestClients{}, err
 	}
 
-	treasury, err := treasuryClient.NewClientWithResponses(
-		BaseURL,
-		treasuryClient.WithHTTPClient(httpClient),
-		treasuryClient.WithRequestEditorFn(editorFn),
-	)
-	require.NoError(t, err, "creating treasury client failed")
-
-	return TestClients{
-		Treasury: treasury,
-	}
+	return TestClients{Treasury: treasuryClient}, nil
 }
 
 func StartServer(ctx context.Context) {
 	log.Init(slog.LevelInfo)
 
+	config := common.NewConfig()
+
 	svc, err := internal.New(
 		ctx,
+		config,
 		NewDB(),
-		internal.ExternalService{
-			BankLookupProvider: bankLookup.NewStubClient(),
-		},
+		internal.ExternalService{},
 	)
 	if err != nil {
 		panic(err)
@@ -76,7 +53,7 @@ func StartServer(ctx context.Context) {
 
 func waitForServer() {
 	for range 100 {
-		resp, err := http.Get(BaseURL + "/health")
+		resp, err := http.Get(BaseURL + "/healthz")
 		if err == nil && resp.StatusCode < 300 {
 			_ = resp.Body.Close()
 			return

@@ -14,6 +14,48 @@ import (
 	"sumni-finance-backend/internal/treasury/domain"
 )
 
+type TreasuryEntryType string
+
+const (
+	TreasuryEntryTypeIn  TreasuryEntryType = "in"
+	TreasuryEntryTypeOut TreasuryEntryType = "out"
+)
+
+func (e *TreasuryEntryType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TreasuryEntryType(s)
+	case string:
+		*e = TreasuryEntryType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TreasuryEntryType: %T", src)
+	}
+	return nil
+}
+
+type NullTreasuryEntryType struct {
+	TreasuryEntryType TreasuryEntryType
+	Valid             bool // Valid is true if TreasuryEntryType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTreasuryEntryType) Scan(value interface{}) error {
+	if value == nil {
+		ns.TreasuryEntryType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TreasuryEntryType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTreasuryEntryType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TreasuryEntryType), nil
+}
+
 type TreasuryFundSourceType string
 
 const (
@@ -56,90 +98,49 @@ func (ns NullTreasuryFundSourceType) Value() (driver.Value, error) {
 	return string(ns.TreasuryFundSourceType), nil
 }
 
-type TreasuryJournalEntryStatus string
+type TreasuryTransactionStatus string
 
 const (
-	TreasuryJournalEntryStatusRECORDED TreasuryJournalEntryStatus = "RECORDED"
-	TreasuryJournalEntryStatusPOSTED   TreasuryJournalEntryStatus = "POSTED"
-	TreasuryJournalEntryStatusVOIDED   TreasuryJournalEntryStatus = "VOIDED"
-	TreasuryJournalEntryStatusREVERSE  TreasuryJournalEntryStatus = "REVERSE"
+	TreasuryTransactionStatusDRAFTED  TreasuryTransactionStatus = "DRAFTED"
+	TreasuryTransactionStatusRECORDED TreasuryTransactionStatus = "RECORDED"
+	TreasuryTransactionStatusPOSTED   TreasuryTransactionStatus = "POSTED"
+	TreasuryTransactionStatusVOIDED   TreasuryTransactionStatus = "VOIDED"
+	TreasuryTransactionStatusREVERSED TreasuryTransactionStatus = "REVERSED"
 )
 
-func (e *TreasuryJournalEntryStatus) Scan(src interface{}) error {
+func (e *TreasuryTransactionStatus) Scan(src interface{}) error {
 	switch s := src.(type) {
 	case []byte:
-		*e = TreasuryJournalEntryStatus(s)
+		*e = TreasuryTransactionStatus(s)
 	case string:
-		*e = TreasuryJournalEntryStatus(s)
+		*e = TreasuryTransactionStatus(s)
 	default:
-		return fmt.Errorf("unsupported scan type for TreasuryJournalEntryStatus: %T", src)
+		return fmt.Errorf("unsupported scan type for TreasuryTransactionStatus: %T", src)
 	}
 	return nil
 }
 
-type NullTreasuryJournalEntryStatus struct {
-	TreasuryJournalEntryStatus TreasuryJournalEntryStatus
-	Valid                      bool // Valid is true if TreasuryJournalEntryStatus is not NULL
+type NullTreasuryTransactionStatus struct {
+	TreasuryTransactionStatus TreasuryTransactionStatus
+	Valid                     bool // Valid is true if TreasuryTransactionStatus is not NULL
 }
 
 // Scan implements the Scanner interface.
-func (ns *NullTreasuryJournalEntryStatus) Scan(value interface{}) error {
+func (ns *NullTreasuryTransactionStatus) Scan(value interface{}) error {
 	if value == nil {
-		ns.TreasuryJournalEntryStatus, ns.Valid = "", false
+		ns.TreasuryTransactionStatus, ns.Valid = "", false
 		return nil
 	}
 	ns.Valid = true
-	return ns.TreasuryJournalEntryStatus.Scan(value)
+	return ns.TreasuryTransactionStatus.Scan(value)
 }
 
 // Value implements the driver Valuer interface.
-func (ns NullTreasuryJournalEntryStatus) Value() (driver.Value, error) {
+func (ns NullTreasuryTransactionStatus) Value() (driver.Value, error) {
 	if !ns.Valid {
 		return nil, nil
 	}
-	return string(ns.TreasuryJournalEntryStatus), nil
-}
-
-type TreasuryJournalEntryType string
-
-const (
-	TreasuryJournalEntryTypeDEBIT  TreasuryJournalEntryType = "DEBIT"
-	TreasuryJournalEntryTypeCREDIT TreasuryJournalEntryType = "CREDIT"
-)
-
-func (e *TreasuryJournalEntryType) Scan(src interface{}) error {
-	switch s := src.(type) {
-	case []byte:
-		*e = TreasuryJournalEntryType(s)
-	case string:
-		*e = TreasuryJournalEntryType(s)
-	default:
-		return fmt.Errorf("unsupported scan type for TreasuryJournalEntryType: %T", src)
-	}
-	return nil
-}
-
-type NullTreasuryJournalEntryType struct {
-	TreasuryJournalEntryType TreasuryJournalEntryType
-	Valid                    bool // Valid is true if TreasuryJournalEntryType is not NULL
-}
-
-// Scan implements the Scanner interface.
-func (ns *NullTreasuryJournalEntryType) Scan(value interface{}) error {
-	if value == nil {
-		ns.TreasuryJournalEntryType, ns.Valid = "", false
-		return nil
-	}
-	ns.Valid = true
-	return ns.TreasuryJournalEntryType.Scan(value)
-}
-
-// Value implements the driver Valuer interface.
-func (ns NullTreasuryJournalEntryType) Value() (driver.Value, error) {
-	if !ns.Valid {
-		return nil, nil
-	}
-	return string(ns.TreasuryJournalEntryType), nil
+	return string(ns.TreasuryTransactionStatus), nil
 }
 
 type TreasuryFundSource struct {
@@ -150,33 +151,40 @@ type TreasuryFundSource struct {
 	Balance           decimal.Decimal
 	AvailableBalance  decimal.Decimal
 	BankInfo          domain.BankInfo
-	BankCode          *string
+	Bin               *string
 	BankAccountNumber *string
 	BankAccountOwner  *string
 	CashOwner         *string
-	CreatedAt         time.Time
-	CreatedBy         string
-	UpdatedAt         *time.Time
-	UpdatedBy         *string
+	TenantID          string
+	OfficeID          string
 }
 
-type TreasuryJournalEntry struct {
-	JournalEntryUuid domain.JournalEntryUUID
-	FundSourceUuid   domain.FundSourceUUID
-	Amount           decimal.Decimal
-	EntryType        shared.EntryType
-	BalanceBefore    decimal.Decimal
-	BalanceAfter     decimal.Decimal
-	Status           domain.JournalEntryStatus
-	TransactionDate  time.Time
-	TransactionNo    *string
-	Description      *string
-	ReverseEntryUuid *domain.JournalEntryUUID
-	VoidedBy         *string
-	VoidedAt         *time.Time
-	VoidedReason     *string
-	CreatedAt        time.Time
-	CreatedBy        string
-	UpdatedAt        *time.Time
-	UpdatedBy        *string
+type TreasuryTransaction struct {
+	TransactionUuid         domain.TransactionUUID
+	Status                  domain.TransactionStatus
+	EntryType               shared.EntryType
+	Amount                  decimal.Decimal
+	Currency                shared.Currency
+	Description             *string
+	TransactionDate         time.Time
+	TenantID                string
+	OfficeID                string
+	FundSourceUuid          domain.FundSourceUUID
+	WalletUuid              *domain.WalletUUID
+	ReversedTransactionUuid *domain.TransactionUUID
+}
+
+type TreasuryWallet struct {
+	WalletUuid domain.WalletUUID
+	Name       string
+	Currency   shared.Currency
+	Balance    decimal.Decimal
+	TenantID   string
+	OfficeID   string
+}
+
+type TreasuryWalletAllocation struct {
+	WalletUuid     domain.WalletUUID
+	FundSourceUuid domain.FundSourceUUID
+	Balance        decimal.Decimal
 }
