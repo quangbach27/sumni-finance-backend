@@ -39,41 +39,27 @@ func (u UUID) Value() (driver.Value, error) {
 }
 
 func (u *UUID) Scan(src any) error {
+	var s string
 	switch v := src.(type) {
 	case nil:
 		return nil
 	case string:
-		if v == "" {
-			return nil
-		}
-
-		parsed, err := uuid.Parse(v)
-		if err != nil {
-			return fmt.Errorf("Scan: %w", err)
-		}
-
-		*u = UUID(parsed)
-		return nil
+		s = v
 	case []byte:
-		if len(v) == 0 {
-			return nil
-		}
-
-		if len(v) != 16 {
-			return u.Scan(string(v))
-		}
-
-		copy(u[:], v)
-		return nil
+		s = string(v)
 	default:
 		return fmt.Errorf("Scan: unable to scan type %T into UUID", src)
 	}
+
+	parsed, err := uuid.Parse(s)
+	if err != nil {
+		return fmt.Errorf("Scan: %w", err)
+	}
+
+	*u = UUID(parsed)
+	return nil
 }
 
 func (u UUID) IsZero() bool {
 	return u == UUID(uuid.Nil())
-}
-
-func (u UUID) Equals(other UUID) bool {
-	return u == other
 }

@@ -82,7 +82,8 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.5.0 // indirect
 	github.com/dlclark/regexp2/v2 v2.2.1 // indirect
-	github.com/docker/docker v28.5.1+incompatible // indirect (GO-2026-4883, GO-2026-4887: moby daemon/AuthZ-plugin flaws, not imported by this repo, no fix published — accepted risk)
+	// GO-2026-4883, GO-2026-4887: moby daemon/AuthZ-plugin flaws, not imported by this repo, no fix published — accepted risk
+	github.com/docker/docker v28.5.1+incompatible // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/fatih/color v1.19.0 // indirect
